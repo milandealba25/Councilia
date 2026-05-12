@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Tokens alineados con docs/design-tokens.md (A2 / B1).
+  Modo oscuro por defecto — coherente con producto tipo “sala de deliberación”.
+*/
+:root {
+  --background: #0c1117;
+  --foreground: #e8edf5;
+  --surface-elevated: #151b24;
+  --border: #263041;
+  --text-muted: #8b9cb3;
+  --accent: #5b8def;
+  --accent-muted: #3d5a80;
+  --tension: #c9a227;
+  --error: #e85d5d;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/*
+  E2 · Estilos de impresión para exportar la síntesis a PDF con el diálogo
+  nativo del navegador. Oculta navegación y deja solo el bloque marcado.
+*/
+@media print {
+  :root {
+    color-scheme: light;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  header,
+  nav,
+  footer,
+  form,
+  button,
+  [data-print="hide"] {
+    display: none !important;
+  }
+  [data-print="synthesis"] {
+    page-break-inside: avoid;
+    margin: 0 !important;
+  }
+}
