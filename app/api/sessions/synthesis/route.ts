@@ -8,20 +8,29 @@ import {
   validateSynthesis,
 } from "@/orchestrator/synthesis";
 import { renderUserContextBlock } from "@/lib/survey/survey.v1";
+import { clientKeyFromHeaders, sessionsLimiter } from "@/lib/security/rateLimit";
+import { logger } from "@/lib/observability/logger";
+import { emit as emitEvent } from "@/lib/observability/events";
 
 /**
- * I4 · POST /api/sessions/synthesis
- *
- * Body: { userContext, transcript }
- * Respuesta JSON:
- *   - 200 → { paths, tradeoffs, closing }
- *   - 422 → { error: "synthesis_violation", violations: [...] }
- *           (la síntesis violó una regla dura del producto)
+ * I4 · POST /api/sessions/synthesis — síntesis con JSON contract validado.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  const requestId = crypto.randomUUID();
+  const log = logger.child({ requestId, route: "sessions.synthesis" });
+  const clientKey = clientKeyFromHeaders(req.headers);
+  const rl = sessionsLimiter.consume(clientKey);
+  if (!rl.allowed) {
+    log.warn("rate_limited", { clientKey });
+    return NextResponse.json(
+      { error: "rate_limited", retryAfterMs: rl.retryAfterMs },
+      { status: 429 },
+    );
+  }
+
   let parsed;
   try {
     const json = await req.json();
@@ -39,27 +48,39 @@ export async function POST(req: Request) {
   const { userContext, transcript } = parsed;
   const llm = getLlm();
 
+  emitEvent("session.synthesis.requested", { requestId });
+
   const userContent = [
     "Contexto del usuario:",
     renderUserContextBlock(userContext),
     "",
     "Transcripción de la deliberación:",
-    ...transcript.map(
-      (t) => `[${t.role}] ${t.text.trim()}`,
-    ),
+    ...transcript.map((t) => `[${t.role}] ${t.text.trim()}`),
     "",
     "Devuélveme la síntesis siguiendo el JSON contract.",
   ].join("\n");
 
-  const completion = await llm.complete({
-    systemPrompt: SYNTHESIS_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userContent }],
-    maxTokens: 600,
-    temperature: 0.4,
-  });
+  let completion;
+  try {
+    completion = await llm.complete({
+      systemPrompt: SYNTHESIS_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userContent }],
+      maxTokens: 600,
+      temperature: 0.4,
+    });
+  } catch (err) {
+    log.error("synthesis_llm_error", {
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return NextResponse.json(
+      { error: "synthesis_llm_error" },
+      { status: 502 },
+    );
+  }
 
   const jsonText = extractJsonBlock(completion.text);
   if (!jsonText) {
+    log.warn("synthesis_unparseable");
     return NextResponse.json(
       { error: "synthesis_unparseable", raw: completion.text },
       { status: 502 },
@@ -82,19 +103,22 @@ export async function POST(req: Request) {
 
   const v = validateSynthesis(synthesis);
   if (!v.ok) {
+    log.warn("synthesis_violation", { violations: v.violations });
     return NextResponse.json(
       { error: "synthesis_violation", violations: v.violations },
       { status: 422 },
     );
   }
 
+  emitEvent("session.synthesis.delivered", {
+    requestId,
+    paths: synthesis.paths.length,
+    tradeoffs: synthesis.tradeoffs.length,
+  });
+
   return NextResponse.json(synthesis);
 }
 
-/**
- * Extrae el primer bloque JSON aunque el modelo envuelva en texto.
- * El system prompt prohíbe texto fuera, pero defendemos al endpoint.
- */
 function extractJsonBlock(text: string): string | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");

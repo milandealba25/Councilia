@@ -3,16 +3,12 @@ import { NextResponse } from "next/server";
 import { replicaRequestSchema } from "@/lib/api/contracts";
 import { getDebateRouter } from "@/lib/api/orchestrator";
 import { sseHeaders, sseStreamFromIterable, type SseEvent } from "@/lib/sse";
+import { clientKeyFromHeaders, sessionsLimiter } from "@/lib/security/rateLimit";
+import { logger } from "@/lib/observability/logger";
+import { emit as emitEvent } from "@/lib/observability/events";
 
 /**
- * I3 · POST /api/sessions/replica
- *
- * Body: { userContext, userMessage, postures }
- * Respuesta SSE:
- *   - `plan`     → { speaker, respondingTo, tensionScore }   (antes del 1er token)
- *   - `delta`    → { text }
- *   - `done`     → final del stream
- *   - `skipped`  → no había contradicción suficiente; flujo salta a fase 3.
+ * I3 · POST /api/sessions/replica — réplica selectiva con contexto reducido.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +25,18 @@ type Event =
   | { type: "skipped"; reason: string };
 
 export async function POST(req: Request) {
+  const requestId = crypto.randomUUID();
+  const log = logger.child({ requestId, route: "sessions.replica" });
+  const clientKey = clientKeyFromHeaders(req.headers);
+  const rl = sessionsLimiter.consume(clientKey);
+  if (!rl.allowed) {
+    log.warn("rate_limited", { clientKey });
+    return NextResponse.json(
+      { error: "rate_limited", retryAfterMs: rl.retryAfterMs },
+      { status: 429 },
+    );
+  }
+
   let parsed;
   try {
     const json = await req.json();
@@ -54,6 +62,10 @@ export async function POST(req: Request) {
   const stream = sseStreamFromIterable(
     (async function* (): AsyncIterable<SseEvent<Event>> {
       if (!started) {
+        emitEvent("session.replica.skipped", {
+          requestId,
+          reason: "no_significant_contradiction",
+        });
         yield {
           event: "skipped",
           data: {
@@ -63,6 +75,13 @@ export async function POST(req: Request) {
         };
         return;
       }
+
+      emitEvent("session.replica.completed", {
+        requestId,
+        speaker: started.plan.speaker,
+        respondingTo: started.plan.respondingTo,
+        tensionScore: started.plan.tensionScore,
+      });
 
       yield {
         event: "plan",
