@@ -1,6 +1,8 @@
 # COUNCILia · Operaciones
 
-> Costos por sesión, modelo de negocio, política de contenido sensible y métricas de validación. Todo lo que necesita estar en su sitio antes del lanzamiento aunque no sea visible en la UI. Documento 7 de 9 de la serie del MVP v1.1.
+> Costos por sesión, modelo de negocio, política de contenido sensible y métricas de validación. Todo lo que necesita estar en su sitio antes del lanzamiento aunque no sea visible en la UI. Documento 7 de la serie del MVP v1.1.
+
+> **Documentos legales correlativos:** Términos (10), Privacidad (12), Cookies (13). Este documento resume decisiones operativas; la redacción jurídica detallada va en esos tres.
 
 ---
 
@@ -46,7 +48,17 @@ El modelo es freemium con dos tiers en el MVP y un tercero post-validación:
 
 El usuario llega al paywall cuando intenta abrir su **sexta sesión del mes natural**. No al final de la quinta. Eso evita el efecto "el producto se cortó cuando estaba en el mejor momento", que es la peor experiencia de paywall.
 
-### 2.2 Lo que NO se mete al freemium
+Una sesión se considera *consumida* solo cuando el usuario envía el primer mensaje al council. Abrir y no escribir no cuenta. Esto se documenta también en los Términos para alinear expectativa.
+
+Se envían avisos por correo al alcanzar la **cuarta** y **quinta** sesión del mes para que el usuario no se sorprenda con el paywall.
+
+### 2.2 Reembolsos y prueba
+
+- **Periodo de prueba de 14 días naturales** desde la primera contratación del tier pro: reembolso total a petición, sin justificación.
+- Después de los 14 días: no se reembolsa el periodo en curso salvo obligación legal local.
+- **SLA de disponibilidad:** si el Servicio queda inoperativo por más de **72 horas seguidas** por causa atribuible a nosotros, se reembolsa prorrateado el periodo afectado.
+
+### 2.3 Lo que NO se mete al freemium
 
 - **Sin anuncios.** La promesa del producto es íntima; los ads la rompen.
 - **Sin venta de datos.** Se dice explícitamente en la página de pricing.
@@ -74,12 +86,45 @@ Si el mensaje del usuario contiene señales de **crisis emocional aguda, ideaci�
 
 La detección es por una combinación de **keywords + clasificador ligero**, ejecutada **antes** del Intent Calibrator. Si el clasificador tiene dudas, manda al modo Soporte: el costo del falso positivo (una pantalla extra) es muchísimo menor que el del falso negativo.
 
-### 3.3 Datos personales
+### 3.3 Edad mínima y cuentas
+
+- **Edad mínima:** 16 años cumplidos. Entre 16 y 18 (o mayoría de edad local) se requiere consentimiento de tutor.
+- **No se recopilan a sabiendas** datos de menores de 16 años. Si se detecta una cuenta de menor, se cierra y borra en máximo 7 días naturales.
+- **Una persona, una cuenta.** No se permite compartir cuentas.
+
+### 3.4 Datos personales y retención
 
 - La encuesta de onboarding y el contenido de la conversación se guardan **cifrados en reposo** mediante Supabase row-level security.
 - El usuario puede **borrar una conversación individual o todo su historial** desde ajustes (DSAR autoservicio).
 - **No se entrenan modelos** con conversaciones de usuarios. Esto se promete explícitamente en términos y en pricing.
-- Las conversaciones eliminadas se borran de la base de datos en un máximo de 7 días naturales (incluyendo backups).
+- Las conversaciones eliminadas se borran de la base de datos en un máximo de **7 días naturales** (incluyendo backups).
+
+Plazos de retención por tipo de dato:
+
+| Tipo de dato | Retención |
+|---|---|
+| Cuenta activa | Mientras esté activa |
+| Conversación no borrada | Mientras la cuenta esté activa |
+| Conversación borrada por el usuario | ≤ 7 días naturales (incluye backups) |
+| Cuenta cerrada por el usuario | Borrado total en ≤ 7 días naturales |
+| Cuenta cerrada por inactividad (> 24 meses sin login) | Aviso previo por correo + cierre y borrado en 30 días |
+| Logs de seguridad y auditoría | 12 meses, anonimizados después |
+| IP completa | ≤ 30 días salvo obligación legal |
+| Información de facturación | Plazo mínimo de la ley fiscal aplicable |
+
+### 3.5 Proveedores que tocan los datos
+
+Para mantener consistencia con los Términos (documento 10), la lista de subprocesadores autorizados en el MVP es:
+
+| Proveedor | Para qué |
+|---|---|
+| Anthropic (Claude API) | Generación de respuestas de los agentes. Acuerdo comercial garantiza que los datos no se usan para entrenar sus modelos. |
+| Supabase | Base de datos y autenticación. |
+| Vercel | Hosting de la aplicación. |
+| Stripe (u otro procesador) | Procesamiento de pagos del tier pro (no se almacenan números completos de tarjeta). |
+| Resend (o equivalente) | Correos transaccionales (recuperación, paywall warnings, avisos). |
+
+Cualquier subprocesador adicional necesita actualización notificada en los Términos al menos **30 días antes** de su entrada en operación.
 
 ---
 
