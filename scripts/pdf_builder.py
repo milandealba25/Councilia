@@ -1,15 +1,16 @@
 """
-Genera COUNCILia_README.pdf a partir del README.md con un estilo
-editorial inspirado en COUNCILia_MVP.pdf.
+Motor de generación de PDFs con estilo editorial COUNCILia.
 
-Uso:
-    python3 scripts/build_readme_pdf.py
+Este módulo se usa como librería: expone `DocConfig` y `build_pdf(...)`.
+Los scripts que generan PDFs concretos (p. ej. `build_mvp_v1_pdf.py`)
+arman su `DocConfig` y llaman a `build_pdf()`.
 """
 
 from __future__ import annotations
 
 import os
 import re
+from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 from reportlab.lib import colors
@@ -59,6 +60,39 @@ MARGIN_BOTTOM = 0.95 * inch
 DOC_TITLE = "COUNCILia"
 DOC_SUBTITLE = "Documento de Producto"
 DOC_FOOTER_LEFT = "COUNCILia · Documento de Producto"
+
+
+# --------------------------------------------------------------------------- #
+# Config para portada / header / footer (parametrizable por documento)
+# --------------------------------------------------------------------------- #
+
+@dataclass
+class DocConfig:
+    """Strings y opciones de portada para personalizar cada documento."""
+    cover_title: str = "COUNCILia"
+    cover_subtitle: str = "Plataforma Conversacional Multiagente"
+    cover_tagline: str = "Una mesa redonda de IA donde se delibera, no se valida."
+    cover_top_left: str = "C O U N C I L I A"
+    cover_top_right: str = "Documento de Producto · v1.1"
+    cover_items: List[str] = field(default_factory=lambda: [
+        "Visión",
+        "Onboarding diagnóstico",
+        "Generación dinámica de agentes",
+        "Flujo conversacional",
+        "Síntesis con tradeoffs",
+        "Principios irrenunciables",
+    ])
+    cover_footer_top: str = "Documento de producto · README extendido"
+    cover_footer_bottom: str = "Versión 1.1 · 2026"
+    body_header_left: str = "COUNCILia · Documento de Producto"
+    body_header_right: str = "COUNCILia · README"
+    body_footer_left: str = "COUNCILia · 2026"
+    pdf_title: str = "COUNCILia – Documento de Producto"
+    pdf_author: str = "COUNCILia"
+    pdf_subject: str = "Plataforma Conversacional Multiagente"
+
+
+_DEFAULT_CFG = DocConfig()
 
 
 # --------------------------------------------------------------------------- #
@@ -728,7 +762,12 @@ def blocks_to_flowables(blocks: List[Block], styles: dict, available_w: float):
 # Plantillas de página (cover + cuerpo) y header/footer
 # --------------------------------------------------------------------------- #
 
+def _cfg_of(doc) -> DocConfig:
+    return getattr(doc, "_cfg", _DEFAULT_CFG)
+
+
 def draw_cover(canv: canvas.Canvas, doc):
+    cfg = _cfg_of(doc)
     canv.saveState()
 
     canv.setFillColor(HexColor("#FFFFFF"))
@@ -738,15 +777,15 @@ def draw_cover(canv: canvas.Canvas, doc):
     canv.rect(0, PAGE_H - 0.55 * inch, PAGE_W, 0.55 * inch, fill=1, stroke=0)
     canv.setFillColor(colors.white)
     canv.setFont("Helvetica-Bold", 11)
-    canv.drawString(MARGIN_X, PAGE_H - 0.35 * inch, "C O U N C I L I A")
+    canv.drawString(MARGIN_X, PAGE_H - 0.35 * inch, cfg.cover_top_left)
     canv.setFont("Helvetica", 9)
     canv.drawRightString(
-        PAGE_W - MARGIN_X, PAGE_H - 0.35 * inch, "Documento de Producto · v1.1"
+        PAGE_W - MARGIN_X, PAGE_H - 0.35 * inch, cfg.cover_top_right
     )
 
     canv.setFillColor(INK)
     canv.setFont("Helvetica-Bold", 64)
-    canv.drawCentredString(PAGE_W / 2, PAGE_H / 2 + 1.3 * inch, "COUNCILia")
+    canv.drawCentredString(PAGE_W / 2, PAGE_H / 2 + 1.3 * inch, cfg.cover_title)
 
     canv.setStrokeColor(ACCENT)
     canv.setLineWidth(1.2)
@@ -757,7 +796,7 @@ def draw_cover(canv: canvas.Canvas, doc):
     canv.setFillColor(MUTED)
     canv.setFont("Helvetica", 14)
     canv.drawCentredString(
-        PAGE_W / 2, PAGE_H / 2 + 0.45 * inch, "Plataforma Conversacional Multiagente"
+        PAGE_W / 2, PAGE_H / 2 + 0.45 * inch, cfg.cover_subtitle
     )
 
     canv.setFillColor(ACCENT)
@@ -765,21 +804,13 @@ def draw_cover(canv: canvas.Canvas, doc):
     canv.drawCentredString(
         PAGE_W / 2,
         PAGE_H / 2 + 0.10 * inch,
-        "Una mesa redonda de IA donde se delibera, no se valida.",
+        cfg.cover_tagline,
     )
 
     canv.setFillColor(INK_SOFT)
     canv.setFont("Helvetica-Bold", 10)
-    items = [
-        "Visión",
-        "Onboarding diagnóstico",
-        "Generación dinámica de agentes",
-        "Flujo conversacional",
-        "Síntesis con tradeoffs",
-        "Principios irrenunciables",
-    ]
     yy = PAGE_H / 2 - 0.45 * inch
-    for it in items:
+    for it in cfg.cover_items:
         canv.setFillColor(ACCENT)
         canv.circle(PAGE_W / 2 - 1.85 * inch, yy + 3, 2, stroke=0, fill=1)
         canv.setFillColor(INK_SOFT)
@@ -788,12 +819,10 @@ def draw_cover(canv: canvas.Canvas, doc):
 
     canv.setFillColor(MUTED)
     canv.setFont("Helvetica", 10)
-    canv.drawCentredString(
-        PAGE_W / 2, 1.05 * inch, "Documento de producto · README extendido"
-    )
+    canv.drawCentredString(PAGE_W / 2, 1.05 * inch, cfg.cover_footer_top)
     canv.setFont("Helvetica-Bold", 10)
     canv.setFillColor(INK)
-    canv.drawCentredString(PAGE_W / 2, 0.85 * inch, "Versión 1.1 · 2026")
+    canv.drawCentredString(PAGE_W / 2, 0.85 * inch, cfg.cover_footer_bottom)
 
     canv.setStrokeColor(ACCENT)
     canv.setLineWidth(0.8)
@@ -803,13 +832,13 @@ def draw_cover(canv: canvas.Canvas, doc):
 
 
 def draw_body_chrome(canv: canvas.Canvas, doc):
+    cfg = _cfg_of(doc)
     canv.saveState()
     canv.setFont("Helvetica", 9)
     canv.setFillColor(MUTED)
-    canv.drawString(MARGIN_X, PAGE_H - 0.55 * inch, DOC_FOOTER_LEFT)
+    canv.drawString(MARGIN_X, PAGE_H - 0.55 * inch, cfg.body_header_left)
 
-    title_right = "COUNCILia · README"
-    canv.drawRightString(PAGE_W - MARGIN_X, PAGE_H - 0.55 * inch, title_right)
+    canv.drawRightString(PAGE_W - MARGIN_X, PAGE_H - 0.55 * inch, cfg.body_header_right)
 
     canv.setStrokeColor(RULE)
     canv.setLineWidth(0.4)
@@ -822,7 +851,7 @@ def draw_body_chrome(canv: canvas.Canvas, doc):
 
     canv.setFont("Helvetica", 9)
     canv.setFillColor(MUTED)
-    canv.drawString(MARGIN_X, 0.55 * inch, "COUNCILia · 2026")
+    canv.drawString(MARGIN_X, 0.55 * inch, cfg.body_footer_left)
     canv.drawRightString(
         PAGE_W - MARGIN_X, 0.55 * inch, f"Página {doc.page - 1}"
     )
@@ -888,18 +917,15 @@ def build_toc(blocks: List[Block], styles: dict, available_w: float):
 # Main
 # --------------------------------------------------------------------------- #
 
-def main():
-    here = os.path.dirname(os.path.abspath(__file__))
-    root = os.path.dirname(here)
-    readme_path = os.path.join(root, "README.md")
-    out_path = os.path.join(root, "COUNCILia_README.pdf")
+def build_pdf(input_md: str, output_pdf: str, cfg: Optional[DocConfig] = None) -> str:
+    """Construye un PDF a partir de un archivo markdown usando la config dada."""
+    cfg = cfg or _DEFAULT_CFG
 
-    with open(readme_path, "r", encoding="utf-8") as f:
+    with open(input_md, "r", encoding="utf-8") as f:
         md = f.read()
 
     blocks = parse_markdown(md)
 
-    # Quitamos la TOC manual del README (se reemplaza por la nuestra)
     cleaned: List[Block] = []
     skipping_toc = False
     for b in blocks:
@@ -928,16 +954,17 @@ def main():
     styles = build_styles()
 
     doc = BaseDocTemplate(
-        out_path,
+        output_pdf,
         pagesize=LETTER,
         leftMargin=MARGIN_X,
         rightMargin=MARGIN_X,
         topMargin=MARGIN_TOP,
         bottomMargin=MARGIN_BOTTOM,
-        title="COUNCILia – Documento de Producto",
-        author="COUNCILia",
-        subject="Plataforma Conversacional Multiagente",
+        title=cfg.pdf_title,
+        author=cfg.pdf_author,
+        subject=cfg.pdf_subject,
     )
+    doc._cfg = cfg
 
     available_w = PAGE_W - 2 * MARGIN_X
 
@@ -968,8 +995,5 @@ def main():
     story.extend(blocks_to_flowables(cleaned, styles, available_w))
 
     doc.build(story)
-    print(f"Generado: {out_path}")
-
-
-if __name__ == "__main__":
-    main()
+    print(f"Generado: {output_pdf}")
+    return output_pdf
