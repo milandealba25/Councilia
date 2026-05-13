@@ -33,13 +33,13 @@ export default function OnboardingPage() {
             ))}
           </div>
           <p className="text-xs font-medium uppercase tracking-widest text-accent">
-            Cuatro preguntas · menos de un minuto
+            Cinco preguntas · menos de un minuto
           </p>
           <h1 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
             Antes de sentarnos, queremos saber quién llega.
           </h1>
           <p className="mt-4 max-w-2xl leading-relaxed text-muted">
-            No es un test. Son cuatro preguntas suaves para que la conversación
+            No es un test. Son cinco preguntas suaves para que la conversación
             te encuentre en el momento en que estás: con prisa o tomándotelo
             con calma, buscando que te confronten o que te ayuden a poner
             orden. Tus respuestas no se comparten con nadie.

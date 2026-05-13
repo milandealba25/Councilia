@@ -23,13 +23,13 @@ export function CTASection() {
 
             <div className="relative max-w-2xl">
               <p className="text-[11px] uppercase tracking-[0.18em] text-accent-strong">
-                Cuatro preguntas · menos de un minuto
+                Cinco preguntas · menos de un minuto
               </p>
               <h2 className="mt-4 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
                 Antes de sentarte con ellos, queremos saber quién llega.
               </h2>
               <p className="mt-5 max-w-xl text-lg leading-relaxed text-foreground-soft">
-                Cuatro preguntas suaves. Con eso ajustamos el tono, el ritmo y
+                Cinco preguntas suaves. Con eso ajustamos el tono, el ritmo y
                 qué cuida cada voz contigo. Sin cuenta, sin pago, sin
                 obstáculos.
               </p>

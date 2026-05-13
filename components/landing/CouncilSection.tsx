@@ -78,9 +78,9 @@ export function CouncilSection() {
                   }}
                 />
 
-                <div className="flex items-start justify-between">
+                <div className="relative flex justify-center">
                   <AgentFace agent={agent} size={80} mood="calm" />
-                  <span className="text-[10px] uppercase tracking-[0.18em] text-subtle">
+                  <span className="absolute right-0 top-0 text-[10px] uppercase tracking-[0.18em] text-subtle">
                     0{idx + 1}
                   </span>
                 </div>
