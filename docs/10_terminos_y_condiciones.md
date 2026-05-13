@@ -1,9 +1,5 @@
 # COUNCILia · Términos y Condiciones
 
-> Documento de cara al usuario. Explica qué es el servicio, qué información recopilamos, qué hacemos con ella, qué te prometemos y qué no, y cuáles son tus derechos. Está redactado para ser entendible, sin renunciar a la precisión legal. Documento 10 de la serie del MVP v1.1.
-
-> **Aviso importante:** este documento es la **propuesta operativa de términos**. Antes de publicarse en producción debe ser revisado por un abogado familiarizado con normativa de protección de datos del país objetivo (en particular GDPR/UE, LFPDPPP/México y CCPA/California si aplica).
-
 ---
 
 ## 1. Resumen en una página (sección no vinculante)

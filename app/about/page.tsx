@@ -16,7 +16,6 @@ export default async function AboutPage() {
       description="No competimos en respuestas correctas. Competimos en experiencia cognitivamente diferente."
       html={html}
       related={[
-        { href: "/", label: "Inicio" },
         { href: "/terms", label: "Términos" },
         { href: "/privacy", label: "Privacidad" },
       ]}

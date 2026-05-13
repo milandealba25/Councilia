@@ -36,13 +36,7 @@ export function LegalLayout({
       <main>
         <section className="border-b border-border/60 py-16 md:py-20">
           <Container className="max-w-3xl">
-            <Link
-              href="/"
-              className="text-xs uppercase tracking-wider text-muted hover:text-foreground"
-            >
-              ← Inicio
-            </Link>
-            <p className="mt-6 text-xs font-medium uppercase tracking-widest text-accent">
+            <p className="text-xs font-medium uppercase tracking-widest text-accent">
               {eyebrow}
             </p>
             <h1 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">

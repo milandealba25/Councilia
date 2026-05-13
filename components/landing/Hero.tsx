@@ -83,7 +83,7 @@ export function Hero() {
             </Reveal>
           </div>
 
-          <Reveal delay={120} className="self-stretch">
+          <Reveal delay={120} className="w-full lg:self-end">
             <CouncilPanel />
           </Reveal>
         </div>

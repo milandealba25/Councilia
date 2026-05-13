@@ -14,7 +14,6 @@ export default async function TermsPage() {
     <LegalLayout
       eyebrow="Documento 10 · Legal"
       title="Términos y Condiciones"
-      description="Reglas de uso del servicio, límites de responsabilidad y compromisos mutuos."
       html={html}
       related={[
         { href: "/privacy", label: "Política de Privacidad" },
