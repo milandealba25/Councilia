@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const CHAR_MS = 26;
+const CHAR_MS = 52;
 const IO_THRESHOLD = 0.18;
 
 interface Props {
