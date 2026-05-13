@@ -79,7 +79,7 @@ function applyWeightHeuristics(
   ) {
     w.elena += 0.5;
   }
-  if (ctx.fearedLoss === "arrepentirme") {
+  if (ctx.fearedLoss === "arrepentirme" || ctx.fearedLoss === "duda_si_debia_intentar") {
     w.rafael += 0.25;
   }
 

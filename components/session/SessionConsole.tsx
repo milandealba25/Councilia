@@ -546,21 +546,23 @@ function ContextStrip({
     vida: "vida en general",
   };
   const URGENCY_LABEL: Record<string, string> = {
-    hoy: "tengo que decidir esta semana",
-    este_mes: "tengo este mes",
-    explorando: "sin prisa, explorando",
+    hoy: "me está presionando",
+    este_mes: "moverlo pronto",
+    explorando: "todavía lo entiendo",
+    no_urgente_presente: "no urgente, presente",
   };
   const NEED_LABEL: Record<string, string> = {
-    confrontar: "que me confronten lo que evito",
-    estructurar: "que me ayuden a poner orden",
-    mostrar_caminos: "que me muestren caminos que no veo",
-    decidir_entre_opciones: "que me ayuden a elegir",
+    confrontar: "ver lo que evito",
+    estructurar: "claridad entre ideas",
+    mostrar_caminos: "caminos nuevos",
+    decidir_entre_opciones: "qué opción sostener",
   };
   const LOSS_LABEL: Record<string, string> = {
-    perder_dinero: "perder algo material",
-    perder_tiempo: "perder tiempo de vida",
-    arrepentirme: "arrepentirme",
-    decepcionar: "decepcionar a alguien",
+    perder_dinero: "estabilidad / dinero / calma",
+    perder_tiempo: "perder tiempo",
+    arrepentirme: "traicionarme",
+    decepcionar: "afectar a alguien",
+    duda_si_debia_intentar: "la duda de no haber intentado",
   };
 
   const items: [string, string][] = [

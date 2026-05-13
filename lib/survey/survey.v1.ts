@@ -21,7 +21,12 @@ export const decisionTypeValues = [
 ] as const;
 export type DecisionType = (typeof decisionTypeValues)[number];
 
-export const urgencyValues = ["hoy", "este_mes", "explorando"] as const;
+export const urgencyValues = [
+  "hoy",
+  "este_mes",
+  "explorando",
+  "no_urgente_presente",
+] as const;
 export type Urgency = (typeof urgencyValues)[number];
 
 export const needFromCouncilValues = [
@@ -37,6 +42,7 @@ export const fearedLossValues = [
   "perder_tiempo",
   "arrepentirme",
   "decepcionar",
+  "duda_si_debia_intentar",
 ] as const;
 export type FearedLoss = (typeof fearedLossValues)[number];
 
@@ -76,34 +82,65 @@ export const surveyV1Questions = [
   } satisfies Question<DecisionType>,
   {
     id: "urgency",
-    title: "¿Cuánto te aprieta el tiempo?",
+    title: "¿Cómo se siente esto para ti ahorita?",
     options: [
-      { value: "hoy", label: "Tengo que decidir pronto, esta semana" },
-      { value: "este_mes", label: "Tengo este mes, más o menos" },
-      { value: "explorando", label: "Aún estoy mirándolo, sin prisa" },
+      { value: "hoy", label: "Esto ya me está presionando" },
+      { value: "este_mes", label: "Sé que tengo que moverlo pronto" },
+      { value: "explorando", label: "Todavía lo estoy entendiendo" },
+      {
+        value: "no_urgente_presente",
+        label: "No es urgente, pero no lo quiero ignorar",
+      },
     ],
   } satisfies Question<Urgency>,
   {
     id: "needFromCouncil",
-    title: "¿Qué te haría falta de esta conversación?",
+    title: "¿Qué sientes que más te está faltando en este momento?",
     options: [
-      { value: "confrontar", label: "Que me ayuden a ver lo que estoy evitando" },
-      { value: "estructurar", label: "Que me ayuden a poner orden a esto" },
-      { value: "mostrar_caminos", label: "Que me muestren caminos que no veo" },
+      {
+        value: "confrontar",
+        label: "Ver algo que probablemente estoy evitando",
+      },
+      {
+        value: "estructurar",
+        label: "Poner claridad entre tantas ideas",
+      },
+      {
+        value: "mostrar_caminos",
+        label: "Entender caminos que todavía no estoy considerando",
+      },
       {
         value: "decidir_entre_opciones",
-        label: "Que me ayuden a elegir entre opciones que ya tengo",
+        label: "Aceptar cuál de las opciones realmente puedo sostener",
       },
     ],
   } satisfies Question<NeedFromCouncil>,
   {
     id: "fearedLoss",
-    title: "Si esto sale mal, ¿qué te dolería más perder?",
+    title:
+      "Si esta decisión sale mal, ¿qué haría que realmente se sintiera como un error?",
     options: [
-      { value: "perder_dinero", label: "Dinero o algo material" },
-      { value: "perder_tiempo", label: "Tiempo de vida" },
-      { value: "arrepentirme", label: "Quedarme con la sensación de arrepentimiento" },
-      { value: "decepcionar", label: "Que alguien importante se decepcione" },
+      {
+        value: "perder_tiempo",
+        label: "Darme cuenta de que perdí demasiado tiempo",
+      },
+      {
+        value: "arrepentirme",
+        label: "Sentir que me traicioné a mí mismo/a",
+      },
+      {
+        value: "decepcionar",
+        label: "Que afecte a alguien importante para mí",
+      },
+      {
+        value: "perder_dinero",
+        label: "Perder estabilidad, dinero o tranquilidad",
+      },
+      {
+        value: "duda_si_debia_intentar",
+        label:
+          "Quedarme pensando “¿y si sí debía haberlo intentado?”",
+      },
     ],
   } satisfies Question<FearedLoss>,
 ] as const;

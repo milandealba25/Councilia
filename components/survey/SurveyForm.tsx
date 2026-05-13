@@ -15,9 +15,9 @@ type Answers = Partial<Omit<UserContext, "surveyVersion">>;
 
 const QUESTION_INTROS: Record<string, string> = {
   decisionType: "Para empezar…",
-  urgency: "Y dime…",
-  needFromCouncil: "Algo importante:",
-  fearedLoss: "Una última cosa:",
+  urgency: "· Y DIME…",
+  needFromCouncil: "· ALGO IMPORTANTE…",
+  fearedLoss: "· UNA ÚLTIMA COSA…",
 };
 
 export function SurveyForm() {
