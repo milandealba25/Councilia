@@ -2,48 +2,41 @@ import Link from "next/link";
 import { Container } from "@/components/ui/Container";
 import { LinkButton } from "@/components/ui/Button";
 
+const NAV = [
+  { href: "#council", label: "El council" },
+  { href: "#flujo", label: "Cómo funciona" },
+  { href: "#ejemplo", label: "Un ejemplo" },
+  { href: "#principios", label: "Principios" },
+] as const;
+
 export function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/75 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
       <Container className="flex h-16 items-center justify-between">
         <Link
           href="/"
-          className="group flex items-center gap-2.5 font-sans text-sm font-semibold tracking-tight text-foreground"
+          aria-label="Inicio · COUNCILia"
+          className="group inline-flex items-center gap-2.5 font-sans text-[15px] font-semibold tracking-tight text-foreground"
         >
-          <Logo />
+          <Mark />
           <span>
             COUNCIL<span className="text-accent">ia</span>
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-9 text-sm text-foreground-soft md:flex">
-          <a
-            href="#council"
-            className="transition hover:text-accent-strong"
-          >
-            El council
-          </a>
-          <a
-            href="#flujo"
-            className="transition hover:text-accent-strong"
-          >
-            Cómo funciona
-          </a>
-          <a
-            href="#principios"
-            className="transition hover:text-accent-strong"
-          >
-            Principios
-          </a>
+        <nav className="hidden items-center gap-8 text-sm text-foreground-soft md:flex">
+          {NAV.map((item) => (
+            <a
+              key={item.href}
+              href={item.href}
+              className="relative transition-colors hover:text-accent-strong"
+            >
+              {item.label}
+            </a>
+          ))}
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/about"
-            className="hidden text-sm text-foreground-soft transition hover:text-accent-strong md:inline-flex"
-          >
-            Sobre nosotros
-          </Link>
           <LinkButton href="/onboarding" variant="primary">
             Empezar
           </LinkButton>
@@ -53,21 +46,12 @@ export function Header() {
   );
 }
 
-function Logo() {
+function Mark() {
   return (
-    <span className="relative inline-flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-accent-soft via-elena-soft to-marco-soft ring-1 ring-border-strong/70 transition group-hover:scale-105">
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden
-      >
-        <circle cx="6.5" cy="13" r="3" fill="var(--marco)" />
-        <circle cx="12" cy="7" r="3" fill="var(--elena)" />
-        <circle cx="17.5" cy="13" r="3" fill="var(--rafael)" />
-      </svg>
+    <span className="inline-flex items-center gap-[3px]" aria-hidden>
+      <span className="block size-1.5 rounded-full bg-marco" />
+      <span className="block size-1.5 rounded-full bg-elena" />
+      <span className="block size-1.5 rounded-full bg-rafael" />
     </span>
   );
 }
