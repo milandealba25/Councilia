@@ -1,7 +1,6 @@
 """
-Genera los 9 PDFs temáticos de COUNCILia a partir de los archivos MD
-en `docs/`. Cada PDF es autocontenido y usa el mismo motor editorial
-(pdf_builder) con su propia portada y headers.
+Genera los PDFs temáticos de COUNCILia a partir de los archivos MD en `docs/`.
+Cada PDF es autocontenido y usa el mismo motor editorial (pdf_builder).
 
 Uso:
     python3 scripts/build_pdfs.py
@@ -17,7 +16,7 @@ from pdf_builder import DocConfig, build_pdf
 
 
 # --------------------------------------------------------------------------- #
-# Definición de los 9 documentos
+# Definición de los documentos del build
 # --------------------------------------------------------------------------- #
 
 @dataclass
@@ -229,6 +228,22 @@ DOCS: List[DocSpec] = [
             "Finalidades por categoría",
             "Control desde el navegador",
             "Conservación y actualizaciones",
+        ],
+    ),
+    DocSpec(
+        md="docs/14_manual_tareas_operador_desarrollo.md",
+        pdf="pdfs/14_Manual_Tareas_Operador_Desarrollo.pdf",
+        short_label="14 · Manual operador",
+        cover_subtitle="Tareas manuales",
+        cover_tagline="Checklist de lo que debe hacer una persona fuera del código.",
+        cover_items=[
+            "Prioridades crítica a baja",
+            "Anthropic y entorno local",
+            "Supabase y migración SQL",
+            "Vercel y DNS",
+            "Correo, GitHub, Stripe",
+            "Legal y usuarios pilotos",
+            "Comandos útiles del repo",
         ],
     ),
 ]

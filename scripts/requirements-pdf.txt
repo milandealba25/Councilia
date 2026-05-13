@@ -1,0 +1,2 @@
+# Dependencias para generar PDFs (scripts/build_pdfs.py, pdf_builder.py)
+reportlab>=4.0.0
