@@ -1,6 +1,7 @@
 import { Container } from "@/components/ui/Container";
 import { Reveal } from "@/components/ui/Reveal";
 import { AgentFace } from "@/components/agents/AgentFace";
+import { TypewriterText } from "@/components/landing/TypewriterText";
 import {
   AGENT_LABELS,
   AGENT_ROLES,
@@ -103,9 +104,11 @@ export function ExampleSection() {
                         </p>
                       </div>
                     </div>
-                    <p className="text-[14px] leading-relaxed text-foreground-soft">
-                      {RESPONSES[agent]}
-                    </p>
+                    <TypewriterText
+                      text={RESPONSES[agent]}
+                      staggerMs={idx * 200}
+                      className="text-[14px] leading-relaxed text-foreground-soft"
+                    />
                   </div>
                 </Reveal>
               ))}
