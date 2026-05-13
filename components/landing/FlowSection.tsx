@@ -3,49 +3,49 @@ import { Reveal } from "@/components/ui/Reveal";
 
 const PHASES = [
   {
-    id: "setup",
-    tag: "Fase 00",
-    title: "Setup invisible",
+    id: "llegada",
+    tag: "Primero",
+    title: "Llegas con lo que te tiene así",
     body:
-      "El orquestador lee tu contexto del onboarding y lanza las tres llamadas en paralelo. Aparecen los avatares; cero spinners.",
-    example: "“Reuniendo a Marco, Elena y Rafael…”",
-    detail: "≈1 segundo",
+      "Cuéntalo como te sale: ordenado, hecho un nudo, con miedo, con rabia. No hay forma correcta de empezar.",
+    example: "“No sé si renunciar o aguantar otros seis meses.”",
+    detail: "Habla tú",
   },
   {
-    id: "posturas",
-    tag: "Fase 01",
-    title: "Posturas en paralelo",
+    id: "escucha",
+    tag: "Luego",
+    title: "Los tres te escuchan a la vez",
     body:
-      "Los tres deliberantes responden al mismo tiempo, con streaming desde el primer token, sin haber leído lo que los otros están escribiendo.",
-    example: "“A 3 años, lo que protegerías no es el ingreso, es la opción.”",
-    detail: "<6 s · tres mensajes simultáneos",
+      "Cada uno responde desde lo que cuida. No esperan turno, no se copian. Ves tres miradas distintas sobre lo mismo, casi al mismo tiempo.",
+    example: "“A 3 años, lo que cuidarías no es el ingreso, es la opción.”",
+    detail: "Tres voces en paralelo",
   },
   {
-    id: "replica",
-    tag: "Fase 02",
-    title: "Réplica selectiva",
+    id: "tension",
+    tag: "Entonces",
+    title: "Alguien señala lo que falta",
     body:
-      "El detector de tensión elige el par con mayor contradicción y dispara una sola réplica. Una contradicción útil vale más que veinte mensajes teatrales.",
+      "Cuando dos de ellos se contradicen en serio, una de las voces toma la palabra y nombra la grieta. Una sola, sin teatro.",
     example: "“Marco, le estás pidiendo paciencia a alguien que ya quemó dos años.”",
-    detail: "Una réplica · automática",
+    detail: "Una pregunta incómoda",
   },
   {
-    id: "decision",
-    tag: "Fase 03",
-    title: "Tu turno",
+    id: "tu-turno",
+    tag: "Tu turno",
+    title: "Respondes lo que aparezca",
     body:
-      "Respondes con otro mensaje, o pides la síntesis. No hay tres botones; no hay parálisis de decisión.",
-    example: "“Pero olvidamos el costo emocional de seguir esperando.”",
-    detail: "Dos opciones · no más",
+      "Aclaras, dudas, contestas, te corriges. Puedes seguir hablando o pedirles que cierren contigo lo que ya vieron.",
+    example: "“Olvidamos el costo de seguir esperando.”",
+    detail: "Sin botones que te empujen",
   },
   {
-    id: "sintesis",
-    tag: "Fase 04",
-    title: "Síntesis con tradeoffs",
+    id: "cierre",
+    tag: "Al cerrar",
+    title: "Te devuelven los caminos",
     body:
-      "Dos o tres caminos visibles, los tradeoffs irreductibles entre ellos y una frase que te devuelve el poder de decidir. Nunca recomienda.",
+      "Dos o tres caminos, con lo que cada uno te pide ceder. Sin recomendación, sin ganador. La decisión vuelve a tus manos, más clara.",
     example: "“Camino A protege ingreso; cede opción. Camino B preserva opción; cede estabilidad.”",
-    detail: "Exportable a PDF o markdown",
+    detail: "Te la puedes llevar contigo",
   },
 ] as const;
 
@@ -63,29 +63,28 @@ export function FlowSection() {
         <Reveal>
           <header className="mb-14 max-w-3xl">
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-accent-strong">
-              Cómo funciona
+              Cómo es una sesión
             </p>
             <h2 className="mt-4 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
-              Cinco fases visibles. Una conversación con orden claro.
+              Una conversación tranquila, no un test.
             </h2>
             <p className="mt-5 max-w-2xl text-lg leading-relaxed text-foreground-soft">
-              Sin interrupción del streaming, sin botones de decisión por turno.
-              El orquestador propio decide quién responde a quién para maximizar
-              la tensión informativa, no para teatralizar la conversación.
+              No tienes que prepararte. No hay preguntas trampa. Llegas con lo
+              que traes y te vas con más claridad sobre lo que estás eligiendo.
             </p>
           </header>
         </Reveal>
 
         <ol className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           {PHASES.map((phase, idx) => (
-            <Reveal key={phase.id} as="li" delay={idx * 70}>
-              <article className="group relative flex h-full flex-col gap-3 rounded-council-lg border border-border bg-surface p-5 shadow-soft transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-council">
+            <Reveal key={phase.id} as="li" delay={idx * 80}>
+              <article className="group relative flex h-full flex-col gap-3 rounded-council-lg border border-border bg-surface p-5 shadow-soft transition-all duration-500 hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-council">
                 <div className="flex items-baseline justify-between">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent-strong">
+                  <span className="text-[10px] uppercase tracking-[0.16em] text-accent-strong">
                     {phase.tag}
                   </span>
-                  <span className="font-mono text-[10px] tabular-nums text-subtle">
-                    0{idx}
+                  <span className="text-[10px] tabular-nums text-subtle">
+                    0{idx + 1}
                   </span>
                 </div>
                 <h3 className="text-[15px] font-semibold leading-snug text-foreground">
@@ -97,7 +96,7 @@ export function FlowSection() {
                 <div className="rounded-md bg-surface-soft/70 px-3 py-2 text-[12px] italic leading-relaxed text-foreground-soft ring-1 ring-border/60">
                   {phase.example}
                 </div>
-                <p className="mt-auto font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
+                <p className="mt-auto text-[10px] uppercase tracking-[0.14em] text-subtle">
                   {phase.detail}
                 </p>
               </article>

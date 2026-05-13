@@ -22,22 +22,23 @@ export function CTASection() {
             />
 
             <div className="relative max-w-2xl">
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent-strong">
-                Cuatro preguntas · menos de 30 segundos
+              <p className="text-[11px] uppercase tracking-[0.18em] text-accent-strong">
+                Cuatro preguntas · menos de un minuto
               </p>
               <h2 className="mt-4 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
-                Antes de reunir tu council, necesitamos entender tu contexto.
+                Antes de sentarte con ellos, queremos saber quién llega.
               </h2>
               <p className="mt-5 max-w-xl text-lg leading-relaxed text-foreground-soft">
-                Cada respuesta cambia, de forma observable, cómo se comporta tu
-                council durante la sesión. Sin cuenta, sin pago, sin obstáculos.
+                Cuatro preguntas suaves. Con eso ajustamos el tono, el ritmo y
+                qué cuida cada voz contigo. Sin cuenta, sin pago, sin
+                obstáculos.
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
                 <LinkButton href="/onboarding" variant="primary">
-                  Empezar la encuesta
+                  Empezar a hablar
                 </LinkButton>
                 <LinkButton href="#ejemplo" variant="secondary">
-                  Ver un ejemplo
+                  Ver primero un ejemplo
                 </LinkButton>
               </div>
             </div>

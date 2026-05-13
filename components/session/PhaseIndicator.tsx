@@ -1,11 +1,11 @@
 export type Phase = "idle" | "fase1" | "fase2" | "wait" | "fase4";
 
 const PHASES: ReadonlyArray<{ id: Phase; label: string }> = [
-  { id: "idle", label: "Inicio" },
-  { id: "fase1", label: "Posturas" },
-  { id: "fase2", label: "Réplica" },
+  { id: "idle", label: "Llegas" },
+  { id: "fase1", label: "Te escuchan" },
+  { id: "fase2", label: "Una pregunta dura" },
   { id: "wait", label: "Tu turno" },
-  { id: "fase4", label: "Síntesis" },
+  { id: "fase4", label: "Se cierra" },
 ];
 
 interface Props {
@@ -19,7 +19,7 @@ interface Props {
 export function PhaseIndicator({ phase }: Props) {
   const activeIdx = PHASES.findIndex((p) => p.id === phase);
   return (
-    <ol className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-muted">
+    <ol className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wider text-muted">
       {PHASES.map((p, i) => {
         const done = i < activeIdx;
         const active = i === activeIdx;

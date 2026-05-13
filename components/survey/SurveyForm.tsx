@@ -13,15 +13,25 @@ import { Button } from "@/components/ui/Button";
 
 type Answers = Partial<Omit<UserContext, "surveyVersion">>;
 
+const QUESTION_INTROS: Record<string, string> = {
+  decisionType: "Para empezar…",
+  urgency: "Y dime…",
+  needFromCouncil: "Algo importante:",
+  fearedLoss: "Una última cosa:",
+};
+
 export function SurveyForm() {
   const router = useRouter();
   const [answers, setAnswers] = useState<Answers>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isComplete = surveyV1Questions.every(
+  const total = surveyV1Questions.length;
+  const answered = surveyV1Questions.filter(
     (q) => answers[q.id] !== undefined,
-  );
+  ).length;
+  const isComplete = answered === total;
+  const progress = Math.round((answered / total) * 100);
 
   function setAnswer<K extends keyof Answers>(key: K, value: Answers[K]) {
     setAnswers((prev) => ({ ...prev, [key]: value }));
@@ -36,7 +46,10 @@ export function SurveyForm() {
     const candidate = { surveyVersion: SURVEY_VERSION, ...answers };
     const parsed = userContextSchema.safeParse(candidate);
     if (!parsed.success) {
-      setError(parsed.error.errors[0]?.message ?? "Datos inválidos");
+      setError(
+        parsed.error.errors[0]?.message ??
+          "Algo no cuadró en las respuestas. ¿Probamos de nuevo?",
+      );
       setSubmitting(false);
       return;
     }
@@ -47,28 +60,56 @@ export function SurveyForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-10">
+      <div className="sticky top-2 z-10 -mx-2 flex items-center gap-3 rounded-full border border-border/70 bg-surface/85 px-4 py-2 text-xs text-muted shadow-soft backdrop-blur">
+        <span className="text-foreground-soft">
+          {answered} de {total}
+        </span>
+        <div
+          className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-border/70"
+          aria-hidden
+        >
+          <div
+            className="h-full rounded-full bg-accent transition-all duration-700"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <span className="text-subtle">
+          {isComplete ? "Listo" : "Tu turno"}
+        </span>
+      </div>
+
       {surveyV1Questions.map((question, idx) => {
         const selected = answers[question.id];
+        const answeredThis = selected !== undefined;
         return (
-          <fieldset key={question.id} className="flex flex-col gap-4">
-            <legend className="flex items-baseline gap-3">
-              <span className="font-mono text-xs uppercase tracking-wider text-accent">
+          <fieldset
+            key={question.id}
+            className="flex flex-col gap-4 rounded-council-lg border border-border/70 bg-surface/60 p-5 md:p-7"
+            style={{
+              animation: `soft-rise 600ms ease-out ${idx * 100}ms both`,
+            }}
+          >
+            <legend className="-mt-0.5 mb-1 flex items-baseline gap-3 px-1">
+              <span className="text-xs uppercase tracking-[0.16em] text-accent">
                 0{idx + 1}
               </span>
-              <span className="text-balance text-lg font-medium text-foreground md:text-xl">
-                {question.title}
+              <span className="text-[11px] uppercase tracking-[0.16em] text-subtle">
+                {QUESTION_INTROS[question.id] ?? ""}
               </span>
             </legend>
+            <p className="text-balance text-lg font-medium leading-snug text-foreground md:text-xl">
+              {question.title}
+            </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {question.options.map((opt) => {
                 const isSelected = selected === opt.value;
                 return (
                   <label
                     key={opt.value}
-                    className={`group flex cursor-pointer items-center gap-3 rounded-council border bg-elevated/60 px-4 py-3 text-sm transition ${
+                    className={`group relative flex cursor-pointer items-center gap-3 rounded-council border bg-elevated/60 px-4 py-3 text-sm transition-all duration-200 ${
                       isSelected
-                        ? "border-accent text-foreground shadow-council"
-                        : "border-border text-muted hover:border-accent-muted hover:text-foreground"
+                        ? "border-accent bg-accent-soft/40 text-foreground shadow-council"
+                        : "border-border text-muted hover:-translate-y-px hover:border-accent/60 hover:bg-surface-soft/60 hover:text-foreground"
                     }`}
                   >
                     <input
@@ -82,13 +123,35 @@ export function SurveyForm() {
                           opt.value as UserContext[typeof question.id],
                         )
                       }
-                      className="size-3.5 accent-accent"
+                      className="sr-only"
                     />
-                    {opt.label}
+                    <span
+                      className={`grid size-4 place-items-center rounded-full border transition-colors ${
+                        isSelected
+                          ? "border-accent bg-accent"
+                          : "border-border-strong/70 bg-surface group-hover:border-accent/60"
+                      }`}
+                      aria-hidden
+                    >
+                      <span
+                        className={`block size-1.5 rounded-full bg-white transition-opacity ${
+                          isSelected ? "opacity-100" : "opacity-0"
+                        }`}
+                      />
+                    </span>
+                    <span className="leading-snug">{opt.label}</span>
                   </label>
                 );
               })}
             </div>
+            {answeredThis && (
+              <p
+                className="text-[12px] text-subtle"
+                style={{ animation: "soft-rise 400ms ease-out both" }}
+              >
+                Gracias. Anotado.
+              </p>
+            )}
           </fieldset>
         );
       })}
@@ -100,12 +163,16 @@ export function SurveyForm() {
       )}
 
       <div className="flex flex-col gap-3 border-t border-border/60 pt-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-muted">
-          Las 4 respuestas se condensan en <code className="font-mono">userContext</code> y
-          alimentan al orquestador.
+        <p className="max-w-md text-xs leading-relaxed text-muted">
+          Solo guardamos esto mientras dura tu sesión. Puedes borrarlo cuando
+          quieras.
         </p>
         <Button type="submit" disabled={!isComplete || submitting}>
-          {submitting ? "Preparando council…" : "Reunir mi council"}
+          {submitting
+            ? "Reuniéndolos…"
+            : isComplete
+              ? "Sentarme con ellos"
+              : `Faltan ${total - answered}`}
         </Button>
       </div>
     </form>

@@ -3,10 +3,10 @@ import { Container } from "@/components/ui/Container";
 import { LinkButton } from "@/components/ui/Button";
 
 const NAV = [
-  { href: "#council", label: "El council" },
-  { href: "#flujo", label: "Cómo funciona" },
-  { href: "#ejemplo", label: "Un ejemplo" },
-  { href: "#principios", label: "Principios" },
+  { href: "#council", label: "Quiénes son" },
+  { href: "#flujo", label: "Cómo es una sesión" },
+  { href: "#ejemplo", label: "Un caso real" },
+  { href: "#principios", label: "Lo que cuidamos" },
 ] as const;
 
 export function Header() {
@@ -38,7 +38,7 @@ export function Header() {
 
         <div className="flex items-center gap-3">
           <LinkButton href="/onboarding" variant="primary">
-            Empezar
+            Sentarme con ellos
           </LinkButton>
         </div>
       </Container>

@@ -360,7 +360,9 @@ export function SessionConsole() {
   }
 
   if (!state.ctx) {
-    return <p className="text-sm text-muted">Cargando contexto del council…</p>;
+    return (
+      <p className="text-sm text-muted">Preparando la sala. Un momento…</p>
+    );
   }
 
   if (state.crisis) {
@@ -391,7 +393,7 @@ export function SessionConsole() {
           htmlFor="user-input"
           className="text-xs font-medium uppercase tracking-wider text-muted"
         >
-          {state.phase === "wait" ? "Continúa la conversación" : "Tu situación"}
+          {state.phase === "wait" ? "Sigue hablando" : "Cuéntales"}
         </label>
         <textarea
           id="user-input"
@@ -402,7 +404,7 @@ export function SessionConsole() {
           maxLength={4000}
           rows={4}
           disabled={state.loading || state.phase === "fase4"}
-          placeholder="Describe el dilema. Sin filtros: el council solo es útil con la versión cruda."
+          placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
           className="resize-none rounded-council border border-border bg-elevated/60 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
         />
         <div className="flex items-center justify-between text-xs text-muted">
@@ -414,15 +416,15 @@ export function SessionConsole() {
                 variant="secondary"
                 onClick={handleSynthesis}
               >
-                Pedir síntesis
+                Pedir que cierren contigo
               </Button>
             )}
             <Button type="submit" disabled={!canSubmit || state.loading}>
               {state.loading
-                ? "Deliberando…"
+                ? "Escuchando…"
                 : state.phase === "wait"
-                  ? "Nuevo turno"
-                  : "Reunir al council"}
+                  ? "Decirles otra cosa"
+                  : "Empezar"}
             </Button>
           </div>
         </div>
@@ -436,8 +438,8 @@ export function SessionConsole() {
 
       {state.lastUserMessage && (
         <div className="rounded-council border border-border bg-elevated/40 px-4 py-3 text-sm leading-relaxed text-foreground/85">
-          <p className="mb-1 font-mono text-[11px] uppercase tracking-wider text-muted">
-            Tú
+          <p className="mb-1 text-[11px] uppercase tracking-wider text-muted">
+            Tú dijiste
           </p>
           {state.lastUserMessage}
         </div>
@@ -446,7 +448,7 @@ export function SessionConsole() {
       {state.lastUserMessage && (
         <section className="flex flex-col gap-5">
           <SectionHeading
-            label="Fase 1 · Posturas en paralelo"
+            label="Te están escuchando"
             done={
               state.phase !== "fase1" && state.phase !== "idle"
             }
@@ -458,6 +460,10 @@ export function SessionConsole() {
                 agent={id}
                 state={state.agents[id].state}
                 text={state.agents[id].text || undefined}
+                isUserTyping={
+                  state.userInput.length > 0 &&
+                  (state.phase === "idle" || state.phase === "wait")
+                }
               />
             ))}
           </div>
@@ -467,7 +473,7 @@ export function SessionConsole() {
       {state.replica && (
         <section className="flex flex-col gap-5">
           <SectionHeading
-            label="Fase 2 · Réplica selectiva"
+            label="Alguien toma la palabra"
             done={state.phase !== "fase2"}
           />
           {state.replica === "skipped" ? (
@@ -490,12 +496,14 @@ export function SessionConsole() {
       )}
 
       {state.phase === "fase4" && !state.synthesis && (
-        <p className="text-sm text-muted">Generando síntesis…</p>
+        <p className="text-sm text-muted">
+          Están cerrando contigo. Dales un momento…
+        </p>
       )}
 
       {state.synthesis && (
         <section className="flex flex-col gap-5">
-          <SectionHeading label="Fase 4 · Síntesis" done={false} />
+          <SectionHeading label="Lo que te llevas" done={false} />
           <SynthesisCard synthesis={state.synthesis} />
         </section>
       )}
@@ -512,7 +520,7 @@ function SectionHeading({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <h2 className="font-mono text-[11px] font-medium uppercase tracking-widest text-muted">
+      <h2 className="text-[11px] font-medium uppercase tracking-widest text-muted">
         {label}
       </h2>
       <span
@@ -529,18 +537,44 @@ function ContextStrip({
   ctx: UserContext;
   attenuated: AgentId[];
 }) {
+  const DECISION_LABEL: Record<string, string> = {
+    negocio: "negocio / proyecto",
+    dinero: "dinero",
+    carrera: "trabajo o carrera",
+    relacion: "una relación",
+    creativa: "creativa o de producto",
+    vida: "vida en general",
+  };
+  const URGENCY_LABEL: Record<string, string> = {
+    hoy: "tengo que decidir esta semana",
+    este_mes: "tengo este mes",
+    explorando: "sin prisa, explorando",
+  };
+  const NEED_LABEL: Record<string, string> = {
+    confrontar: "que me confronten lo que evito",
+    estructurar: "que me ayuden a poner orden",
+    mostrar_caminos: "que me muestren caminos que no veo",
+    decidir_entre_opciones: "que me ayuden a elegir",
+  };
+  const LOSS_LABEL: Record<string, string> = {
+    perder_dinero: "perder algo material",
+    perder_tiempo: "perder tiempo de vida",
+    arrepentirme: "arrepentirme",
+    decepcionar: "decepcionar a alguien",
+  };
+
   const items: [string, string][] = [
-    ["Decisión", ctx.decisionType],
-    ["Urgencia", ctx.urgency.replace("_", " ")],
-    ["Necesita", ctx.needFromCouncil.replace(/_/g, " ")],
-    ["Teme perder", ctx.fearedLoss.replace(/_/g, " ")],
+    ["Lo que te trae", DECISION_LABEL[ctx.decisionType] ?? ctx.decisionType],
+    ["Tu ritmo", URGENCY_LABEL[ctx.urgency] ?? ctx.urgency],
+    ["Lo que necesitas", NEED_LABEL[ctx.needFromCouncil] ?? ctx.needFromCouncil],
+    ["Lo que más temes", LOSS_LABEL[ctx.fearedLoss] ?? ctx.fearedLoss],
   ];
   return (
     <div className="flex flex-col gap-3 rounded-council border border-border bg-elevated/40 p-4 sm:flex-row sm:items-center sm:justify-between">
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs text-muted sm:grid-cols-4">
         {items.map(([k, v]) => (
           <div key={k} className="flex flex-col">
-            <dt className="font-mono text-[10px] uppercase tracking-wider text-muted/70">
+            <dt className="text-[10px] uppercase tracking-wider text-muted/70">
               {k}
             </dt>
             <dd className="font-medium text-foreground/90">{v}</dd>
@@ -549,7 +583,7 @@ function ContextStrip({
       </dl>
       {attenuated.length > 0 && (
         <p className="text-xs text-muted">
-          Atenuado:{" "}
+          Hablando en voz más baja hoy:{" "}
           <span className="font-medium text-tension">
             {attenuated.map((a) => AGENT_LABELS[a]).join(", ")}
           </span>
@@ -569,25 +603,25 @@ function CrisisBanner({
   return (
     <div className="rounded-council border border-error/50 bg-error/5 p-6">
       <p className="text-xs font-medium uppercase tracking-widest text-error">
-        Modo soporte
+        Aquí paramos
       </p>
       <h2 className="mt-2 text-xl font-semibold text-foreground">
-        El council se detiene aquí.
+        Lo que estás contando merece a alguien real, no a nosotros.
       </h2>
       <p className="mt-3 text-sm leading-relaxed text-foreground/90">
-        Detectamos señales que requieren atención profesional, no deliberación.
-        Si estás en México: llama al <strong>SAPTEL 55 5259 8121</strong>{" "}
-        (24/7, confidencial). Si estás fuera, busca el servicio local
-        equivalente o acude a la sala de urgencias más cercana.
+        Si estás en México, puedes llamar al{" "}
+        <strong>SAPTEL 55 5259 8121</strong> (24/7, confidencial). Si estás
+        fuera, busca el servicio local equivalente o acércate a la sala de
+        urgencias más cercana. Tu bienestar importa más que esta conversación.
       </p>
       <p className="mt-3 text-xs text-muted">
-        Categorías detectadas: {categories.join(", ")}
+        Lo que detectamos: {categories.join(", ")}
       </p>
       <button
         onClick={onReset}
         className="mt-5 text-xs uppercase tracking-wider text-muted hover:text-foreground"
       >
-        Reiniciar sesión
+        Empezar de nuevo cuando estés
       </button>
     </div>
   );

@@ -1,13 +1,19 @@
 import { Container } from "@/components/ui/Container";
 import { LinkButton } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
-import { AgentPortrait } from "@/components/agents/AgentPortrait";
+import { AgentFace } from "@/components/agents/AgentFace";
 import {
-  AGENT_DOMINANT_QUESTION,
   AGENT_LABELS,
   AGENT_ROLES,
   AGENT_IDS,
+  type AgentId,
 } from "@/lib/agents/ids";
+
+const WHISPERS: Record<AgentId, string> = {
+  marco: "Pienso en quién serás dentro de dos años si dices que sí.",
+  elena: "Imaginemos lo peor con calma, y veamos cuánto duele.",
+  rafael: "¿Y si hay algo que aún no te has atrevido a preguntar?",
+};
 
 export function Hero() {
   return (
@@ -19,7 +25,7 @@ export function Hero() {
             <Reveal>
               <span className="inline-flex items-center gap-2 rounded-full border border-border-strong/70 bg-surface/80 px-3.5 py-1.5 text-xs font-medium uppercase tracking-[0.14em] text-foreground-soft shadow-soft backdrop-blur">
                 <span className="size-1.5 rounded-full bg-accent" />
-                Council deliberativo · MVP v1.1
+                Para decisiones que pesan
               </span>
             </Reveal>
 
@@ -31,13 +37,13 @@ export function Hero() {
 
             <Reveal delay={140}>
               <p className="mt-7 max-w-xl text-balance text-lg leading-relaxed text-foreground-soft md:text-xl">
-                Frente a una decisión difícil, COUNCILia reúne a tres
-                deliberantes con funciones objetivo incompatibles.{" "}
+                A veces no necesitas una respuesta más. Necesitas que alguien te
+                ayude a ver lo que estás cargando.{" "}
                 <span className="text-foreground">
-                  No te da una recomendación
-                </span>
-                : hace visibles los tradeoffs para que decidas con la cabeza
-                clara.
+                  Te sentamos con tres personas
+                </span>{" "}
+                que te escuchan en serio, te muestran lo que evades sin
+                regañarte, y te devuelven la decisión.
               </p>
             </Reveal>
 
@@ -47,10 +53,10 @@ export function Hero() {
                 className="mt-10 flex flex-wrap items-center gap-3"
               >
                 <LinkButton href="/onboarding" variant="primary">
-                  Reunir mi council
+                  Sentarme con ellos
                 </LinkButton>
                 <LinkButton href="#council" variant="secondary">
-                  Conoce a Marco, Elena y Rafael
+                  Conocer a Marco, Elena y Rafael
                 </LinkButton>
               </div>
             </Reveal>
@@ -59,18 +65,18 @@ export function Hero() {
               <dl className="mt-14 grid max-w-xl grid-cols-3 gap-6 border-t border-border-strong/40 pt-8 text-sm">
                 <Stat
                   value="3"
-                  label="Deliberantes"
-                  caption="Funciones objetivo incompatibles"
+                  label="Voces"
+                  caption="Que no se ponen de acuerdo y te ayudan a ver claro"
                 />
                 <Stat
-                  value={<>&lt;1.5s</>}
-                  label="Primer token"
-                  caption="Streaming en paralelo"
+                  value="Tú"
+                  label="Decides"
+                  caption="Nadie te dice qué hacer, ni siquiera al final"
                 />
                 <Stat
                   value="0"
-                  label="Recomendaciones"
-                  caption="Solo nombra tradeoffs"
+                  label="Empujones"
+                  caption="Ningún consejo disfrazado de respuesta"
                 />
               </dl>
             </Reveal>
@@ -96,7 +102,7 @@ function Stat({
 }) {
   return (
     <div>
-      <dd className="font-mono text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+      <dd className="font-sans text-3xl font-semibold tracking-tight text-foreground">
         {value}
       </dd>
       <dt className="mt-1 text-xs uppercase tracking-[0.14em] text-foreground-soft">
@@ -117,12 +123,12 @@ function CouncilPanel() {
 
       <div className="relative overflow-hidden rounded-council-xl border border-border-strong/40 bg-surface/85 shadow-council-lg backdrop-blur">
         <div className="flex items-center justify-between border-b border-border/70 px-5 py-3">
-          <div className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-foreground-soft">
+          <div className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-foreground-soft">
             <span className="size-1.5 rounded-full bg-accent" />
-            Sesión deliberativa
+            Tu council, en silencio
           </div>
-          <div className="font-mono text-[10px] tabular-nums text-subtle">
-            Fase 01 · Posturas
+          <div className="text-[10px] tabular-nums text-subtle">
+            Te están escuchando
           </div>
         </div>
 
@@ -132,17 +138,17 @@ function CouncilPanel() {
               key={agent}
               className="flex items-start gap-4 border-b border-border/60 px-5 py-5 last:border-b-0"
               style={{
-                animation: `agent-in 600ms ease-out ${idx * 140}ms both`,
+                animation: `soft-rise 700ms ease-out ${idx * 160}ms both`,
               }}
             >
-              <AgentPortrait agent={agent} size={56} />
+              <AgentFace agent={agent} size={56} mood="listening" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-foreground">
                     {AGENT_LABELS[agent]}
                   </span>
                   <span
-                    className="font-mono text-[10px] uppercase tracking-[0.16em]"
+                    className="text-[10px] uppercase tracking-[0.16em]"
                     style={{
                       color: `var(--${agent})`,
                     }}
@@ -150,8 +156,8 @@ function CouncilPanel() {
                     {AGENT_ROLES[agent]}
                   </span>
                 </div>
-                <p className="mt-1.5 text-[13.5px] leading-relaxed text-foreground-soft">
-                  {AGENT_DOMINANT_QUESTION[agent]}
+                <p className="mt-1.5 text-[13.5px] italic leading-relaxed text-foreground-soft">
+                  “{WHISPERS[agent]}”
                 </p>
               </div>
             </li>
@@ -159,11 +165,11 @@ function CouncilPanel() {
         </ul>
 
         <div className="flex items-center gap-3 border-t border-border/70 bg-surface-soft/60 px-5 py-3.5">
-          <span className="inline-flex size-7 items-center justify-center rounded-full bg-surface ring-1 ring-border-strong/70 font-mono text-[11px] text-foreground-soft">
+          <span className="inline-flex size-7 items-center justify-center rounded-full bg-surface ring-1 ring-border-strong/70 text-[11px] text-foreground-soft">
             Tú
           </span>
           <span className="flex-1 text-sm text-foreground-soft">
-            Escribe tu respuesta…
+            Cuéntales lo que te tiene así…
           </span>
           <span
             className="block h-4 w-px bg-foreground"
@@ -174,13 +180,7 @@ function CouncilPanel() {
       </div>
 
       <style>{`
-        @keyframes agent-in {
-          from { opacity: 0; transform: translateY(6px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes caret {
-          50% { opacity: 0; }
-        }
+        @keyframes caret { 50% { opacity: 0; } }
       `}</style>
     </div>
   );
@@ -192,18 +192,21 @@ function BackgroundOrbs() {
       <div
         aria-hidden
         className="pointer-events-none absolute -top-40 -right-32 size-[520px] rounded-full bg-accent/22 blur-3xl"
+        style={{ animation: "face-float 12s ease-in-out infinite" }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute top-32 -left-40 size-[460px] rounded-full bg-elena/18 blur-3xl"
+        style={{ animation: "face-float 14s ease-in-out 1.5s infinite" }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute bottom-0 left-1/3 size-[380px] rounded-full bg-marco/18 blur-3xl"
+        style={{ animation: "face-float 16s ease-in-out 0.8s infinite" }}
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08]"
+        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07]"
         style={{
           backgroundImage:
             "linear-gradient(var(--border-strong) 1px, transparent 1px), linear-gradient(90deg, var(--border-strong) 1px, transparent 1px)",

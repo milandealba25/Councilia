@@ -3,32 +3,32 @@ import { Reveal } from "@/components/ui/Reveal";
 
 const CASES = [
   {
-    title: "Una decisión laboral grande",
+    title: "Cuando algo grande en tu vida está por cambiar",
     body:
-      "Renunciar, aceptar la oferta, esperar seis meses más. Lo que parece cuestión de números también es cuestión de qué versión de ti se vuelve más probable.",
+      "Renunciar, aceptar la oferta, esperar otros seis meses. Lo que parece un cálculo también es la pregunta de qué versión de ti se vuelve más probable.",
     show:
-      "Costo del peor escenario · efectos a 2 años · supuestos no verificados",
+      "Qué cuesta el peor escenario · qué cambia a dos años · qué no te has atrevido a verificar",
   },
   {
-    title: "Una decisión que afecta a otros",
+    title: "Cuando lo que decidas también toca a otras personas",
     body:
-      "Mudanza, sociedad, ruptura, fundar algo con alguien. Lo emocional y lo material no se separan; el council los nombra por separado.",
+      "Mudanza, sociedad, ruptura, hacer algo con alguien. Lo emocional y lo material no se separan; aquí se nombran por separado, sin mezclarte el corazón.",
     show:
-      "Tradeoffs irreductibles · costo de oportunidad · qué te pierdes al elegir cada camino",
+      "Qué cedes con cada camino · qué te llevas si dices que sí · qué se queda si dices que no",
   },
   {
-    title: "Una intuición que no termina de cuajar",
+    title: "Cuando algo no se siente bien y no sabes por qué",
     body:
-      "Algo no se siente bien y no sabes por qué. Tres lentes simultáneas suelen revelar la fricción que la urgencia te oculta.",
+      "Hay una incomodidad que no se va, pero todavía no le pones nombre. Tres miradas a la vez suelen revelar la fricción que la prisa te tapa.",
     show:
-      "Supuesto frágil · escenario que estás evitando · pregunta que aún no te has hecho",
+      "El supuesto frágil · el escenario que estás evitando · la pregunta que llevas tiempo posponiendo",
   },
   {
-    title: "Una elección con plazos cortos",
+    title: "Cuando tienes que decidir pronto y no quieres equivocarte solo",
     body:
-      "Cuando el tiempo aprieta, una sola voz tiende a confirmar lo que ya pensaste. El council vuelve visibles las opciones que estás descartando sin verlas.",
+      "Cuando el tiempo aprieta, hablar con uno mismo confirma lo que ya pensaste. Aquí ves lo que estás descartando sin haberlo mirado.",
     show:
-      "Caminos alternativos · qué pesa más a 30 días vs. a 3 años · qué información falta",
+      "Caminos que no estabas viendo · qué pesa a 30 días vs. a 3 años · qué falta saber antes de decidir",
   },
 ] as const;
 
@@ -39,15 +39,15 @@ export function UseCasesSection() {
         <Reveal>
           <header className="mb-14 max-w-3xl">
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-accent-strong">
-              Para qué sirve
+              Para qué vale la pena
             </p>
             <h2 className="mt-4 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
               Cuando una sola voz no alcanza.
             </h2>
             <p className="mt-5 max-w-2xl text-lg leading-relaxed text-foreground-soft">
-              COUNCILia no reemplaza a tu terapeuta, a tu coach ni a tus amigos.
-              Es una herramienta para pensar mejor antes de decidir, cuando la
-              decisión importa y el ruido pesa.
+              No estamos para reemplazar a tu terapeuta, a tu coach ni a tus
+              amigos. Estamos para esos momentos en que necesitas pensar mejor
+              antes de decidir, y hablarlo solo ya no te alcanza.
             </p>
           </header>
         </Reveal>
@@ -57,7 +57,7 @@ export function UseCasesSection() {
             <Reveal key={c.title} as="li" delay={idx * 80}>
               <article className="flex h-full flex-col gap-3 bg-surface p-7 md:p-8">
                 <div className="flex items-baseline gap-3">
-                  <span className="font-mono text-[11px] tabular-nums text-subtle">
+                  <span className="text-[11px] tabular-nums text-subtle">
                     0{idx + 1}
                   </span>
                   <h3 className="text-lg font-semibold leading-snug text-foreground">
@@ -69,7 +69,7 @@ export function UseCasesSection() {
                 </p>
                 <p className="mt-2 border-t border-border/60 pt-3 text-xs leading-relaxed text-subtle">
                   <span className="font-medium uppercase tracking-[0.14em] text-foreground-soft">
-                    Lo que verás
+                    Lo que se vuelve visible
                   </span>
                   <span className="mx-1.5 text-border-strong">·</span>
                   {c.show}

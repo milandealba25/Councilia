@@ -6,13 +6,13 @@ const COLUMNS: Array<{
   links: Array<{ href: string; label: string }>;
 }> = [
   {
-    title: "Producto",
+    title: "Conocer",
     links: [
-      { href: "/#council", label: "El council" },
-      { href: "/#flujo", label: "Cómo funciona" },
-      { href: "/#ejemplo", label: "Un ejemplo" },
-      { href: "/#principios", label: "Principios" },
-      { href: "/onboarding", label: "Empezar" },
+      { href: "/#council", label: "Quiénes son" },
+      { href: "/#flujo", label: "Cómo es una sesión" },
+      { href: "/#ejemplo", label: "Un caso real" },
+      { href: "/#principios", label: "Lo que cuidamos" },
+      { href: "/onboarding", label: "Sentarme con ellos" },
     ],
   },
   {
@@ -52,17 +52,17 @@ export function Footer() {
               </span>
             </Link>
             <p className="max-w-xs text-[14px] leading-relaxed text-foreground-soft">
-              Un council deliberativo. Tres voces que no convergen. Una síntesis
-              que nombra tradeoffs en vez de recomendar.
+              Tres voces que te ayudan a pensar lo que estás eligiendo. Sin
+              empujarte, sin darte la razón a la fuerza.
             </p>
-            <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-subtle">
+            <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-subtle">
               Pensar mejor, no saber más.
             </p>
           </div>
 
           {COLUMNS.map((col) => (
             <div key={col.title}>
-              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-subtle">
+              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-subtle">
                 {col.title}
               </p>
               <ul className="mt-4 flex flex-col gap-2 text-sm">
@@ -84,8 +84,9 @@ export function Footer() {
         <div className="mt-12 flex flex-col gap-3 border-t border-border/70 pt-6 text-xs leading-relaxed text-subtle md:flex-row md:items-center md:justify-between">
           <span>© {new Date().getFullYear()} COUNCILia · Todos los derechos reservados.</span>
           <span className="max-w-md md:text-right">
-            Si se detecta crisis emocional aguda, el producto se calla y entrega
-            recursos profesionales verificados.
+            Si algo duele mucho durante una sesión, el council se calla y te
+            comparte recursos profesionales verificados. Tu bienestar pesa más
+            que la conversación.
           </span>
         </div>
       </Container>

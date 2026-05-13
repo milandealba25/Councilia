@@ -1,6 +1,6 @@
 import { Container } from "@/components/ui/Container";
 import { Reveal } from "@/components/ui/Reveal";
-import { AgentPortrait } from "@/components/agents/AgentPortrait";
+import { AgentFace } from "@/components/agents/AgentFace";
 import {
   AGENT_DOMINANT_QUESTION,
   AGENT_LABELS,
@@ -9,28 +9,28 @@ import {
   type AgentId,
 } from "@/lib/agents/ids";
 
-const AGENT_OBJECTIVE: Record<AgentId, string> = {
+const AGENT_CARE: Record<AgentId, string> = {
   marco:
-    "Maximiza el posicionamiento óptimo a 2–3 años por encima de la satisfacción inmediata.",
+    "Cuida tu yo de dentro de dos años. Quiere asegurarse de que la decisión no te aleje en silencio de quien quieres ser.",
   elena:
-    "Minimiza el peor escenario realista y su costo sostenido en el tiempo.",
+    "Cuida lo que podrías perder sin darte cuenta. Mira el peor escenario realista sin dramatismo y te pregunta cuánto puedes sostenerlo.",
   rafael:
-    "Reduce el número de supuestos no verificados que estás dando por hecho.",
+    "Cuida tu honestidad contigo mismo. Detecta las cosas que estás dando por hechas sin haberlas mirado.",
 };
 
-const AGENT_PITCH: Record<AgentId, string> = {
+const AGENT_VOICE: Record<AgentId, string> = {
   marco:
-    "Eleva el horizonte temporal. Si llegas con urgencia, te recuerda los efectos de segundo orden. Si llegas romantizando el largo plazo, te pide pasos verificables a 30 días.",
+    "Si llegas con prisa, te frena con ternura. Si llegas con un sueño grande, te pide pasos concretos para los próximos 30 días.",
   elena:
-    "Traduce lo cualitativo a magnitudes comparables. Su pregunta no es si vale la pena, sino cuánto cuesta el peor escenario realista y por cuánto tiempo puedes sostenerlo.",
+    "Traduce lo emocional a algo que se puede pesar: qué cuesta, por cuánto tiempo, en qué momento se vuelve insostenible. Sin asustarte.",
   rafael:
-    "Una sola pregunta dura por intervención. Nunca ataca al usuario; ataca al razonamiento. Detecta supuestos que diste por verificados sin verificarlos.",
+    "Una sola pregunta dura por intervención. No te ataca a ti; revisa lo que estás suponiendo sin haberlo verificado.",
 };
 
-const AGENT_NEVER: Record<AgentId, string> = {
-  marco: "Dar tácticas inmediatas · validar al usuario · celebrar lo ya pensado",
-  elena: "Pintar optimismo · balancear para sonar neutral · hablar en abstracto",
-  rafael: "Repetirse · dar respuestas en vez de preguntas · suavizar la incomodidad",
+const AGENT_AVOID: Record<AgentId, string> = {
+  marco: "Darte tácticas rápidas · darte la razón · celebrar lo que ya pensaste",
+  elena: "Pintarte un cuadro bonito · sonar neutral · hablarte en abstracto",
+  rafael: "Repetirse · darte respuestas en vez de preguntas · suavizar lo incómodo",
 };
 
 const AGENT_VAR: Record<AgentId, string> = {
@@ -49,18 +49,19 @@ export function CouncilSection() {
         <Reveal>
           <header className="mb-14 max-w-3xl">
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-accent-strong">
-              El council
+              Quiénes son
             </p>
             <h2 className="mt-4 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
-              Tres deliberantes. Tres funciones objetivo incompatibles.
+              Tres personas. Tres formas distintas de cuidarte.
             </h2>
             <p className="mt-5 max-w-2xl text-lg leading-relaxed text-foreground-soft">
-              El desacuerdo no emerge de prompts de personalidad. Emerge de{" "}
+              No se llevan bien entre ellos —en el buen sentido—. Cada uno
+              cuida algo distinto de ti, y por eso{" "}
               <span className="font-medium text-foreground">
-                criterios de optimización distintos
-              </span>{" "}
-              que no pueden satisfacerse al mismo tiempo. Por eso el council
-              nunca converge artificialmente.
+                nunca se ponen de acuerdo a la fuerza
+              </span>
+              . Cuando los escuchas a los tres, sueles ver lo que solo no
+              alcanzas a mirar.
             </p>
           </header>
         </Reveal>
@@ -68,7 +69,7 @@ export function CouncilSection() {
         <div className="grid gap-6 md:grid-cols-3">
           {AGENT_IDS.map((agent, idx) => (
             <Reveal key={agent} delay={idx * 90}>
-              <article className="group relative flex h-full flex-col gap-6 overflow-hidden rounded-council-lg border border-border bg-surface p-7 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-council-lg">
+              <article className="group relative flex h-full flex-col gap-6 overflow-hidden rounded-council-lg border border-border bg-surface p-7 shadow-soft transition-all duration-500 hover:-translate-y-1 hover:shadow-council-lg">
                 <div
                   aria-hidden
                   className="absolute inset-x-0 -top-px h-[3px]"
@@ -78,8 +79,8 @@ export function CouncilSection() {
                 />
 
                 <div className="flex items-start justify-between">
-                  <AgentPortrait agent={agent} size={72} />
-                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-subtle">
+                  <AgentFace agent={agent} size={80} mood="calm" />
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-subtle">
                     0{idx + 1}
                   </span>
                 </div>
@@ -96,26 +97,26 @@ export function CouncilSection() {
                   </p>
                 </div>
 
-                <Field label="Función objetivo" color={AGENT_VAR[agent]}>
-                  {AGENT_OBJECTIVE[agent]}
+                <Field label="Lo que cuida en ti" color={AGENT_VAR[agent]}>
+                  {AGENT_CARE[agent]}
                 </Field>
 
-                <Field label="Pregunta dominante" color={AGENT_VAR[agent]}>
+                <Field label="La pregunta que repite" color={AGENT_VAR[agent]}>
                   <span className="italic">
                     “{AGENT_DOMINANT_QUESTION[agent]}”
                   </span>
                 </Field>
 
                 <p className="text-[15px] leading-relaxed text-foreground-soft">
-                  {AGENT_PITCH[agent]}
+                  {AGENT_VOICE[agent]}
                 </p>
 
                 <div className="mt-auto border-t border-border/70 pt-4">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-subtle">
-                    No hace
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-subtle">
+                    Lo que nunca hace
                   </p>
                   <p className="mt-1.5 text-[13px] leading-relaxed text-foreground-soft">
-                    {AGENT_NEVER[agent]}
+                    {AGENT_AVOID[agent]}
                   </p>
                 </div>
               </article>
@@ -139,7 +140,7 @@ function Field({
   return (
     <div className="border-l-2 pl-3.5" style={{ borderColor: color }}>
       <p
-        className="font-mono text-[10px] uppercase tracking-[0.16em]"
+        className="text-[10px] uppercase tracking-[0.16em]"
         style={{ color }}
       >
         {label}

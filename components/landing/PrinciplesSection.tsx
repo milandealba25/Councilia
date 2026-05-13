@@ -4,39 +4,39 @@ import { Reveal } from "@/components/ui/Reveal";
 const PRINCIPLES = [
   {
     n: "01",
-    title: "El desacuerdo emerge de funciones objetivo incompatibles",
+    title: "Aquí nadie te va a empujar.",
     body:
-      "No de prompts de personalidad. Cualquier sistema que solo cambie el tono converge al consenso.",
+      "El council nunca cierra con una recomendación. Te devuelve los caminos visibles y se queda en silencio. Lo que sigue lo eliges tú.",
   },
   {
     n: "02",
-    title: "La síntesis nombra tensiones, no las neutraliza",
+    title: "El desacuerdo no es teatro.",
     body:
-      "Nunca recomienda. Nunca balancea artificialmente. No inventa un cuarto camino intermedio para complacer al usuario.",
+      "Marco, Elena y Rafael no “opinan distinto” por estilo. Cada uno cuida algo distinto de ti, y por eso no convergen a la fuerza.",
   },
   {
     n: "03",
-    title: "Menos interacción entre agentes es más",
+    title: "Una pregunta dura vale más que veinte.",
     body:
-      "Una contradicción útil vale más que veinte mensajes teatrales. Una sola réplica por turno.",
+      "Si dos voces se contradicen, sale solo una réplica. Una buena pregunta incómoda hace más por ti que una pelea entre robots.",
+  },
+  {
+    n: "04",
+    title: "Te llevas lo que pasó.",
+    body:
+      "La conversación, los caminos y los matices se pueden guardar y revisar más tarde, en frío. No se evaporan al cerrar la pestaña.",
   },
   {
     n: "05",
-    title: "El usuario decide al final",
+    title: "Si algo duele mucho, paramos.",
     body:
-      "El council nunca decide por ti. Sin botones tipo «el council recomienda…», sin ranking de caminos.",
+      "Si aparece una crisis emocional, el council se calla y te entrega recursos profesionales verificados. Tu bienestar pesa más que la sesión.",
   },
   {
-    n: "07",
-    title: "Streaming desde el primer token",
+    n: "06",
+    title: "Tu intimidad se respeta.",
     body:
-      "La percepción de velocidad es producto. No hay «spinner mientras pensamos».",
-  },
-  {
-    n: "09",
-    title: "Crisis emocional gana siempre",
-    body:
-      "Si se detecta crisis aguda, el producto se calla y entrega recursos profesionales verificados.",
+      "Solo guardamos lo necesario para que la conversación tenga continuidad. Tú decides cuándo borrarlo todo.",
   },
 ] as const;
 
@@ -50,20 +50,20 @@ export function PrinciplesSection() {
         <Reveal>
           <header className="mb-14 max-w-3xl">
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-accent-strong">
-              Principios
+              Lo que cuidamos
             </p>
             <h2 className="mt-4 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
-              No competimos en respuestas correctas. Competimos en pensar mejor.
+              Lo que prometemos —y lo que nunca vamos a hacer.
             </h2>
           </header>
         </Reveal>
 
         <ul className="grid gap-px overflow-hidden rounded-council-lg border border-border bg-border md:grid-cols-2 lg:grid-cols-3">
           {PRINCIPLES.map((p, idx) => (
-            <Reveal key={p.n} as="li" delay={(idx % 3) * 70}>
+            <Reveal key={p.n} as="li" delay={(idx % 3) * 80}>
               <article className="flex h-full flex-col gap-3 bg-surface p-7 md:p-8">
                 <div className="flex items-baseline gap-3">
-                  <span className="font-mono text-[11px] tabular-nums text-accent-strong">
+                  <span className="text-[11px] tabular-nums text-accent-strong">
                     {p.n}
                   </span>
                   <span className="h-px flex-1 bg-border-strong/40" />

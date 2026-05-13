@@ -37,37 +37,38 @@ export function SynthesisCard({ synthesis }: Props) {
       className="relative flex flex-col gap-6 rounded-council border border-accent/50 bg-elevated p-7 shadow-council print:border-black print:bg-white print:text-black print:shadow-none"
     >
       <span
-        className="absolute -top-3 left-6 inline-flex items-center gap-2 rounded-full border border-accent bg-background px-3 py-1 text-[11px] font-mono uppercase tracking-wider text-accent print:hidden"
+        className="absolute -top-3 left-6 inline-flex items-center gap-2 rounded-full border border-accent bg-background px-3 py-1 text-[11px] uppercase tracking-wider text-accent print:hidden"
         aria-hidden
       >
-        Fase 4 · Síntesis
+        Lo que te llevas
       </span>
 
       <header className="pt-1">
         <h2 className="font-sans text-xl font-semibold tracking-tight text-foreground print:text-2xl">
-          La sesión cierra aquí.
+          La conversación cierra aquí, pero la decisión es tuya.
         </h2>
         <p className="mt-1 text-xs text-muted print:hidden">
-          La síntesis nombra tradeoffs, no recomienda. Tú decides al final.
+          Te dejan los caminos visibles y lo que cada uno te pide ceder.
+          Nadie te dice cuál tomar.
         </p>
       </header>
 
-      <Block title="Caminos visibles">
+      <Block title="Caminos que están sobre la mesa">
         <ul className="flex flex-col gap-2 text-sm leading-relaxed">
           {synthesis.paths.map((p, i) => (
             <li key={i} className="flex gap-3">
-              <span className="font-mono text-muted">·</span>
+              <span className="text-muted">·</span>
               <span>{p}</span>
             </li>
           ))}
         </ul>
       </Block>
 
-      <Block title="Tradeoffs irreductibles">
+      <Block title="Lo que ningún camino te ahorra">
         <ul className="flex flex-col gap-2 text-sm leading-relaxed">
           {synthesis.tradeoffs.map((t, i) => (
             <li key={i} className="flex gap-3">
-              <span className="font-mono text-tension">×</span>
+              <span className="text-tension">×</span>
               <span>{t}</span>
             </li>
           ))}
@@ -82,10 +83,10 @@ export function SynthesisCard({ synthesis }: Props) {
 
       <div className="flex flex-wrap gap-3 border-t border-border/60 pt-5 print:hidden">
         <Button variant="secondary" onClick={copyMarkdown}>
-          {copied ? "Copiado" : "Copiar markdown"}
+          {copied ? "Copiado" : "Llevármelo en texto"}
         </Button>
         <Button variant="secondary" onClick={() => window.print()}>
-          Exportar a PDF
+          Guardar en PDF
         </Button>
       </div>
     </article>
@@ -101,7 +102,7 @@ function Block({
 }) {
   return (
     <section>
-      <h3 className="font-mono text-[11px] font-medium uppercase tracking-widest text-muted print:text-black">
+      <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted print:text-black">
         {title}
       </h3>
       <div className="mt-2 text-foreground print:text-black">{children}</div>
