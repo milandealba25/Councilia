@@ -47,43 +47,55 @@ export function FlowSection() {
   return (
     <section
       id="flujo"
-      className="border-t border-border/60 bg-elevated/30 py-24 md:py-32"
+      className="relative border-t border-border/70 py-24 md:py-32"
     >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-surface-soft/40 via-transparent to-transparent"
+      />
       <Container>
         <header className="mb-14 max-w-3xl">
-          <p className="text-xs font-medium uppercase tracking-widest text-accent">
+          <p className="text-xs font-medium uppercase tracking-widest text-accent-strong">
             02 — Cómo funciona
           </p>
-          <h2 className="mt-4 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+          <h2 className="mt-4 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
             Cuatro fases visibles.{" "}
-            <span className="text-muted">Una conversación con orden claro.</span>
+            <span className="text-foreground-soft">
+              Una conversación con orden claro.
+            </span>
           </h2>
-          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted">
-            Sin interrupción del streaming, sin botones de decisión por turno. El
-            orquestador propio (no LangChain ni CrewAI) decide quién responde a
-            quién para maximizar tensión informativa.
+          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-foreground-soft">
+            Sin interrupción del streaming, sin botones de decisión por turno.
+            El orquestador propio (no LangChain ni CrewAI) decide quién responde
+            a quién para maximizar tensión informativa.
           </p>
         </header>
 
-        <ol className="grid gap-px overflow-hidden rounded-council border border-border bg-border md:grid-cols-5">
+        <ol className="relative grid gap-4 md:grid-cols-5 md:gap-3">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-0 right-0 top-12 hidden h-px bg-gradient-to-r from-transparent via-border-strong to-transparent md:block"
+          />
           {PHASES.map((phase, idx) => (
             <li
               key={phase.id}
-              className="relative flex flex-col gap-3 bg-background p-6 md:bg-elevated/60"
+              className="group relative flex flex-col gap-3 rounded-council-lg border border-border bg-surface p-5 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-council"
             >
               <div className="flex items-center justify-between">
-                <span className="font-mono text-[11px] uppercase tracking-wider text-accent">
-                  {phase.tag}
-                </span>
-                <span className="font-mono text-[11px] tabular-nums text-muted">
+                <span className="inline-flex size-9 items-center justify-center rounded-full bg-accent-soft font-mono text-xs font-semibold text-accent-strong ring-1 ring-accent/30">
                   0{idx}
                 </span>
+                <span className="font-mono text-[10px] uppercase tracking-wider text-subtle">
+                  {phase.tag}
+                </span>
               </div>
-              <h3 className="text-base font-semibold text-foreground">
+              <h3 className="text-base font-semibold leading-snug text-foreground">
                 {phase.title}
               </h3>
-              <p className="text-sm leading-relaxed text-muted">{phase.body}</p>
-              <p className="mt-auto font-mono text-[11px] uppercase tracking-wider text-muted/80">
+              <p className="text-sm leading-relaxed text-foreground-soft">
+                {phase.body}
+              </p>
+              <p className="mt-auto font-mono text-[11px] uppercase tracking-wider text-subtle">
                 {phase.detail}
               </p>
             </li>

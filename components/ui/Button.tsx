@@ -4,15 +4,15 @@ import { type ComponentProps, type ReactNode } from "react";
 type Variant = "primary" | "secondary" | "ghost";
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-council px-5 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-council px-5 py-2.5 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50";
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-accent text-background hover:bg-[color-mix(in_oklab,var(--accent)_85%,white)] shadow-council",
+    "bg-accent text-accent-foreground shadow-council hover:bg-accent-strong hover:-translate-y-px hover:shadow-council-lg active:translate-y-0",
   secondary:
-    "border border-border bg-elevated text-foreground hover:border-accent-muted hover:text-accent",
+    "border border-border-strong/70 bg-surface/80 text-foreground backdrop-blur hover:border-accent hover:bg-accent-soft hover:text-accent-strong",
   ghost:
-    "text-muted hover:text-foreground underline-offset-4 hover:underline",
+    "text-foreground-soft hover:text-accent-strong underline-offset-4 hover:underline",
 };
 
 interface CommonProps {

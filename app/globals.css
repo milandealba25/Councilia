@@ -4,24 +4,54 @@
 
 /*
   Tokens alineados con docs/design-tokens.md (A2 / B1).
-  Modo oscuro por defecto — coherente con producto tipo “sala de deliberación”.
+  Tema claro y cálido — “sala de deliberación luminosa”.
+  Paleta: marfil, tinta cálida, terracota, ámbar y salvia.
 */
 :root {
-  --background: #0c1117;
-  --foreground: #e8edf5;
-  --surface-elevated: #151b24;
-  --border: #263041;
-  --text-muted: #8b9cb3;
-  --accent: #5b8def;
-  --accent-muted: #3d5a80;
-  --tension: #c9a227;
-  --error: #e85d5d;
+  --background: #fbf6ed;
+  --surface: #ffffff;
+  --surface-soft: #fff4e6;
+  --surface-elevated: #fffaf2;
+
+  --foreground: #1f1815;
+  --foreground-soft: #3a2f28;
+  --text-muted: #6b574a;
+  --text-subtle: #8a7567;
+
+  --border: #ead9c4;
+  --border-strong: #d6c1a6;
+
+  --accent: #e2603b;
+  --accent-strong: #c4452a;
+  --accent-soft: #ffe6da;
+  --accent-foreground: #ffffff;
+
+  --marco: #5a8a6f;
+  --marco-soft: #e3efe6;
+  --elena: #d99a2b;
+  --elena-soft: #fbecc8;
+  --rafael: #c4503a;
+  --rafael-soft: #fbdcd2;
+
+  --tension: #b88420;
+  --error: #b14430;
+
+  --ring: rgb(226 96 59 / 0.4);
 }
 
 @layer base {
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-geist-sans), system-ui, sans-serif;
+    background-image:
+      radial-gradient(1100px 540px at 88% -8%, rgb(226 96 59 / 0.18), transparent 60%),
+      radial-gradient(900px 480px at -10% 10%, rgb(217 154 43 / 0.18), transparent 65%),
+      radial-gradient(900px 500px at 50% 110%, rgb(90 138 111 / 0.14), transparent 70%);
+    background-attachment: fixed;
+  }
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--foreground);
   }
 }
 
@@ -29,11 +59,27 @@
   .text-balance {
     text-wrap: balance;
   }
+  .grain {
+    position: relative;
+  }
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.4;
+    mix-blend-mode: multiply;
+    background-image:
+      radial-gradient(rgb(31 24 21 / 0.05) 1px, transparent 1px),
+      radial-gradient(rgb(31 24 21 / 0.04) 1px, transparent 1px);
+    background-size: 3px 3px, 7px 7px;
+    background-position: 0 0, 1px 2px;
+  }
 }
 
 /*
   Estilos tipográficos para páginas con markdown (R2/R3/R4/R6/R7).
-  Optimizadas para lectura larga; sin imágenes ni shortcodes en MVP.
+  Optimizados para lectura larga sobre fondo cálido.
 */
 .legal-prose {
   color: var(--foreground);
@@ -61,12 +107,12 @@
 }
 .legal-prose p {
   margin: 0.75rem 0;
-  color: rgb(232 237 245 / 0.92);
+  color: var(--foreground-soft);
 }
 .legal-prose ul,
 .legal-prose ol {
   margin: 0.75rem 0 0.75rem 1.25rem;
-  color: rgb(232 237 245 / 0.92);
+  color: var(--foreground-soft);
 }
 .legal-prose ul {
   list-style: disc;
@@ -78,17 +124,18 @@
   margin: 0.25rem 0;
 }
 .legal-prose a {
-  color: var(--accent);
+  color: var(--accent-strong);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 .legal-prose blockquote {
   margin: 1rem 0;
   padding: 0.5rem 1rem;
-  border-left: 2px solid var(--accent-muted);
-  background: rgb(91 141 239 / 0.05);
-  color: var(--text-muted);
+  border-left: 2px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--foreground-soft);
   font-style: italic;
+  border-radius: 0 0.5rem 0.5rem 0;
 }
 .legal-prose hr {
   margin: 2.5rem 0;
@@ -97,10 +144,11 @@
 }
 .legal-prose code {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  background: var(--surface-elevated);
+  background: var(--surface-soft);
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
   font-size: 0.85em;
+  color: var(--accent-strong);
 }
 .legal-prose table {
   width: 100%;
@@ -117,7 +165,7 @@
 .legal-prose th {
   font-weight: 600;
   color: var(--foreground);
-  background: rgb(255 255 255 / 0.02);
+  background: var(--surface-soft);
 }
 .legal-prose strong {
   color: var(--foreground);
@@ -134,6 +182,7 @@
   }
   body {
     background: white !important;
+    background-image: none !important;
     color: black !important;
   }
   header,
