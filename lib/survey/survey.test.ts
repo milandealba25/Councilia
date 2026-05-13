@@ -10,6 +10,7 @@ describe("Survey v1 (C1)", () => {
     const parsed = userContextSchema.parse({
       surveyVersion: "v1",
       decisionType: "carrera",
+      ageRange: "25_34",
       urgency: "este_mes",
       needFromCouncil: "confrontar",
       fearedLoss: "arrepentirme",
@@ -22,6 +23,7 @@ describe("Survey v1 (C1)", () => {
       userContextSchema.parse({
         surveyVersion: "v1",
         decisionType: "otra-cosa",
+        ageRange: "25_34",
         urgency: "este_mes",
         needFromCouncil: "confrontar",
         fearedLoss: "arrepentirme",
@@ -29,10 +31,11 @@ describe("Survey v1 (C1)", () => {
     ).toThrow();
   });
 
-  it("expone exactamente 4 preguntas en el orden documentado", () => {
-    expect(surveyV1Questions.length).toBe(4);
+  it("expone exactamente 5 preguntas en el orden documentado", () => {
+    expect(surveyV1Questions.length).toBe(5);
     expect(surveyV1Questions.map((q) => q.id)).toEqual([
       "decisionType",
+      "ageRange",
       "urgency",
       "needFromCouncil",
       "fearedLoss",
@@ -43,12 +46,14 @@ describe("Survey v1 (C1)", () => {
     const block = renderUserContextBlock({
       surveyVersion: "v1",
       decisionType: "negocio",
+      ageRange: "35_44",
       urgency: "hoy",
       needFromCouncil: "estructurar",
       fearedLoss: "perder_dinero",
     });
     expect(block).toContain("<user_context>");
     expect(block).toContain("decisionType: negocio");
+    expect(block).toContain("ageRange: 35_44");
     expect(block).toContain("</user_context>");
   });
 });

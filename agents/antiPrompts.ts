@@ -29,6 +29,7 @@ export interface AntiPrompt {
 const NEUTRAL_CTX: UserContext = {
   surveyVersion: "v1",
   decisionType: "vida",
+  ageRange: "25_34",
   urgency: "este_mes",
   needFromCouncil: "estructurar",
   fearedLoss: "arrepentirme",

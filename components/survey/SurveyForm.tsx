@@ -15,6 +15,7 @@ type Answers = Partial<Omit<UserContext, "surveyVersion">>;
 
 const QUESTION_INTROS: Record<string, string> = {
   decisionType: "Para empezar…",
+  ageRange: "· TU RANGO DE EDAD…",
   urgency: "· Y DIME…",
   needFromCouncil: "· ALGO IMPORTANTE…",
   fearedLoss: "· UNA ÚLTIMA COSA…",

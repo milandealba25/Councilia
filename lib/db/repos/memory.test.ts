@@ -4,6 +4,7 @@ import { createMemoryRepos } from "./memory";
 const baseCtx = {
   surveyVersion: "v1" as const,
   decisionType: "carrera" as const,
+  ageRange: "25_34" as const,
   urgency: "este_mes" as const,
   needFromCouncil: "estructurar" as const,
   fearedLoss: "perder_tiempo" as const,

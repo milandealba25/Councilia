@@ -545,6 +545,16 @@ function ContextStrip({
     creativa: "creativa o de producto",
     vida: "vida en general",
   };
+  const AGE_LABEL: Record<string, string> = {
+    under_18: "menor de 18",
+    "18_24": "18–24",
+    "25_34": "25–34",
+    "35_44": "35–44",
+    "45_54": "45–54",
+    "55_64": "55–64",
+    "65_plus": "65 o más",
+    prefer_not_say: "prefiero no decir",
+  };
   const URGENCY_LABEL: Record<string, string> = {
     hoy: "me está presionando",
     este_mes: "moverlo pronto",
@@ -567,9 +577,10 @@ function ContextStrip({
 
   const items: [string, string][] = [
     ["Lo que te trae", DECISION_LABEL[ctx.decisionType] ?? ctx.decisionType],
-    ["Tu ritmo", URGENCY_LABEL[ctx.urgency] ?? ctx.urgency],
-    ["Lo que necesitas", NEED_LABEL[ctx.needFromCouncil] ?? ctx.needFromCouncil],
-    ["Lo que más temes", LOSS_LABEL[ctx.fearedLoss] ?? ctx.fearedLoss],
+    ["Edad", AGE_LABEL[ctx.ageRange] ?? ctx.ageRange.replace(/_/g, " ")],
+    ["Tu ritmo", URGENCY_LABEL[ctx.urgency] ?? ctx.urgency.replace(/_/g, " ")],
+    ["Lo que necesitas", NEED_LABEL[ctx.needFromCouncil] ?? ctx.needFromCouncil.replace(/_/g, " ")],
+    ["Lo que más temes", LOSS_LABEL[ctx.fearedLoss] ?? ctx.fearedLoss.replace(/_/g, " ")],
   ];
   return (
     <div className="flex flex-col gap-3 rounded-council border border-border bg-elevated/40 p-4 sm:flex-row sm:items-center sm:justify-between">

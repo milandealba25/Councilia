@@ -90,6 +90,7 @@ describe("DebateRouter (K5)", () => {
       userContext: {
         surveyVersion: "v1",
         decisionType: "negocio",
+        ageRange: "25_34",
         urgency: "este_mes",
         needFromCouncil: "estructurar",
         fearedLoss: "perder_tiempo",

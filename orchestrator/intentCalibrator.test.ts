@@ -6,6 +6,7 @@ function ctx(overrides: Partial<UserContext> = {}): UserContext {
   return {
     surveyVersion: "v1",
     decisionType: "negocio",
+    ageRange: "25_34",
     urgency: "este_mes",
     needFromCouncil: "estructurar",
     fearedLoss: "perder_tiempo",

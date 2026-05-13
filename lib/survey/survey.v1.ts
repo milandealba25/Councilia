@@ -21,6 +21,18 @@ export const decisionTypeValues = [
 ] as const;
 export type DecisionType = (typeof decisionTypeValues)[number];
 
+export const ageRangeValues = [
+  "under_18",
+  "18_24",
+  "25_34",
+  "35_44",
+  "45_54",
+  "55_64",
+  "65_plus",
+  "prefer_not_say",
+] as const;
+export type AgeRange = (typeof ageRangeValues)[number];
+
 export const urgencyValues = [
   "hoy",
   "este_mes",
@@ -49,6 +61,7 @@ export type FearedLoss = (typeof fearedLossValues)[number];
 export const userContextSchema = z.object({
   surveyVersion: z.literal(SURVEY_VERSION),
   decisionType: z.enum(decisionTypeValues),
+  ageRange: z.enum(ageRangeValues),
   urgency: z.enum(urgencyValues),
   needFromCouncil: z.enum(needFromCouncilValues),
   fearedLoss: z.enum(fearedLossValues),
@@ -80,6 +93,20 @@ export const surveyV1Questions = [
       { value: "vida", label: "Algo más grande, sobre cómo quiero vivir" },
     ],
   } satisfies Question<DecisionType>,
+  {
+    id: "ageRange",
+    title: "¿En qué rango de edad te encuentras?",
+    options: [
+      { value: "under_18", label: "Menor de 18 años" },
+      { value: "18_24", label: "18 – 24 años" },
+      { value: "25_34", label: "25 – 34 años" },
+      { value: "35_44", label: "35 – 44 años" },
+      { value: "45_54", label: "45 – 54 años" },
+      { value: "55_64", label: "55 – 64 años" },
+      { value: "65_plus", label: "65 años o más" },
+      { value: "prefer_not_say", label: "Prefiero no decir" },
+    ],
+  } satisfies Question<AgeRange>,
   {
     id: "urgency",
     title: "¿Cómo se siente esto para ti ahorita?",
@@ -153,6 +180,7 @@ export function renderUserContextBlock(ctx: UserContext): string {
   return [
     "<user_context>",
     `  decisionType: ${ctx.decisionType}`,
+    `  ageRange: ${ctx.ageRange}`,
     `  urgency: ${ctx.urgency}`,
     `  needFromCouncil: ${ctx.needFromCouncil}`,
     `  fearedLoss: ${ctx.fearedLoss}`,

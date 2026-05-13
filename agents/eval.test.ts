@@ -28,6 +28,7 @@ const baseCases: EvalCase[] = [
     userContext: {
       surveyVersion: "v1",
       decisionType: "vida",
+      ageRange: "25_34",
       urgency: "este_mes",
       needFromCouncil: "estructurar",
       fearedLoss: "arrepentirme",
@@ -74,6 +75,7 @@ describe("Eval runner", () => {
       userContext: {
         surveyVersion: "v1",
         decisionType: "relacion",
+        ageRange: "25_34",
         urgency: "explorando",
         needFromCouncil: "confrontar",
         fearedLoss: "arrepentirme",

@@ -27,6 +27,7 @@ export const SESSION_FIXTURES: ReadonlyArray<SessionFixture> = [
     userContext: {
       surveyVersion: "v1",
       decisionType: "negocio",
+      ageRange: "25_34",
       urgency: "este_mes",
       needFromCouncil: "estructurar",
       fearedLoss: "perder_tiempo",
@@ -42,6 +43,7 @@ export const SESSION_FIXTURES: ReadonlyArray<SessionFixture> = [
     userContext: {
       surveyVersion: "v1",
       decisionType: "dinero",
+      ageRange: "25_34",
       urgency: "este_mes",
       needFromCouncil: "decidir_entre_opciones",
       fearedLoss: "perder_dinero",
@@ -57,6 +59,7 @@ export const SESSION_FIXTURES: ReadonlyArray<SessionFixture> = [
     userContext: {
       surveyVersion: "v1",
       decisionType: "carrera",
+      ageRange: "25_34",
       urgency: "hoy",
       needFromCouncil: "confrontar",
       fearedLoss: "arrepentirme",
@@ -72,6 +75,7 @@ export const SESSION_FIXTURES: ReadonlyArray<SessionFixture> = [
     userContext: {
       surveyVersion: "v1",
       decisionType: "relacion",
+      ageRange: "25_34",
       urgency: "explorando",
       needFromCouncil: "confrontar",
       fearedLoss: "arrepentirme",
@@ -87,6 +91,7 @@ export const SESSION_FIXTURES: ReadonlyArray<SessionFixture> = [
     userContext: {
       surveyVersion: "v1",
       decisionType: "creativa",
+      ageRange: "25_34",
       urgency: "este_mes",
       needFromCouncil: "mostrar_caminos",
       fearedLoss: "arrepentirme",
@@ -102,6 +107,7 @@ export const SESSION_FIXTURES: ReadonlyArray<SessionFixture> = [
     userContext: {
       surveyVersion: "v1",
       decisionType: "vida",
+      ageRange: "25_34",
       urgency: "este_mes",
       needFromCouncil: "estructurar",
       fearedLoss: "decepcionar",
@@ -117,6 +123,7 @@ export const SESSION_FIXTURES: ReadonlyArray<SessionFixture> = [
     userContext: {
       surveyVersion: "v1",
       decisionType: "negocio",
+      ageRange: "25_34",
       urgency: "hoy",
       needFromCouncil: "confrontar",
       fearedLoss: "decepcionar",
@@ -132,6 +139,7 @@ export const SESSION_FIXTURES: ReadonlyArray<SessionFixture> = [
     userContext: {
       surveyVersion: "v1",
       decisionType: "dinero",
+      ageRange: "25_34",
       urgency: "este_mes",
       needFromCouncil: "decidir_entre_opciones",
       fearedLoss: "perder_tiempo",
@@ -147,6 +155,7 @@ export const SESSION_FIXTURES: ReadonlyArray<SessionFixture> = [
     userContext: {
       surveyVersion: "v1",
       decisionType: "vida",
+      ageRange: "25_34",
       urgency: "explorando",
       needFromCouncil: "estructurar",
       fearedLoss: "arrepentirme",
@@ -161,6 +170,7 @@ export const SESSION_FIXTURES: ReadonlyArray<SessionFixture> = [
     userContext: {
       surveyVersion: "v1",
       decisionType: "vida",
+      ageRange: "25_34",
       urgency: "hoy",
       needFromCouncil: "confrontar",
       fearedLoss: "arrepentirme",
