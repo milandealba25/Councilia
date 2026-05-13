@@ -1,6 +1,7 @@
 import { Container } from "@/components/ui/Container";
 import { Reveal } from "@/components/ui/Reveal";
 import { AgentFace } from "@/components/agents/AgentFace";
+import { AgentDominantQuestionField } from "@/components/landing/AgentDominantQuestionField";
 import {
   AGENT_DOMINANT_QUESTION,
   AGENT_LABELS,
@@ -101,11 +102,11 @@ export function CouncilSection() {
                   {AGENT_CARE[agent]}
                 </Field>
 
-                <Field label="La pregunta que repite" color={AGENT_VAR[agent]}>
-                  <span className="italic">
-                    “{AGENT_DOMINANT_QUESTION[agent]}”
-                  </span>
-                </Field>
+                <AgentDominantQuestionField
+                  color={AGENT_VAR[agent]}
+                  text={AGENT_DOMINANT_QUESTION[agent]}
+                  staggerMs={idx * 200}
+                />
 
                 <p className="text-[15px] leading-relaxed text-foreground-soft">
                   {AGENT_VOICE[agent]}
