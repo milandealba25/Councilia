@@ -577,10 +577,10 @@ function ContextStrip({
 
   const items: [string, string][] = [
     ["Lo que te trae", DECISION_LABEL[ctx.decisionType] ?? ctx.decisionType],
-    ["Edad", AGE_LABEL[ctx.ageRange] ?? ctx.ageRange.replace(/_/g, " ")],
     ["Tu ritmo", URGENCY_LABEL[ctx.urgency] ?? ctx.urgency.replace(/_/g, " ")],
     ["Lo que necesitas", NEED_LABEL[ctx.needFromCouncil] ?? ctx.needFromCouncil.replace(/_/g, " ")],
     ["Lo que más temes", LOSS_LABEL[ctx.fearedLoss] ?? ctx.fearedLoss.replace(/_/g, " ")],
+    ["Edad", AGE_LABEL[ctx.ageRange] ?? ctx.ageRange.replace(/_/g, " ")],
   ];
   return (
     <div className="flex flex-col gap-3 rounded-council border border-border bg-elevated/40 p-4 sm:flex-row sm:items-center sm:justify-between">

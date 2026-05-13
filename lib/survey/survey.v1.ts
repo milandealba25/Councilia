@@ -94,20 +94,6 @@ export const surveyV1Questions = [
     ],
   } satisfies Question<DecisionType>,
   {
-    id: "ageRange",
-    title: "¿En qué rango de edad te encuentras?",
-    options: [
-      { value: "under_18", label: "Menor de 18 años" },
-      { value: "18_24", label: "18 – 24 años" },
-      { value: "25_34", label: "25 – 34 años" },
-      { value: "35_44", label: "35 – 44 años" },
-      { value: "45_54", label: "45 – 54 años" },
-      { value: "55_64", label: "55 – 64 años" },
-      { value: "65_plus", label: "65 años o más" },
-      { value: "prefer_not_say", label: "Prefiero no decir" },
-    ],
-  } satisfies Question<AgeRange>,
-  {
     id: "urgency",
     title: "¿Cómo se siente esto para ti ahorita?",
     options: [
@@ -170,6 +156,20 @@ export const surveyV1Questions = [
       },
     ],
   } satisfies Question<FearedLoss>,
+  {
+    id: "ageRange",
+    title: "¿En qué rango de edad te encuentras?",
+    options: [
+      { value: "under_18", label: "Menor de 18 años" },
+      { value: "18_24", label: "18 – 24 años" },
+      { value: "25_34", label: "25 – 34 años" },
+      { value: "35_44", label: "35 – 44 años" },
+      { value: "45_54", label: "45 – 54 años" },
+      { value: "55_64", label: "55 – 64 años" },
+      { value: "65_plus", label: "65 años o más" },
+      { value: "prefer_not_say", label: "Prefiero no decir" },
+    ],
+  } satisfies Question<AgeRange>,
 ] as const;
 
 /**
@@ -180,10 +180,10 @@ export function renderUserContextBlock(ctx: UserContext): string {
   return [
     "<user_context>",
     `  decisionType: ${ctx.decisionType}`,
-    `  ageRange: ${ctx.ageRange}`,
     `  urgency: ${ctx.urgency}`,
     `  needFromCouncil: ${ctx.needFromCouncil}`,
     `  fearedLoss: ${ctx.fearedLoss}`,
+    `  ageRange: ${ctx.ageRange}`,
     "</user_context>",
   ].join("\n");
 }

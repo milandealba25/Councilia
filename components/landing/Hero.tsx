@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Container } from "@/components/ui/Container";
 import { LinkButton } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
@@ -118,7 +119,11 @@ function CouncilPanel() {
     <div className="relative mx-auto hidden h-full w-full max-w-md lg:block">
       <div
         aria-hidden
-        className="absolute inset-0 -m-6 rounded-council-xl bg-warm-mesh opacity-90 blur-2xl"
+        className="pointer-events-none absolute inset-0 -m-6 rounded-council-xl opacity-90 blur-2xl"
+        style={{
+          background:
+            "radial-gradient(900px 500px at 80% 10%, rgb(226 96 59 / 0.2), transparent 60%), radial-gradient(800px 480px at 10% 30%, rgb(217 154 43 / 0.2), transparent 65%)",
+        }}
       />
 
       <div className="relative overflow-hidden rounded-council-xl border border-border-strong/40 bg-surface/85 shadow-council-lg backdrop-blur">
@@ -168,20 +173,14 @@ function CouncilPanel() {
           <span className="inline-flex size-7 items-center justify-center rounded-full bg-surface ring-1 ring-border-strong/70 text-[11px] text-foreground-soft">
             Tú
           </span>
-          <span className="flex-1 text-sm text-foreground-soft">
+          <Link
+            href="/onboarding"
+            className="flex-1 text-left text-sm text-foreground-soft transition-colors hover:text-accent-strong"
+          >
             Cuéntales lo que te tiene así…
-          </span>
-          <span
-            className="block h-4 w-px bg-foreground"
-            style={{ animation: "caret 1.05s steps(1) infinite" }}
-            aria-hidden
-          />
+          </Link>
         </div>
       </div>
-
-      <style>{`
-        @keyframes caret { 50% { opacity: 0; } }
-      `}</style>
     </div>
   );
 }
@@ -198,11 +197,6 @@ function BackgroundOrbs() {
         aria-hidden
         className="pointer-events-none absolute top-32 -left-40 size-[460px] rounded-full bg-elena/18 blur-3xl"
         style={{ animation: "face-float 14s ease-in-out 1.5s infinite" }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute bottom-0 left-1/3 size-[380px] rounded-full bg-marco/18 blur-3xl"
-        style={{ animation: "face-float 16s ease-in-out 0.8s infinite" }}
       />
       <div
         aria-hidden

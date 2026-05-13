@@ -35,10 +35,10 @@ describe("Survey v1 (C1)", () => {
     expect(surveyV1Questions.length).toBe(5);
     expect(surveyV1Questions.map((q) => q.id)).toEqual([
       "decisionType",
-      "ageRange",
       "urgency",
       "needFromCouncil",
       "fearedLoss",
+      "ageRange",
     ]);
   });
 
