@@ -18,14 +18,10 @@ export default async function CookiesPage() {
       description="Listado actualizado, categorías y control granular de tus preferencias."
       html={html}
       preamble={
-        <div className="mb-12">
+        <div className="mb-8">
           <CookiePreferencesPanel />
         </div>
       }
-      related={[
-        { href: "/terms", label: "Términos y Condiciones" },
-        { href: "/privacy", label: "Política de Privacidad" },
-      ]}
     />
   );
 }

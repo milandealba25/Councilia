@@ -1,9 +1,5 @@
 # COUNCILia · Visión y Propuesta de Valor
 
-> Qué es COUNCILia, por qué existe y por qué no es un chatbot más. Documento 1 de 9 de la serie del MVP v1.1.
-
----
-
 ## 1. Qué es COUNCILia
 
 COUNCILia es una **plataforma conversacional multiagente** donde un consejo de inteligencias especializadas delibera, confronta perspectivas y sintetiza tradeoffs reales para ayudar al usuario a tomar mejores decisiones personales y profesionales.

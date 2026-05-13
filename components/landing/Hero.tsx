@@ -21,7 +21,7 @@ export function Hero() {
     <section className="relative overflow-hidden">
       <BackgroundOrbs />
       <Container className="relative pt-20 pb-24 md:pt-28 md:pb-32">
-        <div className="grid items-center gap-16 lg:grid-cols-[1.1fr_1fr]">
+        <div className="flex flex-col gap-7 lg:gap-7">
           <div>
             <Reveal>
               <span className="inline-flex items-center gap-2 rounded-full border border-border-strong/70 bg-surface/80 px-3.5 py-1.5 text-xs font-medium uppercase tracking-[0.14em] text-foreground-soft shadow-soft backdrop-blur">
@@ -35,57 +35,61 @@ export function Hero() {
                 Tres voces que no te van a dar la razón.
               </h1>
             </Reveal>
-
-            <Reveal delay={140}>
-              <p className="mt-7 max-w-xl text-balance text-lg leading-relaxed text-foreground-soft md:text-xl">
-                A veces no necesitas una respuesta más. Necesitas que alguien te
-                ayude a ver lo que estás cargando.{" "}
-                <span className="text-foreground">
-                  Te sentamos con tres personas
-                </span>{" "}
-                que te escuchan en serio, te muestran lo que evades sin
-                regañarte, y te devuelven la decisión.
-              </p>
-            </Reveal>
-
-            <Reveal delay={200}>
-              <div
-                id="empezar"
-                className="mt-10 flex flex-wrap items-center gap-3"
-              >
-                <LinkButton href="/onboarding" variant="primary">
-                  Sentarme con ellos
-                </LinkButton>
-                <LinkButton href="#council" variant="secondary">
-                  Conocer a Marco, Elena y Rafael
-                </LinkButton>
-              </div>
-            </Reveal>
-
-            <Reveal delay={260}>
-              <dl className="mt-14 grid max-w-xl grid-cols-3 gap-6 border-t border-border-strong/40 pt-8 text-sm">
-                <Stat
-                  value="3"
-                  label="Voces"
-                  caption="Que no se ponen de acuerdo y te ayudan a ver claro"
-                />
-                <Stat
-                  value="Tú"
-                  label="Decides"
-                  caption="Nadie te dice qué hacer, ni siquiera al final"
-                />
-                <Stat
-                  value="0"
-                  label="Empujones"
-                  caption="Ningún consejo disfrazado de respuesta"
-                />
-              </dl>
-            </Reveal>
           </div>
 
-          <Reveal delay={120} className="w-full lg:self-end">
-            <CouncilPanel />
-          </Reveal>
+          <div className="grid gap-16 lg:grid-cols-[1.1fr_1fr] lg:items-start lg:gap-x-16">
+            <div>
+              <Reveal delay={140}>
+                <p className="max-w-xl text-balance text-lg leading-relaxed text-foreground-soft md:text-xl">
+                  A veces no necesitas una respuesta más. Necesitas que alguien te
+                  ayude a ver lo que estás cargando.{" "}
+                  <span className="text-foreground">
+                    Te sentamos con tres personas
+                  </span>{" "}
+                  que te escuchan en serio, te muestran lo que evades sin
+                  regañarte, y te devuelven la decisión.
+                </p>
+              </Reveal>
+
+              <Reveal delay={200}>
+                <div
+                  id="empezar"
+                  className="mt-10 flex flex-wrap items-center gap-3"
+                >
+                  <LinkButton href="/onboarding" variant="primary">
+                    Sentarme con ellos
+                  </LinkButton>
+                  <LinkButton href="#council" variant="secondary">
+                    Conocer a Marco, Elena y Rafael
+                  </LinkButton>
+                </div>
+              </Reveal>
+
+              <Reveal delay={260}>
+                <dl className="mt-14 grid max-w-xl grid-cols-3 gap-6 border-t border-border-strong/40 pt-8 text-sm">
+                  <Stat
+                    value="3"
+                    label="Voces"
+                    caption="Que no se ponen de acuerdo y te ayudan a ver claro"
+                  />
+                  <Stat
+                    value="Tú"
+                    label="Decides"
+                    caption="Nadie te dice qué hacer, ni siquiera al final"
+                  />
+                  <Stat
+                    value="0"
+                    label="Empujones"
+                    caption="Ningún consejo disfrazado de respuesta"
+                  />
+                </dl>
+              </Reveal>
+            </div>
+
+            <Reveal delay={120} className="w-full">
+              <CouncilPanel />
+            </Reveal>
+          </div>
         </div>
       </Container>
     </section>

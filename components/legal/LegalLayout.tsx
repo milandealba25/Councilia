@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { type ReactNode } from "react";
 import { Container } from "@/components/ui/Container";
 import { Header } from "@/components/landing/Header";
@@ -11,8 +10,6 @@ interface Props {
   lastUpdated?: string;
   /** HTML renderizado del documento (renderDocMarkdown). */
   html: string;
-  /** Otras páginas legales para enlace cruzado. */
-  related?: Array<{ href: string; label: string }>;
   /** Sirve por si la página necesita inyectar algo antes del cuerpo. */
   preamble?: ReactNode;
 }
@@ -27,14 +24,13 @@ export function LegalLayout({
   description,
   lastUpdated,
   html,
-  related,
   preamble,
 }: Props) {
   return (
     <>
       <Header />
       <main>
-        <section className="border-b border-border/60 py-16 md:py-20">
+        <section className="border-b border-border/60 py-10 md:py-14">
           <Container className="max-w-3xl">
             <p className="text-xs font-medium uppercase tracking-widest text-accent">
               {eyebrow}
@@ -52,37 +48,12 @@ export function LegalLayout({
                 Última actualización: {lastUpdated}
               </p>
             )}
-          </Container>
-        </section>
-
-        <section className="py-16 md:py-20">
-          <Container className="max-w-3xl">
-            {preamble}
+            {preamble && <div className="mt-8">{preamble}</div>}
             <article
-              className="legal-prose"
+              className="legal-prose mt-6 md:mt-8"
               // El HTML proviene de markdown del repo (no del usuario).
               dangerouslySetInnerHTML={{ __html: html }}
             />
-
-            {related && related.length > 0 && (
-              <aside className="mt-16 border-t border-border/60 pt-8">
-                <p className="font-mono text-[11px] uppercase tracking-widest text-muted">
-                  También te puede interesar
-                </p>
-                <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-                  {related.map((r) => (
-                    <li key={r.href}>
-                      <Link
-                        href={r.href}
-                        className="text-foreground underline-offset-4 hover:underline"
-                      >
-                        {r.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </aside>
-            )}
           </Container>
         </section>
       </main>

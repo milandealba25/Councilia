@@ -15,10 +15,6 @@ export default async function AboutPage() {
       title="Sobre COUNCILia"
       description="No competimos en respuestas correctas. Competimos en experiencia cognitivamente diferente."
       html={html}
-      related={[
-        { href: "/terms", label: "Términos" },
-        { href: "/privacy", label: "Privacidad" },
-      ]}
     />
   );
 }

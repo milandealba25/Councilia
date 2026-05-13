@@ -1,7 +1,5 @@
 # COUNCILia · Términos y Condiciones
 
----
-
 ## 1. Resumen en una página (sección no vinculante)
 
 Antes del texto largo, lo importante en una página:
@@ -335,7 +333,3 @@ Antes de iniciar cualquier acción legal, te pedimos contactarnos a `legal@counc
 | Versión | Fecha | Cambios principales |
 |---|---|---|
 | 1.0 (MVP) | A definir antes del lanzamiento | Primera versión pública. |
-
----
-
-> **Nota de equipo (no se publica al usuario):** el contenido de este documento está alineado con la política de contenido sensible, el modelo de negocio y las decisiones de datos definidas en los documentos 06 (Stack) y 07 (Operaciones). Cualquier cambio en estos Términos debe sincronizarse con esos dos documentos antes de publicarse.

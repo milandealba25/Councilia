@@ -1,11 +1,5 @@
 # COUNCILia · Política de Cookies y Tecnologías Similares
 
-> Explica qué cookies y tecnologías similares usamos, para qué sirven, cuánto duran y cómo puedes gestionarlas. Complementa la Política de Privacidad (documento 12). Documento 13 de la serie del MVP v1.1.
-
-> **Aviso importante:** documento **operativo para revisión legal** antes del lanzamiento, especialmente para cumplimiento de la normativa de cookies y consentimiento en la UE/REINO UNIDO (ePrivacy / PECR) y transparencia en otras jurisdicciones.
-
----
-
 ## 1. Qué son las cookies y tecnologías similares
 
 Las **cookies** son pequeños archivos de texto que el sitio web guarda en tu navegador o dispositivo cuando visitas una página. Permiten recordar preferencias, mantener tu sesión iniciada o entender de forma agregada cómo se usa el Servicio.

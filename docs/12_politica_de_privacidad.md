@@ -1,11 +1,5 @@
 # COUNCILia · Política de Privacidad
 
-> Describe qué datos personales tratamos, con qué finalidades, en qué base legal, durante cuánto tiempo, con quién los compartimos y qué derechos tienes. Complementa a los Términos y Condiciones (documento 10). Documento 12 de la serie del MVP v1.1.
-
-> **Aviso importante:** versión **operativa para revisión legal** antes del lanzamiento público. Debe ser validada por un abogado conforme a la legislación aplicable (UE GDPR, Reino Unido UK GDPR, México LFPDPPP y Reglamento, California CCPA/CPRA, según mercados objetivo).
-
----
-
 ## 1. Responsable del tratamiento (controlador)
 
 El responsable del tratamiento de tus datos personales es:

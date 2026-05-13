@@ -15,11 +15,6 @@ export default async function TermsPage() {
       eyebrow="Documento 10 · Legal"
       title="Términos y Condiciones"
       html={html}
-      related={[
-        { href: "/privacy", label: "Política de Privacidad" },
-        { href: "/cookies", label: "Política de Cookies" },
-        { href: "/support", label: "Soporte" },
-      ]}
     />
   );
 }
