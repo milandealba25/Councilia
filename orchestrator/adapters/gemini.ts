@@ -24,6 +24,28 @@ function toGeminiContents(messages: ReadonlyArray<LlmMessage>): Content[] {
 }
 
 /**
+ * Modelos Gemini 2.5+ usan "thinking" interno que consume parte del
+ * `maxOutputTokens`. Para posturas cortas (150–200 tokens visibles) y
+ * latencia baja, lo deseable es desactivarlo. Es configurable por env
+ * (`GEMINI_THINKING_BUDGET`): entero ≥ 0. `0` deshabilita, ausente o
+ * negativo deja que el modelo decida.
+ */
+function buildGenerationConfig(
+  req: LlmCompletionRequest,
+): Record<string, unknown> {
+  const cfg: Record<string, unknown> = {
+    maxOutputTokens: req.maxTokens ?? 512,
+    temperature: req.temperature ?? 0.7,
+  };
+  const rawBudget = process.env.GEMINI_THINKING_BUDGET ?? "0";
+  const budget = Number.parseInt(rawBudget, 10);
+  if (Number.isFinite(budget) && budget >= 0) {
+    cfg.thinkingConfig = { thinkingBudget: budget };
+  }
+  return cfg;
+}
+
+/**
  * Clasifica un error nativo del SDK de Google en el `LlmErrorCode` que
  * usa el orquestador. Aísla al resto del sistema del shape del SDK.
  */
@@ -109,10 +131,10 @@ export class GeminiLlm implements Llm {
       const result = await model.generateContent(
         {
           contents: toGeminiContents(req.messages),
-          generationConfig: {
-            maxOutputTokens: req.maxTokens ?? 512,
-            temperature: req.temperature ?? 0.7,
-          },
+          // El SDK v0.24 no tipa `thinkingConfig`; lo pasamos como bag de
+          // configuración y el backend lo aplica si el modelo lo soporta.
+          generationConfig:
+            buildGenerationConfig(req) as unknown as Record<string, never>,
         },
         { signal: req.signal },
       );
@@ -142,10 +164,8 @@ export class GeminiLlm implements Llm {
       const result = await model.generateContentStream(
         {
           contents: toGeminiContents(req.messages),
-          generationConfig: {
-            maxOutputTokens: req.maxTokens ?? 512,
-            temperature: req.temperature ?? 0.7,
-          },
+          generationConfig:
+            buildGenerationConfig(req) as unknown as Record<string, never>,
         },
         { signal: req.signal },
       );

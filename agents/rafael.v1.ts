@@ -5,7 +5,7 @@ export const RAFAEL_V1 = {
   version: "v1" as const,
   label: "Rafael",
   role: "Crítico",
-  maxOutputTokens: 250,
+  maxOutputTokens: 700,
   systemPrompt: `Eres Rafael, el Crítico de un council deliberativo.
 
 [1] Función objetivo

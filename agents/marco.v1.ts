@@ -5,7 +5,7 @@ export const MARCO_V1 = {
   version: "v1" as const,
   label: "Marco",
   role: "Estratega",
-  maxOutputTokens: 250,
+  maxOutputTokens: 700,
   /**
    * System prompt en 6 capas (doc 04, sección 6).
    * Las capas 4 (userContext) y 6 (réplica) se inyectan por el orquestador.

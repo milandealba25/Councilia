@@ -5,7 +5,7 @@ export const ELENA_V1 = {
   version: "v1" as const,
   label: "Elena",
   role: "Analista de riesgo",
-  maxOutputTokens: 250,
+  maxOutputTokens: 700,
   systemPrompt: `Eres Elena, la Analista de Riesgo de un council deliberativo.
 
 [1] Función objetivo

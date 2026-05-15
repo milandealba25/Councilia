@@ -70,6 +70,11 @@ interface State {
   lastUserMessage: string | null;
   agents: Record<AgentId, AgentSlot>;
   attenuated: AgentId[];
+  /**
+   * Cuando la fase 1 termina y aún no llega el plan de réplica, mostramos
+   * un anuncio en lugar de la card (para que las posturas se lean primero).
+   */
+  replicaPending: boolean;
   replica: ReplicaState | "skipped" | null;
   synthesis: Synthesis | null;
   crisis: string[] | null;
@@ -84,6 +89,7 @@ type Action =
   | { type: "submit_user"; message: string }
   | { type: "initial_event"; event: InitialEvent }
   | { type: "phase1_done" }
+  | { type: "replica_announce" }
   | { type: "replica_event"; event: ReplicaEvent }
   | { type: "replica_done" }
   | { type: "request_synthesis_start" }
@@ -100,6 +106,7 @@ const INITIAL_STATE: State = {
   lastUserMessage: null,
   agents: INITIAL_AGENT_STATE,
   attenuated: [],
+  replicaPending: false,
   replica: null,
   synthesis: null,
   crisis: null,
@@ -123,6 +130,7 @@ function reducer(state: State, action: Action): State {
         lastUserMessage: action.message,
         agents: INITIAL_AGENT_STATE,
         attenuated: [],
+        replicaPending: false,
         replica: null,
         synthesis: null,
         crisis: null,
@@ -136,7 +144,10 @@ function reducer(state: State, action: Action): State {
       return applyInitialEvent(state, action.event);
 
     case "phase1_done":
-      return { ...state, phase: "fase2" };
+      return { ...state, phase: "fase2", replicaPending: true };
+
+    case "replica_announce":
+      return { ...state, replicaPending: true };
 
     case "replica_event":
       return applyReplicaEvent(state, action.event);
@@ -146,6 +157,7 @@ function reducer(state: State, action: Action): State {
         ...state,
         phase: "wait",
         loading: false,
+        replicaPending: false,
         replica:
           state.replica && state.replica !== "skipped"
             ? { ...state.replica, state: "complete" }
@@ -250,11 +262,12 @@ function applyInitialEvent(state: State, ev: InitialEvent): State {
 
 function applyReplicaEvent(state: State, ev: ReplicaEvent): State {
   if (ev.type === "skipped") {
-    return { ...state, replica: "skipped" };
+    return { ...state, replica: "skipped", replicaPending: false };
   }
   if (ev.type === "plan") {
     return {
       ...state,
+      replicaPending: false,
       replica: {
         speaker: ev.speaker,
         respondingTo: ev.respondingTo,
@@ -284,6 +297,21 @@ function applyReplicaEvent(state: State, ev: ReplicaEvent): State {
   return state;
 }
 
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const t = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    function onAbort() {
+      clearTimeout(t);
+      resolve();
+    }
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 function markAllError(
   agents: Record<AgentId, AgentSlot>,
   error: string,
@@ -298,11 +326,31 @@ function markAllError(
   return next;
 }
 
+/**
+ * Pausa breve tras la fase 1 antes de pedir la réplica. Da al usuario
+ * tiempo de leer las 3 posturas antes de que aparezca "la pregunta dura".
+ * Ajustar aquí cambia el ritmo global del council.
+ */
+const PHASE_TRANSITION_MS = 1400;
+
 export function SessionConsole() {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
   const agentsSectionRef = useRef<HTMLElement | null>(null);
+  const replicaSectionRef = useRef<HTMLElement | null>(null);
+  const inputSectionRef = useRef<HTMLDivElement | null>(null);
+
+  function smoothScrollTo(node: HTMLElement | null) {
+    if (!node || typeof window === "undefined") return;
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    node.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "start",
+    });
+  }
 
   useEffect(() => {
     const stored = loadUserContext();
@@ -315,19 +363,24 @@ export function SessionConsole() {
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  // Cada vez que el usuario envía un mensaje nuevo, deslizamos la vista
-  // hasta la sección de los agentes para que vea aparecer las respuestas
-  // sin tener que hacer scroll a mano. Respeta `prefers-reduced-motion`.
+  // Al enviar un mensaje, deslizamos a la sección de los agentes.
   useEffect(() => {
-    if (!state.lastUserMessage || !agentsSectionRef.current) return;
-    const reduceMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    agentsSectionRef.current.scrollIntoView({
-      behavior: reduceMotion ? "auto" : "smooth",
-      block: "start",
-    });
+    if (!state.lastUserMessage) return;
+    smoothScrollTo(agentsSectionRef.current);
   }, [state.lastUserMessage]);
+
+  // Cuando entra la fase 2 (anuncio o plan), centramos la réplica.
+  useEffect(() => {
+    if (!state.replicaPending && !state.replica) return;
+    smoothScrollTo(replicaSectionRef.current);
+  }, [state.replicaPending, state.replica]);
+
+  // Cuando termina la réplica y volvemos a "wait", llevamos al input
+  // para que el usuario continúe el debate o pida la síntesis.
+  useEffect(() => {
+    if (state.phase !== "wait") return;
+    smoothScrollTo(inputSectionRef.current);
+  }, [state.phase]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -365,6 +418,11 @@ export function SessionConsole() {
         dispatch({ type: "replica_done" });
         return;
       }
+
+      // Pausa intencional para leer las posturas antes de la réplica.
+      // Honra el abort del usuario (no quedamos colgados si cierra).
+      await delay(PHASE_TRANSITION_MS, ctrl.signal);
+      if (ctrl.signal.aborted) return;
 
       for await (const ev of streamReplica({
         userContext: state.ctx,
@@ -447,6 +505,7 @@ export function SessionConsole() {
     <div className="flex flex-col gap-10">
       <PhaseIndicator phase={state.phase} />
 
+      <div ref={inputSectionRef} className="scroll-mt-8" />
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <label
           htmlFor="user-input"
@@ -517,6 +576,7 @@ export function SessionConsole() {
           ref={agentsSectionRef}
           aria-label="Respuestas del council"
           className="flex scroll-mt-8 flex-col gap-5"
+          style={{ animation: "soft-rise 500ms ease-out both" }}
         >
           <SectionHeading
             label="Te están escuchando"
@@ -549,20 +609,27 @@ export function SessionConsole() {
         </section>
       )}
 
-      {state.replica && (
-        <section className="flex flex-col gap-5">
+      {(state.replicaPending || state.replica) && (
+        <section
+          ref={replicaSectionRef}
+          aria-label="Réplica entre agentes"
+          className="flex scroll-mt-8 flex-col gap-5"
+          style={{ animation: "soft-rise 500ms ease-out both" }}
+        >
           <SectionHeading
             label="Alguien toma la palabra"
             done={state.phase !== "fase2"}
           />
-          {state.replica === "skipped" ? (
+          {state.replicaPending && !state.replica ? (
+            <ReplicaPlaceholder />
+          ) : state.replica === "skipped" ? (
             <ReplicaCard
               speaker="marco"
               respondingTo="elena"
               text=""
               state="skipped"
             />
-          ) : (
+          ) : state.replica ? (
             <ReplicaCard
               speaker={state.replica.speaker}
               respondingTo={state.replica.respondingTo}
@@ -570,7 +637,7 @@ export function SessionConsole() {
               tensionScore={state.replica.tensionScore}
               state={state.replica.state}
             />
-          )}
+          ) : null}
         </section>
       )}
 
@@ -581,7 +648,10 @@ export function SessionConsole() {
       )}
 
       {state.synthesis && (
-        <section className="flex flex-col gap-5">
+        <section
+          className="flex flex-col gap-5"
+          style={{ animation: "soft-rise 500ms ease-out both" }}
+        >
           <SectionHeading label="Lo que te llevas" done={false} />
           <SynthesisCard synthesis={state.synthesis} />
         </section>
@@ -605,6 +675,30 @@ function SectionHeading({
       <span
         className={`h-px flex-1 ${done ? "bg-emerald-400/30" : "bg-border"}`}
       />
+    </div>
+  );
+}
+
+function ReplicaPlaceholder() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex items-center gap-3 rounded-council border border-dashed border-accent/40 bg-elevated/40 px-5 py-6 text-sm text-muted"
+    >
+      <span
+        className="typing-dots inline-flex"
+        style={{ color: "var(--accent)" }}
+        aria-hidden
+      >
+        <span />
+        <span />
+        <span />
+      </span>
+      <p>
+        Detectando contradicción entre las tres posturas… alguien tomará la
+        palabra en un momento.
+      </p>
     </div>
   );
 }
