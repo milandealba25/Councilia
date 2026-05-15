@@ -103,7 +103,7 @@ async function main() {
   console.log(
     `[eval] Ejecutando ${cases.length} casos con concurrencia ${flags.concurrency}…`,
   );
-  console.log(`[eval] Modelo: ${process.env.GEMINI_MODEL ?? "gemini-2.0-flash"}`);
+  console.log(`[eval] Modelo: ${process.env.GEMINI_MODEL ?? "gemini-flash-latest"}`);
 
   const llm = new GeminiLlm();
   let count = 0;

@@ -28,7 +28,7 @@
    ```
 5. Opcional — modelo explícito:
    ```bash
-   GEMINI_MODEL=gemini-2.0-flash
+   GEMINI_MODEL=gemini-flash-latest
    ```
 6. Verificación:
    ```bash

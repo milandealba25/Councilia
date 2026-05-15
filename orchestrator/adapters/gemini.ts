@@ -97,7 +97,7 @@ export class GeminiLlm implements Llm {
     const apiKey = opts?.apiKey ?? requireGeminiKey();
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.modelId =
-      opts?.model ?? process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+      opts?.model ?? process.env.GEMINI_MODEL ?? "gemini-flash-latest";
   }
 
   async complete(req: LlmCompletionRequest): Promise<LlmCompletionResult> {
