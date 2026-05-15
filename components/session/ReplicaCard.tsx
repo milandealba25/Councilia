@@ -1,4 +1,5 @@
 import { AgentFace } from "@/components/agents/AgentFace";
+import { SpeakButton } from "@/components/agents/SpeakButton";
 import { AGENT_LABELS, type AgentId } from "@/lib/agents/ids";
 
 type State = "streaming" | "complete" | "skipped";
@@ -92,6 +93,15 @@ export function ReplicaCard({
           </p>
         )}
       </div>
+
+      {state === "complete" && text && (
+        <footer className="flex items-center justify-between border-t border-border/40 pt-3">
+          <span className="text-[10px] uppercase tracking-wider text-subtle">
+            Escucha la pregunta de {AGENT_LABELS[speaker]}
+          </span>
+          <SpeakButton agent={speaker} text={text} />
+        </footer>
+      )}
     </article>
   );
 }

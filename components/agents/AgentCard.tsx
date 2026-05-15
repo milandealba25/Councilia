@@ -1,4 +1,5 @@
 import { AgentFace } from "./AgentFace";
+import { SpeakButton } from "./SpeakButton";
 import {
   AGENT_DOMINANT_QUESTION,
   AGENT_LABELS,
@@ -139,6 +140,15 @@ export function AgentCard({
           </span>
         )}
       </div>
+
+      {state === "complete" && text && (
+        <footer className="flex items-center justify-between border-t border-border/40 pt-3">
+          <span className="text-[10px] uppercase tracking-wider text-subtle">
+            Escúchalo en su voz
+          </span>
+          <SpeakButton agent={agent} text={text} />
+        </footer>
+      )}
     </article>
   );
 }
