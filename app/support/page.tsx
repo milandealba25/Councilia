@@ -43,11 +43,11 @@ const FAQS: FAQ[] = [
   },
   {
     q: "¿Por qué solo 3 agentes y no 4?",
-    a: "Las tres funciones objetivo (largo plazo, riesgo, supuestos) son estructuralmente incompatibles: garantizan tensión sin necesidad de un cuarto. Tres burbujas caben en una pantalla móvil y reduce 25% el costo de Claude por sesión. Sofía (la Creativa) llegará a v1.2 cuando tengamos datos que justifiquen su existencia (Principio 10).",
+    a: "Las tres funciones objetivo (largo plazo, riesgo, supuestos) son estructuralmente incompatibles: garantizan tensión sin necesidad de un cuarto. Tres burbujas caben en una pantalla móvil y reduce el costo de inferencia por sesión frente a cuatro agentes. Sofía (la Creativa) llegará a v1.2 cuando tengamos datos que justifiquen su existencia (Principio 10).",
   },
   {
     q: "¿Mis conversaciones se usan para entrenar modelos?",
-    a: "No. Tus conversaciones no se utilizan para entrenar modelos propios ni de terceros. Ver Política de Privacidad para el detalle de procesamiento por Anthropic en cumplimiento de su política de zero data retention para integraciones API.",
+    a: "No. Tus conversaciones no se utilizan para entrenar modelos propios ni de terceros. Ver Política de Privacidad para el detalle de procesamiento por Google (Gemini API) según las condiciones comerciales aplicables a integraciones por API.",
   },
 ];
 

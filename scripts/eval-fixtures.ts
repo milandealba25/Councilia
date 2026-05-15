@@ -14,12 +14,16 @@
  *   npm run eval -- --only-anti           # solo ANTI_PROMPTS
  *   npm run eval -- --concurrency 5
  *
- * Requiere `ANTHROPIC_API_KEY` en `.env.local`.
+ * Requiere `GEMINI_API_KEY` en `.env.local`.
  */
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
+import { resolve } from "node:path";
+
+loadEnv({ path: resolve(process.cwd(), ".env.local") });
+loadEnv();
 import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
-import { ClaudeLlm } from "../orchestrator/adapters/claude";
+import { GeminiLlm } from "../orchestrator/adapters/gemini";
 import { runEval, formatReport, type EvalCase } from "../agents/eval";
 import { SESSION_FIXTURES } from "../tests/fixtures/cases";
 import { ANTI_PROMPTS } from "../agents/antiPrompts";
@@ -83,9 +87,9 @@ function buildCases(flags: Flags): EvalCase[] {
 async function main() {
   const flags = parseFlags(process.argv.slice(2));
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.GEMINI_API_KEY) {
     console.error(
-      "[eval] Falta ANTHROPIC_API_KEY. Copia .env.example a .env.local y define la clave.",
+      "[eval] Falta GEMINI_API_KEY. Copia .env.example a .env.local y define la clave.",
     );
     process.exit(1);
   }
@@ -99,9 +103,9 @@ async function main() {
   console.log(
     `[eval] Ejecutando ${cases.length} casos con concurrencia ${flags.concurrency}…`,
   );
-  console.log(`[eval] Modelo: ${process.env.ANTHROPIC_MODEL ?? "claude-3-5-sonnet-20241022"}`);
+  console.log(`[eval] Modelo: ${process.env.GEMINI_MODEL ?? "gemini-2.0-flash"}`);
 
-  const llm = new ClaudeLlm();
+  const llm = new GeminiLlm();
   let count = 0;
   const total = estimateRuns(cases);
   const report = await runEval({

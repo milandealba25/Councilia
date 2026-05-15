@@ -13,10 +13,10 @@ System prompts versionados por agente (**Marco**, **Elena**, **Rafael**) y el ap
 | `antiPrompts.ts` | **L5** · 10 anti-prompts adversariales que intentan romper reglas. |
 | `eval.ts` | Runner desacoplado del SDK: fixtures × agentes × suite de reglas → `EvalReport`. |
 
-## Evaluación contra Claude real
+## Evaluación contra Gemini real
 
 ```bash
-cp .env.example .env.local      # añadir ANTHROPIC_API_KEY
+cp .env.example .env.local      # añadir GEMINI_API_KEY
 npm run eval                    # corre SESSION_FIXTURES + ANTI_PROMPTS
 npm run eval -- --only-anti     # solo anti-prompts (L5)
 npm run eval -- --only-fixtures # solo casos representativos (L4)

@@ -10,11 +10,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:anthropic": "tsx scripts/hello-anthropic.ts",
+    "test:gemini": "tsx scripts/hello-gemini.ts",
     "eval": "tsx scripts/eval-fixtures.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
+    "@google/generative-ai": "^0.24.1",
     "marked": "^15.0.12",
     "next": "14.2.35",
     "react": "^18.3.1",

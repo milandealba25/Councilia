@@ -4,7 +4,7 @@ import { useEffect, useReducer, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { loadUserContext } from "@/lib/survey/storage";
 import type { UserContext } from "@/lib/survey/survey.v1";
-import { AGENT_IDS, AGENT_LABELS, type AgentId } from "@/lib/agents/ids";
+import { AGENT_IDS, type AgentId } from "@/lib/agents/ids";
 import { AgentCard } from "@/components/agents/AgentCard";
 import { Button } from "@/components/ui/Button";
 import { ReplicaCard } from "./ReplicaCard";
@@ -14,10 +14,15 @@ import {
   requestSynthesis,
   streamInitial,
   streamReplica,
+  SynthesisRequestError,
   type InitialEvent,
   type ReplicaEvent,
 } from "@/lib/api/client";
 import type { Synthesis } from "@/orchestrator/synthesis";
+import {
+  llmErrorHeadline,
+  type LlmErrorCode,
+} from "@/orchestrator/llm";
 
 /**
  * Máquina de estados de una sesión (doc 05, §1).
@@ -36,6 +41,12 @@ interface AgentSlot {
   state: AgentState;
   text: string;
   error?: string;
+  errorCode?: LlmErrorCode;
+}
+
+interface ConfigErrorState {
+  code: LlmErrorCode;
+  message: string;
 }
 
 const INITIAL_AGENT_STATE: Record<AgentId, AgentSlot> = {
@@ -63,6 +74,7 @@ interface State {
   synthesis: Synthesis | null;
   crisis: string[] | null;
   error: string | null;
+  configError: ConfigErrorState | null;
   loading: boolean;
 }
 
@@ -76,9 +88,10 @@ type Action =
   | { type: "replica_done" }
   | { type: "request_synthesis_start" }
   | { type: "synthesis_done"; synthesis: Synthesis }
-  | { type: "synthesis_error"; message: string }
+  | { type: "synthesis_error"; message: string; code?: LlmErrorCode }
   | { type: "fatal"; message: string }
-  | { type: "reset_after_crisis" };
+  | { type: "reset_after_crisis" }
+  | { type: "dismiss_config_error" };
 
 const INITIAL_STATE: State = {
   ctx: null,
@@ -91,6 +104,7 @@ const INITIAL_STATE: State = {
   synthesis: null,
   crisis: null,
   error: null,
+  configError: null,
   loading: false,
 };
 
@@ -113,6 +127,7 @@ function reducer(state: State, action: Action): State {
         synthesis: null,
         crisis: null,
         error: null,
+        configError: null,
         loading: true,
         phase: "fase1",
       };
@@ -152,6 +167,10 @@ function reducer(state: State, action: Action): State {
         ...state,
         loading: false,
         error: action.message,
+        configError:
+          action.code && action.code !== "aborted" && action.code !== "unknown"
+            ? { code: action.code, message: action.message }
+            : state.configError,
         phase: "wait",
       };
 
@@ -165,6 +184,9 @@ function reducer(state: State, action: Action): State {
 
     case "reset_after_crisis":
       return INITIAL_STATE;
+
+    case "dismiss_config_error":
+      return { ...state, configError: null };
   }
 }
 
@@ -206,12 +228,22 @@ function applyInitialEvent(state: State, ev: InitialEvent): State {
           ...state.agents[ev.agent],
           state: "error",
           error: ev.error,
+          errorCode: ev.code,
         },
       },
     };
   }
   if (ev.type === "crisis") {
     return { ...state, crisis: ev.categories, loading: false };
+  }
+  if (ev.type === "config_error") {
+    return {
+      ...state,
+      configError: { code: ev.code, message: ev.message },
+      agents: markAllError(state.agents, ev.message, ev.code),
+      loading: false,
+      phase: "wait",
+    };
   }
   return state;
 }
@@ -238,17 +270,29 @@ function applyReplicaEvent(state: State, ev: ReplicaEvent): State {
       replica: { ...state.replica, text: state.replica.text + ev.text },
     };
   }
+  if (ev.type === "config_error") {
+    return {
+      ...state,
+      configError: { code: ev.code, message: ev.message },
+      replica: state.replica && state.replica !== "skipped"
+        ? { ...state.replica, state: "complete" }
+        : state.replica,
+      loading: false,
+      phase: "wait",
+    };
+  }
   return state;
 }
 
 function markAllError(
   agents: Record<AgentId, AgentSlot>,
   error: string,
+  code?: LlmErrorCode,
 ): Record<AgentId, AgentSlot> {
   const next = { ...agents };
   for (const id of AGENT_IDS) {
     if (next[id].state === "streaming" || next[id].state === "idle") {
-      next[id] = { ...next[id], state: "error", error };
+      next[id] = { ...next[id], state: "error", error, errorCode: code };
     }
   }
   return next;
@@ -258,6 +302,7 @@ export function SessionConsole() {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
+  const agentsSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const stored = loadUserContext();
@@ -269,6 +314,20 @@ export function SessionConsole() {
   }, [router]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  // Cada vez que el usuario envía un mensaje nuevo, deslizamos la vista
+  // hasta la sección de los agentes para que vea aparecer las respuestas
+  // sin tener que hacer scroll a mano. Respeta `prefers-reduced-motion`.
+  useEffect(() => {
+    if (!state.lastUserMessage || !agentsSectionRef.current) return;
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    agentsSectionRef.current.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "start",
+    });
+  }, [state.lastUserMessage]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -352,10 +411,13 @@ export function SessionConsole() {
       dispatch({ type: "synthesis_done", synthesis });
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
-      dispatch({
-        type: "synthesis_error",
-        message: (err as Error).message,
-      });
+      const code =
+        err instanceof SynthesisRequestError ? err.code : undefined;
+      const message =
+        err instanceof SynthesisRequestError && code
+          ? llmErrorHeadline(code)
+          : (err as Error).message;
+      dispatch({ type: "synthesis_error", message, code });
     }
   }
 
@@ -383,10 +445,7 @@ export function SessionConsole() {
 
   return (
     <div className="flex flex-col gap-10">
-      <div className="flex flex-col gap-4">
-        <PhaseIndicator phase={state.phase} />
-        <ContextStrip ctx={state.ctx} attenuated={state.attenuated} />
-      </div>
+      <PhaseIndicator phase={state.phase} />
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <label
@@ -430,7 +489,15 @@ export function SessionConsole() {
         </div>
       </form>
 
-      {state.error && (
+      {state.configError && (
+        <ConfigErrorBanner
+          message={state.configError.message}
+          code={state.configError.code}
+          onDismiss={() => dispatch({ type: "dismiss_config_error" })}
+        />
+      )}
+
+      {state.error && !state.configError && (
         <p className="rounded-council border border-error/40 bg-error/10 px-4 py-3 text-sm text-error">
           {state.error}
         </p>
@@ -446,7 +513,11 @@ export function SessionConsole() {
       )}
 
       {state.lastUserMessage && (
-        <section className="flex flex-col gap-5">
+        <section
+          ref={agentsSectionRef}
+          aria-label="Respuestas del council"
+          className="flex scroll-mt-8 flex-col gap-5"
+        >
           <SectionHeading
             label="Te están escuchando"
             done={
@@ -454,18 +525,26 @@ export function SessionConsole() {
             }
           />
           <div className="grid gap-5 md:grid-cols-3">
-            {AGENT_IDS.map((id) => (
-              <AgentCard
-                key={id}
-                agent={id}
-                state={state.agents[id].state}
-                text={state.agents[id].text || undefined}
-                isUserTyping={
-                  state.userInput.length > 0 &&
-                  (state.phase === "idle" || state.phase === "wait")
-                }
-              />
-            ))}
+            {AGENT_IDS.map((id) => {
+              const slot = state.agents[id];
+              const headline = slot.errorCode
+                ? llmErrorHeadline(slot.errorCode)
+                : slot.error;
+              return (
+                <AgentCard
+                  key={id}
+                  agent={id}
+                  state={slot.state}
+                  text={slot.text || undefined}
+                  attenuated={state.attenuated.includes(id)}
+                  errorMessage={headline}
+                  isUserTyping={
+                    state.userInput.length > 0 &&
+                    (state.phase === "idle" || state.phase === "wait")
+                  }
+                />
+              );
+            })}
           </div>
         </section>
       )}
@@ -530,78 +609,39 @@ function SectionHeading({
   );
 }
 
-function ContextStrip({
-  ctx,
-  attenuated,
+function ConfigErrorBanner({
+  message,
+  code,
+  onDismiss,
 }: {
-  ctx: UserContext;
-  attenuated: AgentId[];
+  message: string;
+  code: LlmErrorCode;
+  onDismiss: () => void;
 }) {
-  const DECISION_LABEL: Record<string, string> = {
-    negocio: "negocio / proyecto",
-    dinero: "dinero",
-    carrera: "trabajo o carrera",
-    relacion: "una relación",
-    creativa: "creativa o de producto",
-    vida: "vida en general",
+  const HINTS: Partial<Record<LlmErrorCode, string>> = {
+    auth: "Define una clave válida de Gemini en GEMINI_API_KEY (Vercel u otro hosting) y vuelve a desplegar. En local, edita .env.local y reinicia npm run dev.",
+    quota:
+      "El proveedor está limitando llamadas. Espera unos segundos o sube la cuota en Google AI Studio.",
+    network:
+      "La red entre el servidor y Gemini falló. Reintenta; si persiste, revisa logs del hosting.",
   };
-  const AGE_LABEL: Record<string, string> = {
-    under_18: "menor de 18",
-    "18_24": "18–24",
-    "25_34": "25–34",
-    "35_44": "35–44",
-    "45_54": "45–54",
-    "55_64": "55–64",
-    "65_plus": "65 o más",
-    prefer_not_say: "prefiero no decir",
-  };
-  const URGENCY_LABEL: Record<string, string> = {
-    hoy: "me está presionando",
-    este_mes: "moverlo pronto",
-    explorando: "todavía lo entiendo",
-    no_urgente_presente: "no urgente, presente",
-  };
-  const NEED_LABEL: Record<string, string> = {
-    confrontar: "ver lo que evito",
-    estructurar: "claridad entre ideas",
-    mostrar_caminos: "caminos nuevos",
-    decidir_entre_opciones: "qué opción sostener",
-  };
-  const LOSS_LABEL: Record<string, string> = {
-    perder_dinero: "estabilidad / dinero / calma",
-    perder_tiempo: "perder tiempo",
-    arrepentirme: "traicionarme",
-    decepcionar: "afectar a alguien",
-    duda_si_debia_intentar: "la duda de no haber intentado",
-  };
-
-  const items: [string, string][] = [
-    ["Lo que te trae", DECISION_LABEL[ctx.decisionType] ?? ctx.decisionType],
-    ["Tu ritmo", URGENCY_LABEL[ctx.urgency] ?? ctx.urgency.replace(/_/g, " ")],
-    ["Lo que necesitas", NEED_LABEL[ctx.needFromCouncil] ?? ctx.needFromCouncil.replace(/_/g, " ")],
-    ["Lo que más temes", LOSS_LABEL[ctx.fearedLoss] ?? ctx.fearedLoss.replace(/_/g, " ")],
-    ["Edad", AGE_LABEL[ctx.ageRange] ?? ctx.ageRange.replace(/_/g, " ")],
-  ];
+  const hint = HINTS[code];
   return (
-    <div className="flex flex-col gap-3 rounded-council border border-border bg-elevated/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs text-muted sm:grid-cols-4">
-        {items.map(([k, v]) => (
-          <div key={k} className="flex flex-col">
-            <dt className="text-[10px] uppercase tracking-wider text-muted/70">
-              {k}
-            </dt>
-            <dd className="font-medium text-foreground/90">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      {attenuated.length > 0 && (
-        <p className="text-xs text-muted">
-          Hablando en voz más baja hoy:{" "}
-          <span className="font-medium text-tension">
-            {attenuated.map((a) => AGENT_LABELS[a]).join(", ")}
-          </span>
-        </p>
-      )}
+    <div
+      role="alert"
+      className="flex flex-col gap-2 rounded-council border border-error/40 bg-error/10 px-4 py-3 text-sm text-error"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-medium">{message}</p>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-[11px] uppercase tracking-wider text-error/80 hover:text-error"
+        >
+          Cerrar
+        </button>
+      </div>
+      {hint && <p className="text-xs text-error/85">{hint}</p>}
     </div>
   );
 }

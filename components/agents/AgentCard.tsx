@@ -15,6 +15,14 @@ interface AgentCardProps {
   className?: string;
   /** Si el usuario está escribiendo en el textarea, los rostros “escuchan”. */
   isUserTyping?: boolean;
+  /**
+   * El agente fue atenuado por la encuesta (doc 04, §8): no participa en
+   * fase 1 pero sí en la síntesis. La tarjeta lo comunica explícitamente
+   * para no parecer "perdida" o "esperando".
+   */
+  attenuated?: boolean;
+  /** Mensaje de error que viene del servidor (cuando `state === "error"`). */
+  errorMessage?: string;
 }
 
 const STATE_LABEL: Record<State, string> = {
@@ -43,22 +51,35 @@ export function AgentCard({
   text,
   className = "",
   isUserTyping = false,
+  attenuated = false,
+  errorMessage,
 }: AgentCardProps) {
   const mood =
     state === "streaming"
       ? text && text.length > 0
         ? "speaking"
         : "thinking"
-      : isUserTyping
-        ? "listening"
-        : "calm";
+      : attenuated
+        ? "calm"
+        : isUserTyping
+          ? "listening"
+          : "calm";
 
   const isTyping = state === "streaming" && !text;
+  const isError = state === "error";
+
+  const statusLabel = attenuated && state === "idle"
+    ? "En voz baja hoy"
+    : STATE_LABEL[state];
+  const statusDot = attenuated && state === "idle"
+    ? "bg-tension/60"
+    : STATE_DOT[state];
 
   return (
     <article
       data-state={state}
-      className={`group relative flex min-h-[280px] flex-col gap-4 rounded-council border border-border bg-elevated p-6 shadow-council transition hover:border-accent/40 ${className}`}
+      data-attenuated={attenuated ? "true" : undefined}
+      className={`group relative flex min-h-[280px] flex-col gap-4 rounded-council border border-border bg-elevated p-6 shadow-council transition hover:border-accent/40 data-[attenuated=true]:opacity-75 ${className}`}
     >
       <div
         aria-hidden
@@ -80,9 +101,9 @@ export function AgentCard({
         </div>
         <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted">
           <span
-            className={`inline-block size-1.5 rounded-full ${STATE_DOT[state]}`}
+            className={`inline-block size-1.5 rounded-full ${statusDot}`}
           />
-          {STATE_LABEL[state]}
+          {statusLabel}
         </div>
       </header>
 
@@ -103,11 +124,18 @@ export function AgentCard({
           </span>
         ) : text ? (
           text
+        ) : isError ? (
+          <span className="text-error/90">
+            {errorMessage ??
+              "Algo se cortó. Vuelve a intentarlo en un momento."}
+          </span>
         ) : (
           <span className="text-muted/70">
-            {isUserTyping
-              ? "Te está escuchando…"
-              : "Aquí va a aparecer lo que te diga, en cuanto empiece a hablar."}
+            {attenuated
+              ? "Hoy escucha en voz baja. Vas a oírlo en la síntesis final, no en este turno."
+              : isUserTyping
+                ? "Te está escuchando…"
+                : "Aquí va a aparecer lo que te diga, en cuanto empiece a hablar."}
           </span>
         )}
       </div>

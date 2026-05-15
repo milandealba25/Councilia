@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 import { replicaRequestSchema } from "@/lib/api/contracts";
 import { getDebateRouter } from "@/lib/api/orchestrator";
 import { sseHeaders, sseStreamFromIterable, type SseEvent } from "@/lib/sse";
+import {
+  LlmError,
+  llmErrorHeadline,
+  type LlmErrorCode,
+} from "@/orchestrator/llm";
 import { clientKeyFromHeaders, sessionsLimiter } from "@/lib/security/rateLimit";
 import { logger } from "@/lib/observability/logger";
 import { emit as emitEvent } from "@/lib/observability/events";
@@ -22,7 +27,8 @@ type Event =
     }
   | { type: "delta"; text: string }
   | { type: "done" }
-  | { type: "skipped"; reason: string };
+  | { type: "skipped"; reason: string }
+  | { type: "config_error"; code: LlmErrorCode; message: string };
 
 export async function POST(req: Request) {
   const requestId = crypto.randomUUID();
@@ -52,15 +58,35 @@ export async function POST(req: Request) {
   }
 
   const { userContext, userMessage, postures } = parsed;
-  const router = getDebateRouter();
-  const started = router.startReplica({
-    postures,
-    userContext,
-    userMessage,
-  });
 
   const stream = sseStreamFromIterable(
     (async function* (): AsyncIterable<SseEvent<Event>> {
+      let started;
+      try {
+        const router = getDebateRouter();
+        started = router.startReplica({
+          postures,
+          userContext,
+          userMessage,
+        });
+      } catch (err) {
+        const code: LlmErrorCode =
+          err instanceof LlmError ? err.code : "auth";
+        log.error("replica_init_failed", {
+          err: err instanceof Error ? err.message : String(err),
+          code,
+        });
+        yield {
+          event: "config_error",
+          data: {
+            type: "config_error",
+            code,
+            message: llmErrorHeadline(code),
+          },
+        };
+        return;
+      }
+
       if (!started) {
         emitEvent("session.replica.skipped", {
           requestId,
@@ -93,13 +119,30 @@ export async function POST(req: Request) {
         },
       };
 
-      for await (const chunk of started.stream) {
+      try {
+        for await (const chunk of started.stream) {
+          yield {
+            event: "delta",
+            data: { type: "delta", text: chunk },
+          };
+        }
+        yield { event: "done", data: { type: "done" } };
+      } catch (err) {
+        const code: LlmErrorCode =
+          err instanceof LlmError ? err.code : "unknown";
+        log.error("replica_stream_failed", {
+          err: err instanceof Error ? err.message : String(err),
+          code,
+        });
         yield {
-          event: "delta",
-          data: { type: "delta", text: chunk },
+          event: "config_error",
+          data: {
+            type: "config_error",
+            code,
+            message: llmErrorHeadline(code),
+          },
         };
       }
-      yield { event: "done", data: { type: "done" } };
     })(),
   );
 

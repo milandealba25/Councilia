@@ -20,7 +20,7 @@ const cspDirectives = [
     : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self' https://api.anthropic.com https://*.supabase.co",
+  "connect-src 'self' https://generativelanguage.googleapis.com https://*.supabase.co",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

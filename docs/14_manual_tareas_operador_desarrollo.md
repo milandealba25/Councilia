@@ -8,37 +8,37 @@
 
 | Prioridad | Bloquea | Acciones |
 |-----------|---------|----------|
-| **Crítica** | Desarrollo con LLM real, evaluación de prompts, producción con Claude | API key de Anthropic; variables en `.env.local` |
+| **Crítica** | Desarrollo con LLM real, evaluación de prompts, producción con Gemini | API key de Google AI Studio; variables en `.env.local` |
 | **Alta** | Persistencia, auth, historial, deploy público | Supabase (proyecto + migración SQL); Vercel; variables en hosting |
 | **Media** | Dominio público, correos, CI estricto | DNS; Resend (o similar); branch protection en GitHub |
 | **Baja** | Pagos, legal formal, validación con usuarios | Stripe; revisión legal; reclutamiento y consentimientos |
 
 ---
 
-## 2. Crítica — desarrollo local y Claude
+## 2. Crítica — desarrollo local y Gemini
 
-### 2.1 Clave de Anthropic (`ANTHROPIC_API_KEY`)
+### 2.1 Clave de Google (`GEMINI_API_KEY`)
 
-1. Entra en [Anthropic Console](https://console.anthropic.com/) con la cuenta del equipo.
-2. **API Keys** → crear clave nueva (`sk-ant-api03-...`).
+1. Entra en [Google AI Studio](https://aistudio.google.com/apikey) con la cuenta del equipo.
+2. **Create API key** y copia el valor (`AIza...`).
 3. En tu máquina: copia `.env.example` a `.env.local` (no lo subas a git).
 4. Añade:
    ```bash
-   ANTHROPIC_API_KEY=sk-ant-api03-...
+   GEMINI_API_KEY=AIza...
    ```
 5. Opcional — modelo explícito:
    ```bash
-   ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+   GEMINI_MODEL=gemini-2.0-flash
    ```
 6. Verificación:
    ```bash
-   npm run test:anthropic
+   npm run test:gemini
    ```
    Debe imprimir una respuesta corta del modelo.
 
 ### 2.2 Variables mínimas para `npm run dev`
 
-- `ANTHROPIC_API_KEY` — necesaria para `/api/sessions/*` y la pantalla **Sesión** con streaming real.
+- `GEMINI_API_KEY` — necesaria para `/api/sessions/*` y la pantalla **Sesión** con streaming real.
 - `NEXT_PUBLIC_APP_URL` — opcional en local; recomendado `http://localhost:3000` para sitemap/robots coherentes.
 
 ### 2.3 CI local sin secretos
@@ -94,7 +94,7 @@ El código incluye repos en memoria y un **factory** listo para enchufar el clie
 1. [Vercel](https://vercel.com) → **Add New → Project** → conecta el repo `Councilia/Councilia`.
 2. Framework: Next.js (auto).
 3. **Environment Variables** (Production, Preview y Development):
-   - `ANTHROPIC_API_KEY`
+   - `GEMINI_API_KEY`
    - `SUPABASE_URL`, `SUPABASE_ANON_KEY`
    - `NEXT_PUBLIC_APP_URL` (p. ej. `https://dev.councilia.app` en preview/staging)
 4. Primer deploy; revisar logs si falla el build (en CI ya se usa `SKIP_ENV_VALIDATION` donde aplica).
@@ -159,7 +159,7 @@ Sin versiones legales aprobadas, no conviene activar paywall agresivo en producc
 | `npm run dev` | Servidor local [http://localhost:3000](http://localhost:3000) |
 | `npm run build` | Build de producción |
 | `npm run lint` / `npm run typecheck` / `npm test` | Calidad |
-| `npm run eval` | Evaluación de prompts contra Claude (requiere API key) |
+| `npm run eval` | Evaluación de prompts contra Gemini (requiere API key) |
 | `python3 scripts/build_pdfs.py` | Regenera PDFs desde `docs/*.md` (requiere `pip3 install -r scripts/requirements-pdf.txt`) |
 
 ---

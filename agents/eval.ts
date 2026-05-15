@@ -21,7 +21,7 @@ import {
  * - Agnóstico del proveedor: recibe un `Llm` y cualquier mock lo puede usar.
  * - Determinista en estructura: dada la misma terna, salida estable.
  *
- * Uso en producción: `scripts/eval-fixtures.ts` (Claude real).
+ * Uso en producción: `scripts/eval-fixtures.ts` (Gemini real).
  * Uso en tests: este módulo con un Llm fake (sin red).
  */
 

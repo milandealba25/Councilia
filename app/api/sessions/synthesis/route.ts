@@ -7,6 +7,11 @@ import {
   synthesisSchema,
   validateSynthesis,
 } from "@/orchestrator/synthesis";
+import {
+  LlmError,
+  llmErrorHeadline,
+  type LlmErrorCode,
+} from "@/orchestrator/llm";
 import { renderUserContextBlock } from "@/lib/survey/survey.v1";
 import { clientKeyFromHeaders, sessionsLimiter } from "@/lib/security/rateLimit";
 import { logger } from "@/lib/observability/logger";
@@ -46,7 +51,20 @@ export async function POST(req: Request) {
   }
 
   const { userContext, transcript } = parsed;
-  const llm = getLlm();
+  let llm;
+  try {
+    llm = getLlm();
+  } catch (err) {
+    const code: LlmErrorCode = err instanceof LlmError ? err.code : "auth";
+    log.error("synthesis_init_failed", {
+      err: err instanceof Error ? err.message : String(err),
+      code,
+    });
+    return NextResponse.json(
+      { error: "config_error", code, message: llmErrorHeadline(code) },
+      { status: 503 },
+    );
+  }
 
   emitEvent("session.synthesis.requested", { requestId });
 
@@ -69,12 +87,18 @@ export async function POST(req: Request) {
       temperature: 0.4,
     });
   } catch (err) {
+    const code: LlmErrorCode = err instanceof LlmError ? err.code : "unknown";
     log.error("synthesis_llm_error", {
       err: err instanceof Error ? err.message : String(err),
+      code,
     });
     return NextResponse.json(
-      { error: "synthesis_llm_error" },
-      { status: 502 },
+      {
+        error: "synthesis_llm_error",
+        code,
+        message: llmErrorHeadline(code),
+      },
+      { status: code === "auth" ? 503 : 502 },
     );
   }
 

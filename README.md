@@ -12,13 +12,13 @@ Requisitos: **Node.js 20+** y npm.
 git checkout jaziel
 npm install
 cp .env.example .env.local
-# Edita .env.local y añade ANTHROPIC_API_KEY (ver manual abajo)
+# Edita .env.local y añade GEMINI_API_KEY (ver manual abajo)
 npm run dev
 ```
 
 Abre [http://localhost:3000](http://localhost:3000). Flujo: **Inicio** → **Onboarding** (`/onboarding`) → **Sesión** (`/session`).
 
-Sin `ANTHROPIC_API_KEY`, la UI carga pero las rutas `/api/sessions/*` fallarán al llamar a Claude.
+Sin `GEMINI_API_KEY`, la UI carga pero las rutas `/api/sessions/*` fallarán al llamar a Gemini.
 
 ---
 
@@ -31,8 +31,8 @@ Sin `ANTHROPIC_API_KEY`, la UI carga pero las rutas `/api/sessions/*` fallarán 
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Vitest |
-| `npm run test:anthropic` | Prueba mínima contra la API de Anthropic |
-| `npm run eval` | Evalúa fixtures + anti-prompts contra Claude (ver `agents/README.md`) |
+| `npm run test:gemini` | Prueba mínima contra la API de Google Gemini |
+| `npm run eval` | Evalúa fixtures + anti-prompts contra Gemini (ver `agents/README.md`) |
 
 CI (`.github/workflows/test.yml`): `npm ci`, lint, typecheck, tests y build con `SKIP_ENV_VALIDATION=1`.
 

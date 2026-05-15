@@ -4,6 +4,7 @@ import { parseSseStream } from "@/lib/sse";
 import type { AgentId } from "@/lib/agents/ids";
 import type { UserContext } from "@/lib/survey/survey.v1";
 import type { Synthesis } from "@/orchestrator/synthesis";
+import type { LlmErrorCode } from "@/orchestrator/llm";
 
 /**
  * Cliente tipado de los endpoints del orquestador.
@@ -16,8 +17,9 @@ export type InitialEvent =
   | { type: "meta"; activeAgents: AgentId[]; attenuated: AgentId[] }
   | { type: "delta"; agent: AgentId; text: string }
   | { type: "done"; agent: AgentId }
-  | { type: "error"; agent: AgentId; error: string }
+  | { type: "error"; agent: AgentId; error: string; code: LlmErrorCode }
   | { type: "crisis"; categories: string[] }
+  | { type: "config_error"; code: LlmErrorCode; message: string }
   | { type: "complete" };
 
 export type ReplicaEvent =
@@ -29,7 +31,14 @@ export type ReplicaEvent =
     }
   | { type: "delta"; text: string }
   | { type: "done" }
-  | { type: "skipped"; reason: string };
+  | { type: "skipped"; reason: string }
+  | { type: "config_error"; code: LlmErrorCode; message: string };
+
+export interface SynthesisErrorPayload {
+  error: string;
+  code?: LlmErrorCode;
+  message?: string;
+}
 
 export interface TranscriptTurn {
   role: "user" | AgentId;
@@ -85,6 +94,24 @@ export function streamReplica(args: {
   );
 }
 
+export class SynthesisRequestError extends Error {
+  readonly status: number;
+  readonly code?: LlmErrorCode;
+  readonly payload?: SynthesisErrorPayload;
+
+  constructor(
+    status: number,
+    message: string,
+    opts?: { code?: LlmErrorCode; payload?: SynthesisErrorPayload },
+  ) {
+    super(message);
+    this.name = "SynthesisRequestError";
+    this.status = status;
+    this.code = opts?.code;
+    this.payload = opts?.payload;
+  }
+}
+
 export async function requestSynthesis(args: {
   userContext: UserContext;
   transcript: TranscriptTurn[];
@@ -100,8 +127,20 @@ export async function requestSynthesis(args: {
     signal: args.signal,
   });
   if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Synthesis error (${res.status}): ${detail}`);
+    let payload: SynthesisErrorPayload | undefined;
+    try {
+      payload = (await res.json()) as SynthesisErrorPayload;
+    } catch {
+      // sin JSON: fall back al texto plano
+    }
+    const message =
+      payload?.message ??
+      payload?.error ??
+      `Synthesis error (${res.status})`;
+    throw new SynthesisRequestError(res.status, message, {
+      code: payload?.code,
+      payload,
+    });
   }
   return (await res.json()) as Synthesis;
 }

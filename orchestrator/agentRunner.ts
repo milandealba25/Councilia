@@ -1,4 +1,5 @@
-import type { Llm } from "./llm";
+import type { Llm, LlmErrorCode } from "./llm";
+import { LlmError } from "./llm";
 import type { AgentId } from "@/lib/agents/ids";
 import type { UserContext } from "@/lib/survey/survey.v1";
 import { getAgent } from "@/agents/registry";
@@ -22,6 +23,8 @@ export interface RunInitialEvent {
   type: "delta" | "done" | "error";
   text?: string;
   error?: string;
+  /** Categoría estable del error (presente solo cuando `type === "error"`). */
+  code?: LlmErrorCode;
 }
 
 export interface RunInitialOpts {
@@ -79,6 +82,7 @@ export class AgentRunner {
           agent,
           type: "error",
           error: err instanceof Error ? err.message : String(err),
+          code: err instanceof LlmError ? err.code : "unknown",
         });
       } finally {
         pending -= 1;

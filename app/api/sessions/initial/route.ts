@@ -7,6 +7,11 @@ import { detectCrisis } from "@/orchestrator/crisisDetector";
 import { activeAgents } from "@/orchestrator/intentCalibrator";
 import type { AgentId } from "@/lib/agents/ids";
 import type { RunInitialEvent } from "@/orchestrator/agentRunner";
+import {
+  LlmError,
+  llmErrorHeadline,
+  type LlmErrorCode,
+} from "@/orchestrator/llm";
 import { clientKeyFromHeaders, sessionsLimiter } from "@/lib/security/rateLimit";
 import { logger } from "@/lib/observability/logger";
 import { emit as emitEvent } from "@/lib/observability/events";
@@ -20,9 +25,10 @@ export const dynamic = "force-dynamic";
 type Event =
   | { agent?: AgentId; type: "delta"; text: string }
   | { agent: AgentId; type: "done" }
-  | { agent: AgentId; type: "error"; error: string }
+  | { agent: AgentId; type: "error"; error: string; code: LlmErrorCode }
   | { type: "meta"; activeAgents: AgentId[]; attenuated: AgentId[] }
   | { type: "crisis"; categories: string[] }
+  | { type: "config_error"; code: LlmErrorCode; message: string }
   | { type: "complete" };
 
 export async function POST(req: Request) {
@@ -100,11 +106,33 @@ export async function POST(req: Request) {
         },
       };
 
-      const runner = getAgentRunner();
+      let runner;
+      try {
+        runner = getAgentRunner();
+      } catch (err) {
+        const code: LlmErrorCode =
+          err instanceof LlmError ? err.code : "auth";
+        log.error("initial_orchestrator_init_failed", {
+          err: err instanceof Error ? err.message : String(err),
+          code,
+        });
+        yield {
+          event: "config_error",
+          data: {
+            type: "config_error",
+            code,
+            message: llmErrorHeadline(code),
+          },
+        };
+        yield { event: "complete", data: { type: "complete" } };
+        return;
+      }
+
       const abort = new AbortController();
       req.signal?.addEventListener?.("abort", () => abort.abort());
 
       const completed = new Set<AgentId>();
+      const errorCodes = new Set<LlmErrorCode>();
       try {
         for await (const ev of runner.runInitial({
           userContext,
@@ -119,9 +147,12 @@ export async function POST(req: Request) {
             });
           }
           if (ev.type === "error") {
+            const code = ev.code ?? "unknown";
+            errorCodes.add(code);
             emitEvent("session.error", {
               requestId,
               agent: ev.agent,
+              code,
               error: ev.error,
             });
           }
@@ -131,12 +162,35 @@ export async function POST(req: Request) {
         log.error("initial_stream_fatal", {
           err: err instanceof Error ? err.message : String(err),
         });
+        const code: LlmErrorCode =
+          err instanceof LlmError ? err.code : "unknown";
         yield {
-          event: "error",
+          event: "config_error",
           data: {
-            type: "error",
-            agent: "marco",
-            error: err instanceof Error ? err.message : "unknown",
+            type: "config_error",
+            code,
+            message: llmErrorHeadline(code),
+          },
+        };
+      }
+
+      // Si todos los agentes activos fallaron con el mismo código sistémico,
+      // emitir un único `config_error` para que la UI lo presente como banner
+      // accionable en lugar de tres errores idénticos.
+      if (
+        completed.size === 0 &&
+        errorCodes.size === 1 &&
+        (errorCodes.has("auth") ||
+          errorCodes.has("quota") ||
+          errorCodes.has("network"))
+      ) {
+        const code = [...errorCodes][0]!;
+        yield {
+          event: "config_error",
+          data: {
+            type: "config_error",
+            code,
+            message: llmErrorHeadline(code),
           },
         };
       }
@@ -164,6 +218,7 @@ function encodeEvent(ev: RunInitialEvent): SseEvent<Event> {
       agent: ev.agent,
       type: "error",
       error: ev.error ?? "unknown",
+      code: ev.code ?? "unknown",
     },
   };
 }
