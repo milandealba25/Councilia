@@ -54,6 +54,7 @@ export const fearedLossValues = [
   "perder_tiempo",
   "arrepentirme",
   "decepcionar",
+  "afectar_bienestar",
   "duda_si_debia_intentar",
 ] as const;
 export type FearedLoss = (typeof fearedLossValues)[number];
@@ -144,6 +145,10 @@ export const surveyV1Questions = [
       {
         value: "decepcionar",
         label: "Que afecte a alguien importante para mí",
+      },
+      {
+        value: "afectar_bienestar",
+        label: "Que termine afectando mi salud, mi descanso o mi bienestar",
       },
       {
         value: "perder_dinero",
