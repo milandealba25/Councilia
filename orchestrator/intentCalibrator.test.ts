@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calibrate, activeAgents } from "./intentCalibrator";
+import { calibrate, activeAgents, renderIntentCalibrationBlock } from "./intentCalibrator";
 import type { UserContext } from "@/lib/survey/survey.v1";
 
 function ctx(overrides: Partial<UserContext> = {}): UserContext {
@@ -46,5 +46,15 @@ describe("IntentCalibrator (K1)", () => {
   it("nunca atenúa a los tres agentes a la vez", () => {
     const r = calibrate(ctx());
     expect(r.attenuated.length).toBeLessThan(3);
+  });
+
+  it("renderIntentCalibrationBlock incluye pesos y marca atenuados", () => {
+    const block = renderIntentCalibrationBlock(
+      ctx({ decisionType: "dinero", needFromCouncil: "decidir_entre_opciones" }),
+    );
+    expect(block).toContain("<intent_calibration>");
+    expect(block).toContain("weight_marco:");
+    expect(block).toContain("attenuated_in_phase1: rafael");
+    expect(block).toContain("</intent_calibration>");
   });
 });

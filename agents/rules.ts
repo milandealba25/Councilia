@@ -176,13 +176,12 @@ export const noEmojis: RuleCheck = ({ text }) => {
 };
 
 /**
- * Longitud entre ~150 y ~250 tokens. Como TS no tokeniza con el tokenizador
- * del modelo, aproximamos por palabras: ~1.3 palabras/token en español →
- * ~115–325 palabras como banda saludable.
+ * Longitud orientativa ~80–120 tokens visibles. Como TS no tokeniza con el tokenizador
+ * del modelo, aproximamos por palabras: ~1.3 palabras/token en español.
  */
 export const lengthBounded: RuleCheck = ({ text, phase }) => {
-  const min = phase === "initial" ? 100 : 80;
-  const max = phase === "initial" ? 340 : 260;
+  const min = phase === "initial" ? 40 : 32;
+  const max = phase === "initial" ? 200 : 160;
   const words = wordCount(text);
   if (words < min) {
     return [
@@ -210,21 +209,12 @@ export const lengthBounded: RuleCheck = ({ text, phase }) => {
 export const rafaelSingleQuestion: RuleCheck = ({ text, agent, phase }) => {
   if (agent !== "rafael" || phase !== "initial") return [];
   const q = countQuestions(text);
-  if (q === 0) {
-    return [
-      {
-        rule: "rafael_zero_questions",
-        severity: "error",
-        message: "Rafael debe hacer al menos una pregunta dura.",
-      },
-    ];
-  }
   if (q > 3) {
     return [
       {
         rule: "rafael_too_many_questions",
         severity: "warning",
-        message: `Rafael formuló ${q} preguntas; una sola pregunta dura es la pauta.`,
+        message: `Rafael formuló ${q} preguntas; conviene no saturar de interrogaciones.`,
       },
     ];
   }

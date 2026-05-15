@@ -1,5 +1,6 @@
 import { AgentFace } from "@/components/agents/AgentFace";
 import { SpeakButton } from "@/components/agents/SpeakButton";
+import { StreamingAgentText } from "@/components/agents/StreamingAgentText";
 import { AGENT_LABELS, type AgentId } from "@/lib/agents/ids";
 
 type State = "streaming" | "complete" | "skipped";
@@ -9,7 +10,6 @@ interface Props {
   respondingTo: AgentId;
   text: string;
   state: State;
-  tensionScore?: number;
 }
 
 const STATE_DOT: Record<State, string> = {
@@ -20,7 +20,7 @@ const STATE_DOT: Record<State, string> = {
 
 const STATE_LABEL: Record<State, string> = {
   streaming: "Hablando",
-  complete: "Terminó de hablar",
+  complete: "",
   skipped: "Sin contradicción",
 };
 
@@ -33,47 +33,56 @@ export function ReplicaCard({
   respondingTo,
   text,
   state,
-  tensionScore,
 }: Props) {
   return (
-    <article className="relative flex flex-col gap-4 rounded-council border border-accent/40 bg-elevated p-6 shadow-council">
+    <article className="relative flex flex-col items-center gap-4 rounded-council border border-accent/40 bg-elevated p-6 text-center shadow-council">
       <span
-        className="absolute -top-3 left-6 inline-flex items-center gap-2 rounded-full border border-accent/60 bg-background px-3 py-1 text-[11px] uppercase tracking-wider text-accent"
+        className="absolute -top-3 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-accent/60 bg-background px-3 py-1 text-[11px] uppercase tracking-wider text-accent"
         aria-hidden
       >
         Una pregunta dura
       </span>
 
-      <header className="flex flex-wrap items-center gap-3 pt-1">
-        <div className="flex items-center gap-2">
+      <header className="flex w-full flex-col items-center justify-center gap-4 pt-1 md:flex-row md:flex-wrap">
+        <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center">
           <AgentFace agent={speaker} size={40} mood="speaking" />
           <span className="font-sans text-sm font-semibold text-foreground">
             {AGENT_LABELS[speaker]}
           </span>
         </div>
         <Arrow />
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center">
           <span className="font-sans text-sm text-muted">le habla a</span>
-          <AgentFace agent={respondingTo} size={32} mood="listening" />
-          <span className="font-sans text-sm font-semibold text-foreground">
-            {AGENT_LABELS[respondingTo]}
-          </span>
+          <div className="flex items-center gap-2">
+            <AgentFace agent={respondingTo} size={32} mood="listening" />
+            <span className="font-sans text-sm font-semibold text-foreground">
+              {AGENT_LABELS[respondingTo]}
+            </span>
+          </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted">
-          <span className={`inline-block size-1.5 rounded-full ${STATE_DOT[state]}`} />
-          {STATE_LABEL[state]}
+        <div className="flex w-full items-center justify-center gap-2 text-[11px] uppercase tracking-wider text-muted md:ml-0 md:w-auto">
+          <span className={`inline-block size-1.5 shrink-0 rounded-full ${STATE_DOT[state]}`} />
+          {STATE_LABEL[state] ? (
+            <span>{STATE_LABEL[state]}</span>
+          ) : state === "complete" ? (
+            <span className="sr-only">Listo</span>
+          ) : null}
         </div>
       </header>
 
-      <div className="text-sm leading-relaxed text-foreground/90">
+      <div className="w-full max-w-prose min-h-[4rem] text-left text-sm leading-relaxed text-foreground/90">
         {state === "skipped" ? (
           <p className="italic text-muted">
             Esta vez no se contradijeron en serio. La conversación sigue sin
             pelea de nadie.
           </p>
         ) : text ? (
-          <p>{text}</p>
+          <StreamingAgentText
+            text={text}
+            streaming={state === "streaming"}
+            className="whitespace-pre-wrap break-words"
+          />
         ) : (
           <p className="text-muted/70">
             <span
@@ -87,15 +96,10 @@ export function ReplicaCard({
             </span>
           </p>
         )}
-        {tensionScore !== undefined && state !== "skipped" && (
-          <p className="mt-3 text-[10px] uppercase tracking-wider text-subtle">
-            Intensidad del desacuerdo · {Math.round(tensionScore * 100)}%
-          </p>
-        )}
       </div>
 
       {state === "complete" && text && (
-        <footer className="flex items-center justify-between border-t border-border/40 pt-3">
+        <footer className="flex w-full max-w-prose flex-col items-center gap-3 border-t border-border/40 pt-3 sm:flex-row sm:justify-between">
           <span className="text-[10px] uppercase tracking-wider text-subtle">
             Escucha la pregunta de {AGENT_LABELS[speaker]}
           </span>

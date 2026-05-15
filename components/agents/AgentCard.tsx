@@ -1,5 +1,6 @@
 import { AgentFace } from "./AgentFace";
 import { SpeakButton } from "./SpeakButton";
+import { StreamingAgentText } from "./StreamingAgentText";
 import {
   AGENT_DOMINANT_QUESTION,
   AGENT_LABELS,
@@ -14,6 +15,8 @@ interface AgentCardProps {
   state?: State;
   text?: string;
   className?: string;
+  /** Se dispara cuando el texto terminó de revelarse (mecanografía al día). Solo en turnos con texto. */
+  onRevealComplete?: () => void;
   /** Si el usuario está escribiendo en el textarea, los rostros “escuchan”. */
   isUserTyping?: boolean;
   /**
@@ -29,7 +32,7 @@ interface AgentCardProps {
 const STATE_LABEL: Record<State, string> = {
   idle: "Te escucha",
   streaming: "Está pensando…",
-  complete: "Terminó de hablar",
+  complete: "",
   error: "Algo se cortó",
 };
 
@@ -51,6 +54,7 @@ export function AgentCard({
   state = "idle",
   text,
   className = "",
+  onRevealComplete,
   isUserTyping = false,
   attenuated = false,
   errorMessage,
@@ -80,7 +84,7 @@ export function AgentCard({
     <article
       data-state={state}
       data-attenuated={attenuated ? "true" : undefined}
-      className={`group relative flex min-h-[280px] flex-col gap-4 rounded-council border border-border bg-elevated p-6 shadow-council transition hover:border-accent/40 data-[attenuated=true]:opacity-75 ${className}`}
+      className={`group relative flex min-h-[280px] flex-col items-center gap-4 rounded-council border border-border bg-elevated p-6 text-center shadow-council transition hover:border-accent/40 data-[attenuated=true]:opacity-75 ${className}`}
     >
       <div
         aria-hidden
@@ -90,9 +94,9 @@ export function AgentCard({
         }}
       />
 
-      <header className="flex items-start gap-4">
+      <header className="flex w-full flex-col items-center gap-3">
         <AgentFace agent={agent} size={56} mood={mood} />
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-col items-center gap-0.5">
           <h3 className="font-sans text-base font-semibold text-foreground">
             {AGENT_LABELS[agent]}
           </h3>
@@ -100,19 +104,23 @@ export function AgentCard({
             {AGENT_ROLES[agent]}
           </p>
         </div>
-        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted">
+        <div className="flex items-center justify-center gap-2 text-[11px] uppercase tracking-wider text-muted">
           <span
-            className={`inline-block size-1.5 rounded-full ${statusDot}`}
+            className={`inline-block size-1.5 shrink-0 rounded-full ${statusDot}`}
           />
-          {statusLabel}
+          {statusLabel ? (
+            <span>{statusLabel}</span>
+          ) : state === "complete" ? (
+            <span className="sr-only">Listo</span>
+          ) : null}
         </div>
       </header>
 
-      <p className="text-xs italic leading-relaxed text-muted/90">
+      <p className="w-full max-w-prose text-center text-xs italic leading-relaxed text-muted/90">
         {AGENT_DOMINANT_QUESTION[agent]}
       </p>
 
-      <div className="mt-1 flex-1 text-sm leading-relaxed text-foreground/90">
+      <div className="mt-1 w-full max-w-prose flex-1 min-h-[4.5rem] text-left text-sm leading-relaxed text-foreground/90 break-words">
         {isTyping ? (
           <span
             className="typing-dots inline-flex"
@@ -124,7 +132,12 @@ export function AgentCard({
             <span />
           </span>
         ) : text ? (
-          text
+          <StreamingAgentText
+            text={text}
+            streaming={state === "streaming"}
+            onRevealComplete={onRevealComplete}
+            className="whitespace-pre-wrap break-words"
+          />
         ) : isError ? (
           <span className="text-error/90">
             {errorMessage ??
@@ -142,7 +155,7 @@ export function AgentCard({
       </div>
 
       {state === "complete" && text && (
-        <footer className="flex items-center justify-between border-t border-border/40 pt-3">
+        <footer className="flex w-full max-w-prose flex-col items-center gap-3 border-t border-border/40 pt-3 sm:flex-row sm:justify-between">
           <span className="text-[10px] uppercase tracking-wider text-subtle">
             Escúchalo en su voz
           </span>

@@ -118,3 +118,27 @@ export function activeAgents(ctx: UserContext): ReadonlyArray<AgentId> {
   const { attenuated } = calibrate(ctx);
   return AGENT_IDS.filter((id) => !attenuated.includes(id));
 }
+
+/**
+ * Bloque estructurado para el sintetizador (fase de cierre).
+ * Expone los mismos pesos y notas que ya calcula `calibrate()` para que el LLM
+ * equilibre énfasis entre voces sin inventar posturas ausentes.
+ */
+export function renderIntentCalibrationBlock(ctx: UserContext): string {
+  const { weights, attenuated, notes } = calibrate(ctx);
+  const lines = [
+    "<intent_calibration>",
+    "  # Pesos relativos (mayor = más peso al nombrar tensiones entre caminos). No son votos ni scores absolutos.",
+    ...AGENT_IDS.map(
+      (id) => `  weight_${id}: ${weights[id].toFixed(3)}`,
+    ),
+    `  attenuated_in_phase1: ${
+      attenuated.length > 0 ? attenuated.join(", ") : "(ninguno)"
+    }`,
+  ];
+  for (let i = 0; i < notes.length; i++) {
+    lines.push(`  note_${i + 1}: ${notes[i]}`);
+  }
+  lines.push("</intent_calibration>");
+  return lines.join("\n");
+}

@@ -87,12 +87,12 @@ describe("Rules · longitud", () => {
 });
 
 describe("Rules · específicas por agente", () => {
-  it("Rafael sin ninguna pregunta → error", () => {
-    const v = rafaelSingleQuestion(
-      ctx({ agent: "rafael", text: "Aquí solo afirmaciones. Sin preguntas." }),
-    );
-    expect(v.length).toBe(1);
-    expect(v[0].severity).toBe("error");
+  it("Rafael sin preguntas: permitido (sin violación)", () => {
+    expect(
+      rafaelSingleQuestion(
+        ctx({ agent: "rafael", text: "Aquí solo afirmaciones. Sin preguntas." }),
+      ),
+    ).toEqual([]);
   });
 
   it("Rafael con 5 preguntas → warning", () => {

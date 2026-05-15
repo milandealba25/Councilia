@@ -13,6 +13,7 @@ import {
   type LlmErrorCode,
 } from "@/orchestrator/llm";
 import { renderUserContextBlock } from "@/lib/survey/survey.v1";
+import { renderIntentCalibrationBlock } from "@/orchestrator/intentCalibrator";
 import { clientKeyFromHeaders, sessionsLimiter } from "@/lib/security/rateLimit";
 import { logger } from "@/lib/observability/logger";
 import { emit as emitEvent } from "@/lib/observability/events";
@@ -71,6 +72,8 @@ export async function POST(req: Request) {
   const userContent = [
     "Contexto del usuario:",
     renderUserContextBlock(userContext),
+    "",
+    renderIntentCalibrationBlock(userContext),
     "",
     "Transcripción de la deliberación:",
     ...transcript.map((t) => `[${t.role}] ${t.text.trim()}`),

@@ -327,11 +327,16 @@ function markAllError(
 }
 
 /**
- * Pausa breve tras la fase 1 antes de pedir la réplica. Da al usuario
- * tiempo de leer las 3 posturas antes de que aparezca "la pregunta dura".
- * Ajustar aquí cambia el ritmo global del council.
+ * Pausa breve tras mostrar "Alguien toma la palabra" y antes de pedir la réplica
+ * al servidor (placeholder + tiempo de lectura del aviso).
  */
-const PHASE_TRANSITION_MS = 1400;
+const PHASE_TRANSITION_MS = 800;
+
+/**
+ * Tras terminar la mecanografía de todas las posturas visibles, breve pausa
+ * antes de mostrar "Alguien toma la palabra".
+ */
+const POST_AGENT_REVEAL_MS = 4_000;
 
 export function SessionConsole() {
   const router = useRouter();
@@ -340,6 +345,20 @@ export function SessionConsole() {
   const agentsSectionRef = useRef<HTMLElement | null>(null);
   const replicaSectionRef = useRef<HTMLElement | null>(null);
   const inputSectionRef = useRef<HTMLDivElement | null>(null);
+  const agentRevealGateRef = useRef<{
+    pending: Set<AgentId>;
+    resolve: () => void;
+  } | null>(null);
+
+  function releaseAgentRevealGate(id: AgentId) {
+    const g = agentRevealGateRef.current;
+    if (!g || !g.pending.has(id)) return;
+    g.pending.delete(id);
+    if (g.pending.size === 0) {
+      agentRevealGateRef.current = null;
+      g.resolve();
+    }
+  }
 
   function smoothScrollTo(node: HTMLElement | null) {
     if (!node || typeof window === "undefined") return;
@@ -391,11 +410,18 @@ export function SessionConsole() {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    if (agentRevealGateRef.current) {
+      const stuck = agentRevealGateRef.current;
+      agentRevealGateRef.current = null;
+      stuck.resolve();
+    }
 
     dispatch({ type: "submit_user", message });
 
     try {
       const collected: Record<AgentId, string> = { marco: "", elena: "", rafael: "" };
+      let attenuatedIds: AgentId[] = [];
+      const errored = new Set<AgentId>();
       let crisis = false;
       for await (const ev of streamInitial({
         userContext: state.ctx,
@@ -403,10 +429,51 @@ export function SessionConsole() {
         signal: ctrl.signal,
       })) {
         dispatch({ type: "initial_event", event: ev });
+        if (ev.type === "meta") attenuatedIds = ev.attenuated;
         if (ev.type === "delta") collected[ev.agent] += ev.text;
+        if (ev.type === "error") errored.add(ev.agent);
         if (ev.type === "crisis") crisis = true;
       }
       if (crisis) return;
+
+      const agentsNeedReveal = AGENT_IDS.filter(
+        (id) =>
+          !attenuatedIds.includes(id) &&
+          !errored.has(id) &&
+          collected[id].trim().length > 0,
+      );
+
+      const anyPostureText = AGENT_IDS.some(
+        (id) => collected[id].trim().length > 0,
+      );
+
+      const abortRevealWait = () => {
+        const g = agentRevealGateRef.current;
+        if (g) {
+          agentRevealGateRef.current = null;
+          g.resolve();
+        }
+      };
+      ctrl.signal.addEventListener("abort", abortRevealWait);
+
+      try {
+        if (agentsNeedReveal.length > 0) {
+          await new Promise<void>((resolve) => {
+            agentRevealGateRef.current = {
+              pending: new Set(agentsNeedReveal),
+              resolve,
+            };
+          });
+        }
+        if (ctrl.signal.aborted) return;
+        if (anyPostureText) {
+          await delay(POST_AGENT_REVEAL_MS, ctrl.signal);
+        }
+        if (ctrl.signal.aborted) return;
+      } finally {
+        ctrl.signal.removeEventListener("abort", abortRevealWait);
+        agentRevealGateRef.current = null;
+      }
 
       dispatch({ type: "phase1_done" });
 
@@ -419,8 +486,6 @@ export function SessionConsole() {
         return;
       }
 
-      // Pausa intencional para leer las posturas antes de la réplica.
-      // Honra el abort del usuario (no quedamos colgados si cierra).
       await delay(PHASE_TRANSITION_MS, ctrl.signal);
       if (ctrl.signal.aborted) return;
 
@@ -584,7 +649,7 @@ export function SessionConsole() {
               state.phase !== "fase1" && state.phase !== "idle"
             }
           />
-          <div className="grid gap-5 md:grid-cols-3">
+          <div className="mx-auto grid w-full max-w-6xl grid-cols-1 justify-items-center gap-5 sm:grid-cols-2 md:grid-cols-3">
             {AGENT_IDS.map((id) => {
               const slot = state.agents[id];
               const headline = slot.errorCode
@@ -593,11 +658,13 @@ export function SessionConsole() {
               return (
                 <AgentCard
                   key={id}
+                  className="w-full max-w-md"
                   agent={id}
                   state={slot.state}
                   text={slot.text || undefined}
                   attenuated={state.attenuated.includes(id)}
                   errorMessage={headline}
+                  onRevealComplete={() => releaseAgentRevealGate(id)}
                   isUserTyping={
                     state.userInput.length > 0 &&
                     (state.phase === "idle" || state.phase === "wait")
@@ -634,7 +701,6 @@ export function SessionConsole() {
               speaker={state.replica.speaker}
               respondingTo={state.replica.respondingTo}
               text={state.replica.text}
-              tensionScore={state.replica.tensionScore}
               state={state.replica.state}
             />
           ) : null}

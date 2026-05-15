@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:gemini": "tsx scripts/hello-gemini.ts",
-    "eval": "tsx scripts/eval-fixtures.ts"
+    "eval": "tsx scripts/eval-fixtures.ts",
+    "pdf:agentes": "pandoc docs/04_agentes.md -o pdfs/04_Agentes.pdf"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

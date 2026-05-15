@@ -25,7 +25,7 @@ function toGeminiContents(messages: ReadonlyArray<LlmMessage>): Content[] {
 
 /**
  * Modelos Gemini 2.5+ usan "thinking" interno que consume parte del
- * `maxOutputTokens`. Para posturas cortas (150–200 tokens visibles) y
+ * `maxOutputTokens`. Para posturas cortas (~80–120 tokens visibles) y
  * latencia baja, lo deseable es desactivarlo. Es configurable por env
  * (`GEMINI_THINKING_BUDGET`): entero ≥ 0. `0` deshabilita, ausente o
  * negativo deja que el modelo decida.
