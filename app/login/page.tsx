@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { AgentFace } from "@/components/agents/AgentFace";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { Container } from "@/components/ui/Container";
+import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { AGENT_IDS } from "@/lib/agents/ids";
 
 export const metadata = {
@@ -11,8 +12,9 @@ export const metadata = {
 
 export default function LoginPage() {
   return (
-    <main className="grid min-h-dvh place-items-center px-4 py-10">
-      <Container className="w-full max-w-xl">
+    <main className="relative isolate grid min-h-dvh place-items-center overflow-hidden px-4 py-10">
+      <AuroraBackground />
+      <Container className="relative z-10 w-full max-w-xl">
         <Link
           href="/"
           className="text-xs uppercase tracking-wider text-muted hover:text-foreground"
@@ -22,18 +24,6 @@ export default function LoginPage() {
 
         <div className="mt-8 grid gap-7">
           <header className="text-center">
-            <div className="mb-6 flex items-center justify-center gap-3">
-              {AGENT_IDS.map((id, i) => (
-                <span
-                  key={id}
-                  style={{
-                    animation: `soft-rise 700ms ease-out ${i * 140}ms both`,
-                  }}
-                >
-                  <AgentFace agent={id} size={48} mood="listening" />
-                </span>
-              ))}
-            </div>
             <p className="text-xs font-medium uppercase tracking-widest text-accent">
               Acceso
             </p>
@@ -58,6 +48,22 @@ export default function LoginPage() {
               <LoginForm />
             </Suspense>
           </section>
+
+          <div
+            className="flex items-center justify-center gap-4 pt-1"
+            aria-hidden
+          >
+            {AGENT_IDS.map((id, i) => (
+              <span
+                key={id}
+                style={{
+                  animation: `soft-rise 700ms ease-out ${220 + i * 140}ms both`,
+                }}
+              >
+                <AgentFace agent={id} size={58} mood="listening" />
+              </span>
+            ))}
+          </div>
         </div>
       </Container>
     </main>

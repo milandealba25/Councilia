@@ -75,6 +75,52 @@
     background-size: 3px 3px, 7px 7px;
     background-position: 0 0, 1px 2px;
   }
+
+  .council-aurora {
+    --council-veil: repeating-linear-gradient(
+      100deg,
+      rgb(251 246 237 / 0.95) 0%,
+      rgb(251 246 237 / 0.95) 7%,
+      transparent 10%,
+      transparent 12%,
+      rgb(251 246 237 / 0.95) 16%
+    );
+    --council-light: repeating-linear-gradient(
+      100deg,
+      rgb(226 96 59 / 0.24) 10%,
+      rgb(217 154 43 / 0.22) 16%,
+      rgb(90 138 111 / 0.20) 22%,
+      rgb(196 80 58 / 0.15) 28%,
+      rgb(234 217 196 / 0.22) 34%
+    );
+    background-image: var(--council-veil), var(--council-light);
+    background-position: 50% 50%, 50% 50%;
+    background-size: 260%, 170%;
+    filter: saturate(1.05);
+    mix-blend-mode: multiply;
+  }
+
+  .council-aurora::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--council-veil), var(--council-light);
+    background-position: 50% 50%, 50% 50%;
+    background-size: 170%, 92%;
+    mix-blend-mode: soft-light;
+    animation: aurora 52s linear infinite;
+  }
+
+  .council-aurora-mask {
+    mask-image: radial-gradient(
+      ellipse 105% 82% at 52% 8%,
+      black 10%,
+      rgb(0 0 0 / 0.84) 42%,
+      rgb(0 0 0 / 0.42) 67%,
+      transparent 88%
+    );
+  }
+
 }
 
 /*
@@ -127,6 +173,11 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes aurora {
+  from { background-position: 50% 50%, 50% 50%; }
+  to   { background-position: 350% 50%, 350% 50%; }
+}
+
 @keyframes pulse-ring {
   0%   { box-shadow: 0 0 0 0 rgb(226 96 59 / 0.18); }
   70%  { box-shadow: 0 0 0 14px rgb(226 96 59 / 0); }
@@ -140,6 +191,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .typing-dots > span,
+  .council-aurora::after,
   *[style*="face-breath"],
   *[style*="face-float"],
   *[style*="face-blink"],
