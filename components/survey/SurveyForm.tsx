@@ -8,6 +8,7 @@ import {
   userContextSchema,
   type UserContext,
 } from "@/lib/survey/survey.v1";
+import { loadAuthSession } from "@/lib/auth/client";
 import { saveUserContext } from "@/lib/survey/storage";
 import { Button } from "@/components/ui/Button";
 
@@ -56,7 +57,11 @@ export function SurveyForm() {
     }
 
     saveUserContext(parsed.data);
-    router.push("/session");
+    if (!loadAuthSession()) {
+      router.push("/login?next=/session&reason=survey" as never);
+      return;
+    }
+    router.push("/session" as never);
   }
 
   return (

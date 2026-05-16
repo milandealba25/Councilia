@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AuthNavButton } from "@/components/auth/AuthNavButton";
 import { Container } from "@/components/ui/Container";
 import { LinkButton } from "@/components/ui/Button";
 
@@ -37,7 +38,12 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <LinkButton href="/onboarding" variant="primary">
+          <AuthNavButton />
+          <LinkButton
+            href="/onboarding"
+            variant="primary"
+            className="px-3 sm:px-5"
+          >
             Sentarme con ellos
           </LinkButton>
         </div>

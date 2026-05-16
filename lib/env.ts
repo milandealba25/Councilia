@@ -12,6 +12,7 @@ const serverEnvSchema = z.object({
   NEXT_PUBLIC_APP_URL: optionalUrl,
   SUPABASE_URL: optionalUrl,
   SUPABASE_ANON_KEY: z.string().min(1).optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -24,6 +25,7 @@ function parseServerEnv(): ServerEnv {
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
       SUPABASE_URL: process.env.SUPABASE_URL,
       SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
     });
   }
 
@@ -33,6 +35,7 @@ function parseServerEnv(): ServerEnv {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     SUPABASE_URL: process.env.SUPABASE_URL,
     SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   });
 
   if (!parsed.success) {
