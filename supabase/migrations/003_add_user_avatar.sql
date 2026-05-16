@@ -1,8 +1,5 @@
--- COUNCILia · Añade nombre visible a perfiles de usuario.
--- Aplicar en Supabase SQL Editor si ya corriste 001_init.sql antes.
-
-alter table public.users
-  add column if not exists display_name text;
+-- COUNCILia · Fotos de perfil de usuario.
+-- Aplicar en Supabase SQL Editor si ya corriste las migraciones anteriores.
 
 alter table public.users
   add column if not exists avatar_url text;
@@ -38,3 +35,17 @@ end;
 $$ language plpgsql security definer set search_path = public;
 
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'user-avatars',
+  'user-avatars',
+  true,
+  2097152,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+  set
+    public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;

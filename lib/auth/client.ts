@@ -4,6 +4,7 @@ export interface AuthUser {
   id: string;
   email: string;
   name?: string | null;
+  avatarUrl?: string | null;
 }
 
 export interface AuthSession {
@@ -41,6 +42,20 @@ export function saveAuthSession(session: AuthSession): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(KEY, JSON.stringify(session));
   window.dispatchEvent(new Event("councilia:auth-change"));
+}
+
+export function updateAuthUser(user: Partial<AuthUser>): AuthSession | null {
+  const session = loadAuthSession();
+  if (!session) return null;
+  const nextSession = {
+    ...session,
+    user: {
+      ...session.user,
+      ...user,
+    },
+  };
+  saveAuthSession(nextSession);
+  return nextSession;
 }
 
 export function clearAuthSession(): void {

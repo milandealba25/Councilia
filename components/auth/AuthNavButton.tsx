@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { LinkButton } from "@/components/ui/Button";
 import {
@@ -10,10 +11,12 @@ import {
 
 export function AuthNavButton() {
   const [session, setSession] = useState<AuthSession | null>(null);
+  const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
     function syncSession() {
       setSession(loadAuthSession());
+      setImageFailed(false);
     }
 
     syncSession();
@@ -25,13 +28,45 @@ export function AuthNavButton() {
     };
   }, []);
 
+  if (!session) {
+    return (
+      <LinkButton href="/login" variant="secondary" className="px-3 sm:px-5">
+        Login
+      </LinkButton>
+    );
+  }
+
   return (
-    <LinkButton
-      href={session ? "/account" : "/login"}
-      variant="secondary"
-      className="px-3 sm:px-5"
+    <Link
+      href="/account"
+      aria-label="Abrir cuenta"
+      className="inline-flex items-center gap-2 rounded-council border border-border-strong/70 bg-surface/80 px-3 py-2 text-sm font-medium text-foreground backdrop-blur transition-all duration-150 hover:border-accent hover:bg-accent-soft hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      {session ? "Cuenta" : "Login"}
-    </LinkButton>
+      <span className="grid size-7 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-accent-soft text-[11px] font-semibold text-accent-strong">
+        {session.user.avatarUrl && !imageFailed ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={session.user.avatarUrl}
+            alt=""
+            className="h-full w-full object-cover"
+            onError={() => setImageFailed(true)}
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <span>{getInitials(session.user.name ?? session.user.email)}</span>
+        )}
+      </span>
+      <span className="hidden sm:inline">Cuenta</span>
+    </Link>
   );
+}
+
+function getInitials(value: string): string {
+  const parts = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  if (parts.length === 0) return "C";
+  return parts.map((part) => part[0]?.toUpperCase()).join("");
 }

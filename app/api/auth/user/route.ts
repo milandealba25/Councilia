@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireSupabaseConfig } from "@/lib/db/supabase";
-import { getProfileName, syncPublicUser } from "@/lib/auth/profileSync";
+import {
+  getProfileAvatarUrl,
+  getProfileName,
+  getPublicUserProfile,
+  syncPublicUser,
+} from "@/lib/auth/profileSync";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +51,7 @@ export async function GET(request: Request) {
     id: data.id,
     email: data.email,
     name: getProfileName(data.user_metadata),
+    avatarUrl: getProfileAvatarUrl(data.user_metadata),
   };
 
   try {
@@ -57,7 +63,13 @@ export async function GET(request: Request) {
     );
   }
 
+  const profile = await getPublicUserProfile(url, user.id);
+
   return NextResponse.json({
-    user,
+    user: {
+      ...user,
+      name: profile?.displayName ?? user.name,
+      avatarUrl: profile?.avatarUrl ?? user.avatarUrl,
+    },
   });
 }

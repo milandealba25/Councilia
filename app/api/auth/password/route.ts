@@ -3,7 +3,12 @@ import {
   getSupabaseServiceRoleKey,
   requireSupabaseConfig,
 } from "@/lib/db/supabase";
-import { getProfileName, syncPublicUser } from "@/lib/auth/profileSync";
+import {
+  getProfileAvatarUrl,
+  getProfileName,
+  getPublicUserProfile,
+  syncPublicUser,
+} from "@/lib/auth/profileSync";
 import {
   isValidEmail,
   isValidName,
@@ -175,6 +180,8 @@ export async function POST(request: Request) {
     );
   }
 
+  const profile = await getPublicUserProfile(supabaseConfig.url, user.id);
+
   return NextResponse.json({
     ok: true,
     session: {
@@ -187,7 +194,8 @@ export async function POST(request: Request) {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name ?? null,
+        name: profile?.displayName ?? user.name ?? null,
+        avatarUrl: profile?.avatarUrl ?? user.avatarUrl ?? null,
       },
     },
   });
@@ -195,13 +203,14 @@ export async function POST(request: Request) {
 
 function getAuthUser(
   data: SupabaseAuthResponse | null,
-): { id: string; email: string; name?: string | null } | null {
+): { id: string; email: string; name?: string | null; avatarUrl?: string | null } | null {
   const candidate = data?.user ?? data;
   if (!candidate?.id || !candidate.email) return null;
   return {
     id: candidate.id,
     email: candidate.email,
     name: getUserName(candidate),
+    avatarUrl: getProfileAvatarUrl(candidate.user_metadata),
   };
 }
 
