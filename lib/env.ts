@@ -9,6 +9,7 @@ const optionalUrl = z.preprocess(
 const serverEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   GEMINI_API_KEY: z.string().min(1).optional(),
+  ELEVENLABS_API_KEY: z.string().min(1).optional(),
   NEXT_PUBLIC_APP_URL: optionalUrl,
   SUPABASE_URL: optionalUrl,
   SUPABASE_ANON_KEY: z.string().min(1).optional(),
@@ -21,6 +22,7 @@ function parseServerEnv(): ServerEnv {
     return serverEnvSchema.parse({
       NODE_ENV: process.env.NODE_ENV ?? "development",
       GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+      ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY,
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
       SUPABASE_URL: process.env.SUPABASE_URL,
       SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
@@ -30,6 +32,7 @@ function parseServerEnv(): ServerEnv {
   const parsed = serverEnvSchema.safeParse({
     NODE_ENV: process.env.NODE_ENV,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     SUPABASE_URL: process.env.SUPABASE_URL,
     SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
@@ -68,4 +71,8 @@ export function requireGeminiKey(): string {
     );
   }
   return key;
+}
+
+export function maybeElevenLabsKey(): string | null {
+  return env.ELEVENLABS_API_KEY ?? null;
 }

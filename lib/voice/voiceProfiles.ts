@@ -24,6 +24,7 @@ export interface AgentVoiceProfile {
   lang: string;
   gender: VoiceGenderHint;
   voiceHints: ReadonlyArray<string>;
+  elevenVoiceId: string;
 }
 
 export const AGENT_VOICE_PROFILES: Record<AgentId, AgentVoiceProfile> = {
@@ -40,6 +41,7 @@ export const AGENT_VOICE_PROFILES: Record<AgentId, AgentVoiceProfile> = {
       "Microsoft Jorge",
       "Spanish",
     ],
+    elevenVoiceId: "htFfPSZGJwjBv1CL0aMD",
   },
   elena: {
     rate: 0.95,
@@ -55,6 +57,7 @@ export const AGENT_VOICE_PROFILES: Record<AgentId, AgentVoiceProfile> = {
       "Microsoft Sabina",
       "Spanish",
     ],
+    elevenVoiceId: "CaJslL1xziwefCeTNzHv",
   },
   rafael: {
     rate: 1.02,
@@ -69,5 +72,6 @@ export const AGENT_VOICE_PROFILES: Record<AgentId, AgentVoiceProfile> = {
       "Microsoft Pablo",
       "Spanish",
     ],
+    elevenVoiceId: "XgQWNZcJ8SRkxXwwhPTo",
   },
 };

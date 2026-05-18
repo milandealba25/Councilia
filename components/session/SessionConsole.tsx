@@ -23,6 +23,10 @@ import {
   llmErrorHeadline,
   type LlmErrorCode,
 } from "@/orchestrator/llm";
+import {
+  startVoiceContextPlayback,
+  unlockVoicePlayback,
+} from "@/lib/voice/audioContextPlayer";
 
 /**
  * Máquina de estados de una sesión (doc 05, §1).
@@ -338,10 +342,92 @@ const PHASE_TRANSITION_MS = 800;
  */
 const POST_AGENT_REVEAL_MS = 4_000;
 
+async function playAudioBlob(
+  blob: Blob,
+  signal?: AbortSignal,
+): Promise<void> {
+  const handle = await startVoiceContextPlayback(blob, signal);
+  await handle.done;
+}
+
+async function playWithWebSpeechFallback(
+  text: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (
+    typeof window === "undefined" ||
+    typeof window.speechSynthesis === "undefined" ||
+    typeof window.SpeechSynthesisUtterance === "undefined"
+  ) {
+    return;
+  }
+  return new Promise((resolve) => {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "es-MX";
+    utter.rate = 0.95;
+    utter.pitch = 1;
+
+    function cleanup() {
+      utter.onend = null;
+      utter.onerror = null;
+      signal?.removeEventListener("abort", onAbort);
+    }
+
+    function onAbort() {
+      window.speechSynthesis.cancel();
+      cleanup();
+      resolve();
+    }
+
+    utter.onend = () => {
+      cleanup();
+      resolve();
+    };
+    utter.onerror = () => {
+      cleanup();
+      resolve();
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    window.speechSynthesis.speak(utter);
+  });
+}
+
+async function playAgentVoice(
+  agent: AgentId,
+  text: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  let blob: Blob | null = null;
+  try {
+    const res = await fetch("/api/voice/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agent, text }),
+      signal,
+    });
+    if (!res.ok) throw new Error(`tts_http_${res.status}`);
+    blob = await res.blob();
+    if (blob.size === 0) throw new Error("tts_empty_audio");
+  } catch {
+    await playWithWebSpeechFallback(text, signal);
+    return;
+  }
+
+  try {
+    await playAudioBlob(blob, signal);
+  } catch {
+    // Si Eleven respondió OK pero autoplay fue bloqueado por navegador,
+    // caemos a voz local para evitar silencio total.
+    await playWithWebSpeechFallback(text, signal);
+  }
+}
+
 export function SessionConsole() {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
+  const autoVoiceAbortRef = useRef<AbortController | null>(null);
+  const autoVoicePlayedForMessageRef = useRef<string | null>(null);
   const agentsSectionRef = useRef<HTMLElement | null>(null);
   const replicaSectionRef = useRef<HTMLElement | null>(null);
   const inputSectionRef = useRef<HTMLDivElement | null>(null);
@@ -380,7 +466,19 @@ export function SessionConsole() {
     dispatch({ type: "ctx_loaded", ctx: stored });
   }, [router]);
 
-  useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+      autoVoiceAbortRef.current?.abort();
+      if (
+        typeof window !== "undefined" &&
+        typeof window.speechSynthesis !== "undefined"
+      ) {
+        window.speechSynthesis.cancel();
+      }
+    },
+    [],
+  );
 
   // Al enviar un mensaje, deslizamos a la sección de los agentes.
   useEffect(() => {
@@ -401,13 +499,40 @@ export function SessionConsole() {
     smoothScrollTo(inputSectionRef.current);
   }, [state.phase]);
 
+  // Auto-voz secuencial (Marco -> Elena -> Rafael) cuando ya terminaron.
+  useEffect(() => {
+    if (state.phase !== "wait" || state.loading || !state.lastUserMessage) return;
+    if (autoVoicePlayedForMessageRef.current === state.lastUserMessage) return;
+
+    const queue = AGENT_IDS
+      .map((id) => ({ agent: id, text: state.agents[id].text.trim() }))
+      .filter((item) => item.text.length > 0);
+    if (queue.length === 0) return;
+
+    autoVoicePlayedForMessageRef.current = state.lastUserMessage;
+    autoVoiceAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    autoVoiceAbortRef.current = ctrl;
+
+    void (async () => {
+      for (const item of queue) {
+        if (ctrl.signal.aborted) return;
+        await playAgentVoice(item.agent, item.text, ctrl.signal);
+      }
+    })();
+  }, [state.phase, state.loading, state.lastUserMessage, state.agents]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!state.ctx || state.loading) return;
     const message = state.userInput.trim();
     if (!message) return;
+    // Esta interacción del usuario desbloquea reproducción para auto-voz posterior.
+    void unlockVoicePlayback();
 
     abortRef.current?.abort();
+    autoVoiceAbortRef.current?.abort();
+    autoVoiceAbortRef.current = null;
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     if (agentRevealGateRef.current) {
@@ -565,53 +690,12 @@ export function SessionConsole() {
 
   const canRequestSynthesis =
     state.phase === "wait" && !state.synthesis && !state.loading;
+  const showComposer =
+    !state.loading && (state.phase === "idle" || state.phase === "wait");
 
   return (
     <div className="flex flex-col gap-10">
       <PhaseIndicator phase={state.phase} />
-
-      <div ref={inputSectionRef} className="scroll-mt-8" />
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <label
-          htmlFor="user-input"
-          className="text-xs font-medium uppercase tracking-wider text-muted"
-        >
-          {state.phase === "wait" ? "Sigue hablando" : "Cuéntales"}
-        </label>
-        <textarea
-          id="user-input"
-          value={state.userInput}
-          onChange={(e) =>
-            dispatch({ type: "user_input", value: e.target.value })
-          }
-          maxLength={4000}
-          rows={4}
-          disabled={state.loading || state.phase === "fase4"}
-          placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
-          className="resize-none rounded-council border border-border bg-elevated/60 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
-        />
-        <div className="flex items-center justify-between text-xs text-muted">
-          <span>{state.userInput.length} / 4000</span>
-          <div className="flex items-center gap-2">
-            {canRequestSynthesis && (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handleSynthesis}
-              >
-                Pedir que cierren contigo
-              </Button>
-            )}
-            <Button type="submit" disabled={!canSubmit || state.loading}>
-              {state.loading
-                ? "Escuchando…"
-                : state.phase === "wait"
-                  ? "Decirles otra cosa"
-                  : "Empezar"}
-            </Button>
-          </div>
-        </div>
-      </form>
 
       {state.configError && (
         <ConfigErrorBanner
@@ -721,6 +805,53 @@ export function SessionConsole() {
           <SectionHeading label="Lo que te llevas" done={false} />
           <SynthesisCard synthesis={state.synthesis} />
         </section>
+      )}
+
+      {showComposer && (
+        <>
+          <div ref={inputSectionRef} className="scroll-mt-8" />
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <label
+              htmlFor="user-input"
+              className="text-xs font-medium uppercase tracking-wider text-muted"
+            >
+              {state.phase === "wait" ? "Sigue hablando" : "Cuéntales"}
+            </label>
+            <textarea
+              id="user-input"
+              value={state.userInput}
+              onChange={(e) =>
+                dispatch({ type: "user_input", value: e.target.value })
+              }
+              maxLength={4000}
+              rows={4}
+              disabled={state.loading || state.phase === "fase4"}
+              placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
+              className="resize-none rounded-council border border-border bg-elevated/60 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
+            />
+            <div className="flex items-center justify-between text-xs text-muted">
+              <span>{state.userInput.length} / 4000</span>
+              <div className="flex items-center gap-2">
+                {canRequestSynthesis && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleSynthesis}
+                  >
+                    Pedir que cierren contigo
+                  </Button>
+                )}
+                <Button type="submit" disabled={!canSubmit || state.loading}>
+                  {state.loading
+                    ? "Escuchando…"
+                    : state.phase === "wait"
+                      ? "Decirles otra cosa"
+                      : "Empezar"}
+                </Button>
+              </div>
+            </div>
+          </form>
+        </>
       )}
     </div>
   );

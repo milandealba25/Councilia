@@ -15,6 +15,7 @@
     "pdf:agentes": "pandoc docs/04_agentes.md -o pdfs/04_Agentes.pdf"
   },
   "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.47.0",
     "@google/generative-ai": "^0.24.1",
     "marked": "^15.0.12",
     "next": "14.2.35",

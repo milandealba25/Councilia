@@ -6,16 +6,18 @@ import {
   type AgentVoiceProfile,
 } from "./voiceProfiles";
 import type { AgentId } from "@/lib/agents/ids";
+import {
+  startVoiceContextPlayback,
+  unlockVoicePlayback,
+  type VoicePlaybackHandle,
+} from "./audioContextPlayer";
 
 /**
- * Hook ligero sobre la Web Speech API (`window.speechSynthesis`).
+ * Hook de voz por agente:
+ * - Primer intento: ElevenLabs vía `/api/voice/tts`.
+ * - Fallback: Web Speech API del navegador.
  *
- * - SSR-safe: detecta `window` antes de tocar la API.
- * - Carga voces de forma asíncrona (Chrome dispara `voiceschanged` después
- *   del primer `getVoices()`).
- * - Garantiza una sola "voz hablando" por hook (no dos utterances en paralelo).
- *
- * No depende de servicios externos: todo ocurre en el navegador del usuario.
+ * Mantiene una sola reproducción activa por hook.
  */
 export type SpeechState =
   | "unsupported"
@@ -68,13 +70,12 @@ export function useSpeech({ agent }: UseSpeechOptions): UseSpeechReturn {
   const [state, setState] = useState<SpeechState>("loading");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const voicePlaybackRef = useRef<VoicePlaybackHandle | null>(null);
+  const modeRef = useRef<"none" | "eleven" | "webspeech">("none");
   const profile = AGENT_VOICE_PROFILES[agent];
 
   const isSupported = useMemo(
-    () =>
-      typeof window !== "undefined" &&
-      typeof window.speechSynthesis !== "undefined" &&
-      typeof window.SpeechSynthesisUtterance !== "undefined",
+    () => typeof window !== "undefined",
     [],
   );
 
@@ -84,13 +85,21 @@ export function useSpeech({ agent }: UseSpeechOptions): UseSpeechReturn {
       return;
     }
 
+    setState("idle");
+
+    if (
+      typeof window.speechSynthesis === "undefined" ||
+      typeof window.SpeechSynthesisUtterance === "undefined"
+    ) {
+      return;
+    }
+
     const synth = window.speechSynthesis;
 
     function loadVoices() {
       const list = synth.getVoices();
       if (list.length > 0) {
         setVoices(list);
-        setState((prev) => (prev === "loading" ? "idle" : prev));
       }
     }
 
@@ -106,25 +115,48 @@ export function useSpeech({ agent }: UseSpeechOptions): UseSpeechReturn {
     };
   }, [isSupported]);
 
+  const cleanupAudio = useCallback(() => {
+    voicePlaybackRef.current?.stop();
+    voicePlaybackRef.current = null;
+  }, []);
+
   const stop = useCallback(() => {
     if (!isSupported) return;
-    window.speechSynthesis.cancel();
+
+    if (modeRef.current === "eleven") {
+      cleanupAudio();
+    }
+
+    if (typeof window.speechSynthesis !== "undefined") {
+      window.speechSynthesis.cancel();
+    }
+
     utteranceRef.current = null;
+    modeRef.current = "none";
     setState("idle");
-  }, [isSupported]);
+  }, [cleanupAudio, isSupported]);
 
   // Garantizamos limpieza si el componente se desmonta mientras habla.
   useEffect(() => {
     return () => {
       if (typeof window === "undefined") return;
-      if (typeof window.speechSynthesis === "undefined") return;
-      window.speechSynthesis.cancel();
+      cleanupAudio();
+      if (typeof window.speechSynthesis !== "undefined") {
+        window.speechSynthesis.cancel();
+      }
     };
-  }, []);
+  }, [cleanupAudio]);
 
-  const speak = useCallback(
+  const speakWithWebSpeech = useCallback(
     (rawText: string) => {
-      if (!isSupported) return;
+      if (
+        typeof window === "undefined" ||
+        typeof window.speechSynthesis === "undefined" ||
+        typeof window.SpeechSynthesisUtterance === "undefined"
+      ) {
+        setState("unsupported");
+        return;
+      }
       const text = rawText.trim();
       if (text.length === 0) return;
 
@@ -142,12 +174,14 @@ export function useSpeech({ agent }: UseSpeechOptions): UseSpeechReturn {
       utter.onend = () => {
         if (utteranceRef.current === utter) {
           utteranceRef.current = null;
+          modeRef.current = "none";
           setState("idle");
         }
       };
       utter.onerror = () => {
         if (utteranceRef.current === utter) {
           utteranceRef.current = null;
+          modeRef.current = "none";
           setState("idle");
         }
       };
@@ -155,22 +189,93 @@ export function useSpeech({ agent }: UseSpeechOptions): UseSpeechReturn {
       utter.onresume = () => setState("speaking");
 
       utteranceRef.current = utter;
+      modeRef.current = "webspeech";
       setState("speaking");
       synth.speak(utter);
     },
-    [isSupported, profile, voices],
+    [profile, voices],
+  );
+
+  const speak = useCallback(
+    (rawText: string) => {
+      if (!isSupported) return;
+      const text = rawText.trim();
+      if (text.length === 0) return;
+
+      stop();
+      setState("loading");
+
+      void (async () => {
+        let blob: Blob | null = null;
+        try {
+          const res = await fetch("/api/voice/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ agent, text }),
+          });
+          if (!res.ok) {
+            throw new Error(`tts_http_${res.status}`);
+          }
+          blob = await res.blob();
+          if (blob.size === 0) {
+            throw new Error("tts_empty_audio");
+          }
+        } catch {
+          // Fallback robusto si no hay key, cuota, red, etc.
+          speakWithWebSpeech(text);
+          return;
+        }
+
+        try {
+          await unlockVoicePlayback();
+          const handle = await startVoiceContextPlayback(blob);
+          voicePlaybackRef.current = handle;
+          modeRef.current = "eleven";
+          setState("speaking");
+          await handle.done;
+          if (voicePlaybackRef.current === handle) {
+            voicePlaybackRef.current = null;
+            modeRef.current = "none";
+            setState("idle");
+          }
+        } catch {
+          // Si Eleven respondió OK pero el navegador bloquea autoplay o falla
+          // la reproducción, caemos a voz local para evitar silencio total.
+          cleanupAudio();
+          modeRef.current = "none";
+          speakWithWebSpeech(text);
+        }
+      })();
+    },
+    [agent, cleanupAudio, isSupported, speakWithWebSpeech, stop],
   );
 
   const pause = useCallback(() => {
     if (!isSupported) return;
-    window.speechSynthesis.pause();
-    setState("paused");
+
+    if (modeRef.current === "eleven" && voicePlaybackRef.current) {
+      void voicePlaybackRef.current.context.suspend();
+      setState("paused");
+      return;
+    }
+    if (typeof window.speechSynthesis !== "undefined") {
+      window.speechSynthesis.pause();
+      setState("paused");
+    }
   }, [isSupported]);
 
   const resume = useCallback(() => {
     if (!isSupported) return;
-    window.speechSynthesis.resume();
-    setState("speaking");
+
+    if (modeRef.current === "eleven" && voicePlaybackRef.current) {
+      void voicePlaybackRef.current.context.resume();
+      setState("speaking");
+      return;
+    }
+    if (typeof window.speechSynthesis !== "undefined") {
+      window.speechSynthesis.resume();
+      setState("speaking");
+    }
   }, [isSupported]);
 
   return { state, isSupported, speak, pause, resume, stop };
