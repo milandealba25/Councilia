@@ -337,10 +337,10 @@ function markAllError(
 const PHASE_TRANSITION_MS = 800;
 
 /**
- * Tras terminar la mecanografía de todas las posturas visibles, breve pausa
- * antes de mostrar "Alguien toma la palabra".
+ * Tras terminar la mecanografía de todas las posturas visibles, arrancamos
+ * voz casi inmediato para mantener sensación de conversación viva.
  */
-const POST_AGENT_REVEAL_MS = 4_000;
+const POST_AGENT_REVEAL_MS = 250;
 
 async function playAudioBlob(
   blob: Blob,
@@ -426,8 +426,7 @@ export function SessionConsole() {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
-  const autoVoiceAbortRef = useRef<AbortController | null>(null);
-  const autoVoicePlayedForMessageRef = useRef<string | null>(null);
+  const playbackAbortRef = useRef<AbortController | null>(null);
   const agentsSectionRef = useRef<HTMLElement | null>(null);
   const replicaSectionRef = useRef<HTMLElement | null>(null);
   const inputSectionRef = useRef<HTMLDivElement | null>(null);
@@ -469,7 +468,7 @@ export function SessionConsole() {
   useEffect(
     () => () => {
       abortRef.current?.abort();
-      autoVoiceAbortRef.current?.abort();
+      playbackAbortRef.current?.abort();
       if (
         typeof window !== "undefined" &&
         typeof window.speechSynthesis !== "undefined"
@@ -499,29 +498,6 @@ export function SessionConsole() {
     smoothScrollTo(inputSectionRef.current);
   }, [state.phase]);
 
-  // Auto-voz secuencial (Marco -> Elena -> Rafael) cuando ya terminaron.
-  useEffect(() => {
-    if (state.phase !== "wait" || state.loading || !state.lastUserMessage) return;
-    if (autoVoicePlayedForMessageRef.current === state.lastUserMessage) return;
-
-    const queue = AGENT_IDS
-      .map((id) => ({ agent: id, text: state.agents[id].text.trim() }))
-      .filter((item) => item.text.length > 0);
-    if (queue.length === 0) return;
-
-    autoVoicePlayedForMessageRef.current = state.lastUserMessage;
-    autoVoiceAbortRef.current?.abort();
-    const ctrl = new AbortController();
-    autoVoiceAbortRef.current = ctrl;
-
-    void (async () => {
-      for (const item of queue) {
-        if (ctrl.signal.aborted) return;
-        await playAgentVoice(item.agent, item.text, ctrl.signal);
-      }
-    })();
-  }, [state.phase, state.loading, state.lastUserMessage, state.agents]);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!state.ctx || state.loading) return;
@@ -531,8 +507,8 @@ export function SessionConsole() {
     void unlockVoicePlayback();
 
     abortRef.current?.abort();
-    autoVoiceAbortRef.current?.abort();
-    autoVoiceAbortRef.current = null;
+    playbackAbortRef.current?.abort();
+    playbackAbortRef.current = null;
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     if (agentRevealGateRef.current) {
@@ -600,6 +576,20 @@ export function SessionConsole() {
         agentRevealGateRef.current = null;
       }
 
+      // 1) Al terminar de escribir, reproducimos automáticamente las posturas
+      // en secuencia (Marco -> Elena -> Rafael) antes de pasar a discusión.
+      const phase1VoiceQueue = AGENT_IDS
+        .map((id) => ({ agent: id, text: collected[id].trim() }))
+        .filter((item) => item.text.length > 0);
+      if (phase1VoiceQueue.length > 0) {
+        const playCtrl = new AbortController();
+        playbackAbortRef.current = playCtrl;
+        for (const item of phase1VoiceQueue) {
+          if (ctrl.signal.aborted || playCtrl.signal.aborted) return;
+          await playAgentVoice(item.agent, item.text, playCtrl.signal);
+        }
+      }
+
       dispatch({ type: "phase1_done" });
 
       const postures = AGENT_IDS
@@ -614,6 +604,8 @@ export function SessionConsole() {
       await delay(PHASE_TRANSITION_MS, ctrl.signal);
       if (ctrl.signal.aborted) return;
 
+      let replicaSpeaker: AgentId | null = null;
+      let replicaText = "";
       for await (const ev of streamReplica({
         userContext: state.ctx,
         userMessage: message,
@@ -621,6 +613,17 @@ export function SessionConsole() {
         signal: ctrl.signal,
       })) {
         dispatch({ type: "replica_event", event: ev });
+        if (ev.type === "plan") replicaSpeaker = ev.speaker;
+        if (ev.type === "delta") replicaText += ev.text;
+      }
+
+      // 2) Luego se escucha automáticamente la discusión/réplica.
+      if (replicaSpeaker && replicaText.trim().length > 0) {
+        const playCtrl = new AbortController();
+        playbackAbortRef.current = playCtrl;
+        if (!ctrl.signal.aborted) {
+          await playAgentVoice(replicaSpeaker, replicaText.trim(), playCtrl.signal);
+        }
       }
       dispatch({ type: "replica_done" });
     } catch (err) {
@@ -632,6 +635,8 @@ export function SessionConsole() {
   async function handleSynthesis() {
     if (!state.ctx || !state.lastUserMessage) return;
     abortRef.current?.abort();
+    playbackAbortRef.current?.abort();
+    playbackAbortRef.current = null;
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 

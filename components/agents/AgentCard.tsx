@@ -4,7 +4,6 @@ import { StreamingAgentText } from "./StreamingAgentText";
 import {
   AGENT_DOMINANT_QUESTION,
   AGENT_LABELS,
-  AGENT_ROLES,
   type AgentId,
 } from "@/lib/agents/ids";
 
@@ -100,9 +99,6 @@ export function AgentCard({
           <h3 className="font-sans text-base font-semibold text-foreground">
             {AGENT_LABELS[agent]}
           </h3>
-          <p className="text-xs uppercase tracking-wider text-muted">
-            {AGENT_ROLES[agent]}
-          </p>
         </div>
         <div className="flex items-center justify-center gap-2 text-[11px] uppercase tracking-wider text-muted">
           <span
