@@ -66,7 +66,7 @@ export function SurveyForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-10">
-      <div className="sticky top-2 z-10 -mx-2 flex items-center gap-3 rounded-full border border-border/70 bg-surface/85 px-4 py-2 text-xs text-muted shadow-soft backdrop-blur">
+      <div className="sticky top-2 z-10 -mx-2 flex items-center gap-3 rounded-full border border-border/70 bg-surface/95 px-4 py-2 text-xs text-muted shadow-soft">
         <span className="text-foreground-soft">
           {answered} de {total}
         </span>
@@ -90,7 +90,7 @@ export function SurveyForm() {
         return (
           <fieldset
             key={question.id}
-            className="flex flex-col gap-4 rounded-council-lg border border-border/70 bg-surface/60 p-5 md:p-7"
+            className="flex flex-col gap-4 rounded-council-lg border border-border/70 bg-surface/82 p-5 shadow-soft md:p-7"
             style={{
               animation: `soft-rise 600ms ease-out ${idx * 100}ms both`,
             }}

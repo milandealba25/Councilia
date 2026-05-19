@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Container } from "@/components/ui/Container";
 import { SurveyForm } from "@/components/survey/SurveyForm";
 import { AgentFace } from "@/components/agents/AgentFace";
+import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { AGENT_IDS } from "@/lib/agents/ids";
 
 export const metadata = {
@@ -10,8 +11,9 @@ export const metadata = {
 
 export default function OnboardingPage() {
   return (
-    <main className="min-h-dvh py-16">
-      <Container className="max-w-3xl">
+    <main className="relative isolate min-h-dvh overflow-x-hidden py-16">
+      <AuroraBackground />
+      <Container className="relative z-10 max-w-3xl">
         <Link
           href="/"
           className="text-xs uppercase tracking-wider text-muted hover:text-foreground"
