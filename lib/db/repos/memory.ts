@@ -42,6 +42,7 @@ export class MemoryUsersRepo implements UsersRepo {
       : {
           id: input.id ?? uuid(),
           email: input.email,
+          displayName: input.displayName ?? null,
           plan: input.plan ?? "free",
           onboardingCompletedAt: input.onboardingCompletedAt ?? null,
           createdAt: now,

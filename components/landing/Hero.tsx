@@ -6,7 +6,7 @@ import { CouncilHeroPanel } from "@/components/landing/CouncilHeroPanel";
 export function Hero() {
   return (
     <section className="relative overflow-hidden">
-      <BackgroundOrbs />
+      <HeroGrid />
       <Container className="relative pt-20 pb-24 md:pt-28 md:pb-32">
         <div className="flex flex-col gap-7 lg:gap-7">
           <div>
@@ -105,30 +105,18 @@ function Stat({
   );
 }
 
-function BackgroundOrbs() {
+function HeroGrid() {
   return (
-    <>
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-40 -right-32 size-[520px] rounded-full bg-accent/22 blur-3xl"
-        style={{ animation: "face-float 12s ease-in-out infinite" }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute top-32 -left-40 size-[460px] rounded-full bg-elena/18 blur-3xl"
-        style={{ animation: "face-float 14s ease-in-out 1.5s infinite" }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07]"
-        style={{
-          backgroundImage:
-            "linear-gradient(var(--border-strong) 1px, transparent 1px), linear-gradient(90deg, var(--border-strong) 1px, transparent 1px)",
-          backgroundSize: "64px 64px",
-          maskImage:
-            "radial-gradient(ellipse 70% 60% at 50% 0%, black 30%, transparent 80%)",
-        }}
-      />
-    </>
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07]"
+      style={{
+        backgroundImage:
+          "linear-gradient(var(--border-strong) 1px, transparent 1px), linear-gradient(90deg, var(--border-strong) 1px, transparent 1px)",
+        backgroundSize: "64px 64px",
+        maskImage:
+          "radial-gradient(ellipse 70% 60% at 50% 0%, black 30%, transparent 80%)",
+      }}
+    />
   );
 }

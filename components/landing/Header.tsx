@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Image from "next/image";
+import { AuthNavButton } from "@/components/auth/AuthNavButton";
 import { Container } from "@/components/ui/Container";
 import { LinkButton } from "@/components/ui/Button";
 
@@ -11,12 +13,12 @@ const NAV = [
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-border bg-background shadow-soft">
       <Container className="flex h-16 items-center justify-between">
         <Link
           href="/"
           aria-label="Inicio · COUNCILia"
-          className="group inline-flex items-center gap-2.5 font-sans text-[15px] font-semibold tracking-tight text-foreground"
+          className="group inline-flex items-center gap-0 font-sans text-[15px] font-semibold tracking-tight text-foreground"
         >
           <Mark />
           <span>
@@ -37,7 +39,12 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <LinkButton href="/onboarding" variant="primary">
+          <AuthNavButton />
+          <LinkButton
+            href="/onboarding"
+            variant="primary"
+            className="px-3 sm:px-5"
+          >
             Sentarme con ellos
           </LinkButton>
         </div>
@@ -48,10 +55,17 @@ export function Header() {
 
 function Mark() {
   return (
-    <span className="inline-flex items-center gap-[3px]" aria-hidden>
-      <span className="block size-1.5 rounded-full bg-marco" />
-      <span className="block size-1.5 rounded-full bg-elena" />
-      <span className="block size-1.5 rounded-full bg-rafael" />
+    <span
+      className="-mr-1 grid size-10 shrink-0 place-items-center overflow-hidden"
+      aria-hidden
+    >
+      <Image
+        src="/brand-mark.png"
+        alt=""
+        className="size-9 object-contain"
+        width={36}
+        height={36}
+      />
     </span>
   );
 }

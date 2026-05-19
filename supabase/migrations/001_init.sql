@@ -13,6 +13,8 @@
 create table if not exists public.users (
   id uuid primary key references auth.users (id) on delete cascade,
   email text not null,
+  display_name text,
+  avatar_url text,
   plan text not null default 'free' check (plan in ('free', 'pro')),
   onboarding_completed_at timestamptz,
   created_at timestamptz not null default now(),
@@ -81,7 +83,7 @@ begin
   new.updated_at = now();
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql set search_path = public;
 
 drop trigger if exists trg_users_updated_at on public.users;
 create trigger trg_users_updated_at before update on public.users
@@ -155,14 +157,47 @@ create policy messages_self_delete on public.messages
 -- ────────────────────────────────────────────────────────────────────────────
 create or replace function public.handle_new_user() returns trigger as $$
 begin
-  insert into public.users (id, email)
-  values (new.id, new.email)
+  insert into public.users (id, email, display_name, avatar_url)
+  values (
+    new.id,
+    new.email,
+    coalesce(
+      new.raw_user_meta_data ->> 'full_name',
+      new.raw_user_meta_data ->> 'name',
+      new.raw_user_meta_data ->> 'display_name'
+    ),
+    coalesce(
+      new.raw_user_meta_data ->> 'avatar_url',
+      new.raw_user_meta_data ->> 'picture',
+      new.raw_user_meta_data ->> 'avatar'
+    )
+  )
   on conflict (id) do nothing;
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
+
+revoke execute on function public.set_updated_at() from public, anon, authenticated;
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
 
 drop trigger if exists trg_on_auth_user_created on auth.users;
 create trigger trg_on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 8. Storage público para fotos de perfil
+-- ────────────────────────────────────────────────────────────────────────────
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'user-avatars',
+  'user-avatars',
+  true,
+  2097152,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+  set
+    public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;

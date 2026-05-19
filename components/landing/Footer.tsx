@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Container } from "@/components/ui/Container";
 
 const COLUMNS: Array<{
@@ -40,12 +41,19 @@ export function Footer() {
           <div className="flex flex-col gap-3">
             <Link
               href="/"
-              className="inline-flex items-center gap-2.5 font-sans text-[15px] font-semibold text-foreground"
+              className="inline-flex items-center gap-0 font-sans text-[15px] font-semibold text-foreground"
             >
-              <span className="inline-flex items-center gap-[3px]" aria-hidden>
-                <span className="block size-1.5 rounded-full bg-marco" />
-                <span className="block size-1.5 rounded-full bg-elena" />
-                <span className="block size-1.5 rounded-full bg-rafael" />
+              <span
+                className="-mr-1 grid size-10 shrink-0 place-items-center overflow-hidden"
+                aria-hidden
+              >
+                <Image
+                  src="/brand-mark.png"
+                  alt=""
+                  className="size-9 object-contain"
+                  width={36}
+                  height={36}
+                />
               </span>
               <span>
                 COUNCIL<span className="text-accent">ia</span>

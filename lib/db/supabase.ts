@@ -29,3 +29,7 @@ export function requireSupabaseConfig(): SupabaseConfig {
   }
   return cfg;
 }
+
+export function getSupabaseServiceRoleKey(): string | null {
+  return env.SUPABASE_SERVICE_ROLE_KEY ?? null;
+}

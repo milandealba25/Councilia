@@ -13,6 +13,7 @@ export type Plan = "free" | "pro";
 export interface UserRow {
   id: string;
   email: string;
+  displayName: string | null;
   plan: Plan;
   onboardingCompletedAt: string | null;
   createdAt: string;

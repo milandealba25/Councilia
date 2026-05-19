@@ -15,6 +15,7 @@ describe("MemoryRepos", () => {
     const repos = createMemoryRepos();
     const user = await repos.users.upsert({
       email: "test@councilia.app",
+      displayName: null,
       plan: "free",
       onboardingCompletedAt: null,
     });
@@ -32,6 +33,7 @@ describe("MemoryRepos", () => {
     const repos = createMemoryRepos();
     const user = await repos.users.upsert({
       email: "x@y.z",
+      displayName: null,
       plan: "free",
       onboardingCompletedAt: null,
     });
@@ -63,7 +65,12 @@ describe("MemoryRepos", () => {
 
   it("messages.listByConversation orden ascendente por fecha", async () => {
     const repos = createMemoryRepos();
-    const u = await repos.users.upsert({ email: "z@z.z", plan: "free", onboardingCompletedAt: null });
+    const u = await repos.users.upsert({
+      email: "z@z.z",
+      displayName: null,
+      plan: "free",
+      onboardingCompletedAt: null,
+    });
     const c = await repos.councils.create({
       userId: u.id,
       userContext: baseCtx,

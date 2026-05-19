@@ -46,6 +46,19 @@ const config: Config = {
         "council-lg": "0 20px 60px -20px rgb(124 70 45 / 0.30), 0 1px 0 0 rgb(255 255 255 / 0.5) inset",
         soft: "0 1px 2px rgb(124 70 45 / 0.06), 0 4px 14px -6px rgb(124 70 45 / 0.10)",
       },
+      animation: {
+        aurora: "aurora 52s linear infinite",
+      },
+      keyframes: {
+        aurora: {
+          from: {
+            backgroundPosition: "50% 50%, 50% 50%",
+          },
+          to: {
+            backgroundPosition: "350% 50%, 350% 50%",
+          },
+        },
+      },
       backgroundImage: {
         "warm-mesh":
           "radial-gradient(900px 500px at 80% 10%, rgb(226 96 59 / 0.22), transparent 60%), radial-gradient(800px 480px at 10% 30%, rgb(217 154 43 / 0.22), transparent 65%), radial-gradient(700px 460px at 60% 100%, rgb(90 138 111 / 0.18), transparent 70%)",
