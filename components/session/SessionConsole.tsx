@@ -470,6 +470,10 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   const [spokenAgents, setSpokenAgents] = useState<Set<AgentId>>(new Set());
   const [autoPlayPaused, setAutoPlayPaused] = useState(false);
   const [composerExpanded, setComposerExpanded] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("councilia.voiceEnabled") !== "false";
+  });
 
   const stopAllAudio = useCallback(() => {
     playbackAbortRef.current?.abort();
@@ -491,6 +495,12 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
     resumeVoicePlayback();
     setAutoPlayPaused(false);
   }, []);
+
+  const toggleVoice = useCallback((on: boolean) => {
+    setVoiceEnabled(on);
+    localStorage.setItem("councilia.voiceEnabled", String(on));
+    if (!on) stopAllAudio();
+  }, [stopAllAudio]);
 
   function releaseAgentRevealGate(id: AgentId) {
     const g = agentRevealGateRef.current;
@@ -636,51 +646,53 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
         agentRevealGateRef.current = null;
       }
 
-      const phase1VoiceQueue = AGENT_IDS
-        .map((id) => ({ agent: id, text: collected[id].trim() }))
-        .filter((item) => item.text.length > 0);
-      if (phase1VoiceQueue.length > 0) {
-        const playCtrl = new AbortController();
-        playbackAbortRef.current = playCtrl;
+      if (voiceEnabled) {
+        const phase1VoiceQueue = AGENT_IDS
+          .map((id) => ({ agent: id, text: collected[id].trim() }))
+          .filter((item) => item.text.length > 0);
+        if (phase1VoiceQueue.length > 0) {
+          const playCtrl = new AbortController();
+          playbackAbortRef.current = playCtrl;
 
-        const blobCache = new Map<AgentId, Blob>();
-        const prefetchResults = await Promise.all(
-          phase1VoiceQueue.map(async (item) => {
-            try {
-              const res = await fetch("/api/voice/tts", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ agent: item.agent, text: item.text }),
-                signal: ctrl.signal,
-              });
-              if (res.ok) {
-                const blob = await res.blob();
-                if (blob.size > 0) return { agent: item.agent, blob };
-              }
-            } catch { /* fallback on play */ }
-            return { agent: item.agent, blob: null as Blob | null };
-          }),
-        );
-        for (const { agent, blob } of prefetchResults) {
-          if (blob) blobCache.set(agent, blob);
-        }
-
-        for (const item of phase1VoiceQueue) {
-          if (ctrl.signal.aborted || playCtrl.signal.aborted) break;
-          setSpeakingAgent(item.agent);
-          const cached = blobCache.get(item.agent);
-          if (cached) {
-            try {
-              await playAudioBlob(cached, playCtrl.signal);
-            } catch {
-              await playWithWebSpeechFallback(item.text, playCtrl.signal);
-            }
-          } else {
-            await playAgentVoice(item.agent, item.text, playCtrl.signal);
+          const blobCache = new Map<AgentId, Blob>();
+          const prefetchResults = await Promise.all(
+            phase1VoiceQueue.map(async (item) => {
+              try {
+                const res = await fetch("/api/voice/tts", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ agent: item.agent, text: item.text }),
+                  signal: ctrl.signal,
+                });
+                if (res.ok) {
+                  const blob = await res.blob();
+                  if (blob.size > 0) return { agent: item.agent, blob };
+                }
+              } catch { /* fallback on play */ }
+              return { agent: item.agent, blob: null as Blob | null };
+            }),
+          );
+          for (const { agent, blob } of prefetchResults) {
+            if (blob) blobCache.set(agent, blob);
           }
-          setSpokenAgents((prev) => new Set(prev).add(item.agent));
+
+          for (const item of phase1VoiceQueue) {
+            if (ctrl.signal.aborted || playCtrl.signal.aborted) break;
+            setSpeakingAgent(item.agent);
+            const cached = blobCache.get(item.agent);
+            if (cached) {
+              try {
+                await playAudioBlob(cached, playCtrl.signal);
+              } catch {
+                await playWithWebSpeechFallback(item.text, playCtrl.signal);
+              }
+            } else {
+              await playAgentVoice(item.agent, item.text, playCtrl.signal);
+            }
+            setSpokenAgents((prev) => new Set(prev).add(item.agent));
+          }
+          setSpeakingAgent(null);
         }
-        setSpeakingAgent(null);
       }
 
       dispatch({ type: "phase1_done" });
@@ -710,7 +722,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
         if (ev.type === "delta") replicaText += ev.text;
       }
 
-      if (replicaSpeaker && replicaText.trim().length > 0) {
+      if (voiceEnabled && replicaSpeaker && replicaText.trim().length > 0) {
         const playCtrl = new AbortController();
         playbackAbortRef.current = playCtrl;
         if (!ctrl.signal.aborted && !playCtrl.signal.aborted) {
@@ -1128,11 +1140,11 @@ function ConfigErrorBanner({
   onDismiss: () => void;
 }) {
   const HINTS: Partial<Record<LlmErrorCode, string>> = {
-    auth: "Define una clave válida de Gemini en GEMINI_API_KEY (Vercel u otro hosting) y vuelve a desplegar. En local, edita .env.local y reinicia npm run dev.",
+    auth: "Define una clave válida en OPENAI_API_KEY y reinicia el servidor. En local, edita .env.local y reinicia npm run dev.",
     quota:
-      "El proveedor está limitando llamadas. Espera unos segundos o sube la cuota en Google AI Studio.",
+      "El proveedor está limitando llamadas. Espera unos segundos o revisa tu cuota en el dashboard de OpenAI.",
     network:
-      "La red entre el servidor y Gemini falló. Reintenta; si persiste, revisa logs del hosting.",
+      "La red entre el servidor y el proveedor de IA falló. Reintenta; si persiste, revisa logs del hosting.",
   };
   const hint = HINTS[code];
   return (
@@ -1183,8 +1195,28 @@ function CrisisBanner({
         onClick={onReset}
         className="mt-5 text-xs uppercase tracking-wider text-muted hover:text-foreground"
       >
-        Empezar de nuevo cuando estés
-      </button>
+      Empezar de nuevo cuando estés
+    </button>
     </div>
+  );
+}
+
+function SpeakerOnIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+    </svg>
+  );
+}
+
+function SpeakerOffIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <line x1="23" y1="9" x2="17" y2="15" />
+      <line x1="17" y1="9" x2="23" y2="15" />
+    </svg>
   );
 }
