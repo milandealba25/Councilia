@@ -5,7 +5,11 @@ import { AgentFace } from "@/components/agents/AgentFace";
 import { AGENT_IDS } from "@/lib/agents/ids";
 
 export const metadata = {
-  title: "Tu council · COUNCILia",
+  title: "Tu council",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function SessionPage() {

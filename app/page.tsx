@@ -7,15 +7,17 @@ import { ExampleSection } from "@/components/landing/ExampleSection";
 import { PrinciplesSection } from "@/components/landing/PrinciplesSection";
 import { CTASection } from "@/components/landing/CTASection";
 import { Footer } from "@/components/landing/Footer";
-import { AuroraBackground } from "@/components/ui/AuroraBackground";
+import { SectionDotsNav } from "@/components/landing/SectionDotsNav";
 
 export default function Home() {
   return (
     <div className="relative isolate min-h-dvh overflow-x-hidden">
-      <AuroraBackground />
-      <Header />
+      <Header fixed />
+      <SectionDotsNav />
       <main className="relative z-10">
-        <Hero />
+        <div className="pt-16">
+          <Hero />
+        </div>
         <UseCasesSection />
         <CouncilSection />
         <FlowSection />

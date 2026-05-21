@@ -112,7 +112,7 @@ export function SurveyForm() {
                 return (
                   <label
                     key={opt.value}
-                    className={`group relative flex cursor-pointer items-center gap-3 rounded-council border bg-elevated/60 px-4 py-3 text-sm transition-all duration-200 ${
+                    className={`group relative flex cursor-pointer items-center gap-3 rounded-council border bg-elevated/60 px-4 py-3 text-sm transition-all duration-200 focus-within:outline-none focus-within:ring-2 focus-within:ring-accent/45 focus-within:ring-offset-2 focus-within:ring-offset-background ${
                       isSelected
                         ? "border-accent bg-accent-soft/40 text-foreground shadow-council"
                         : "border-border text-muted hover:-translate-y-px hover:border-accent/60 hover:bg-surface-soft/60 hover:text-foreground"

@@ -4,7 +4,7 @@ import { Reveal } from "@/components/ui/Reveal";
 
 export function CTASection() {
   return (
-    <section className="border-t border-border/70 py-24 md:py-32">
+    <section id="empezar" className="border-t border-border/70 py-24 md:py-32">
       <Container>
         <Reveal>
           <div className="relative overflow-hidden rounded-council-xl border border-border bg-gradient-to-br from-surface via-surface-soft to-accent-soft/70 p-10 shadow-council-lg md:p-16">

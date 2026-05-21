@@ -3,7 +3,7 @@ import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 
 export const metadata = {
-  title: "Soporte · COUNCILia",
+  title: "Soporte",
   description:
     "Preguntas frecuentes sobre paywall, borrado de datos, modo soporte, exportación y privacidad.",
 };

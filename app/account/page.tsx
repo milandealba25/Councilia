@@ -3,7 +3,11 @@ import { AccountPanel } from "@/components/auth/AccountPanel";
 import { Container } from "@/components/ui/Container";
 
 export const metadata = {
-  title: "Cuenta · COUNCILia",
+  title: "Cuenta",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function AccountPage() {
@@ -23,4 +27,3 @@ export default function AccountPage() {
     </main>
   );
 }
-

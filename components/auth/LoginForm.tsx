@@ -39,6 +39,7 @@ export function LoginForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(() =>
@@ -129,7 +130,7 @@ export function LoginForm() {
             setError(null);
             setNotice(null);
           }}
-          className={`rounded-[0.55rem] px-4 py-2 text-sm font-medium transition-all ${
+          className={`rounded-[0.55rem] px-4 py-2 text-sm font-medium outline-none transition-all focus-visible:ring-2 focus-visible:ring-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
             mode === "login"
               ? "bg-surface text-foreground shadow-soft"
               : "text-muted hover:text-foreground"
@@ -146,7 +147,7 @@ export function LoginForm() {
             setError(null);
             setNotice(null);
           }}
-          className={`rounded-[0.55rem] px-4 py-2 text-sm font-medium transition-all ${
+          className={`rounded-[0.55rem] px-4 py-2 text-sm font-medium outline-none transition-all focus-visible:ring-2 focus-visible:ring-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
             mode === "register"
               ? "bg-surface text-foreground shadow-soft"
               : "text-muted hover:text-foreground"
@@ -212,47 +213,62 @@ export function LoginForm() {
 
         <label className="grid gap-2 text-sm text-foreground-soft">
           Contraseña
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setError(null);
-              setNotice(null);
-            }}
-            onBlur={() => setPassword(cleanPassword)}
-            placeholder="Mínimo 8 caracteres"
-            autoComplete={
-              mode === "register" ? "new-password" : "current-password"
-            }
-            className="rounded-council border border-border-strong/70 bg-surface/85 px-4 py-3 text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
-            aria-invalid={password.length > 0 && !passwordValid}
-            required
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError(null);
+                setNotice(null);
+              }}
+              onBlur={() => setPassword(cleanPassword)}
+              placeholder="Mínimo 8 caracteres"
+              autoComplete={
+                mode === "register" ? "new-password" : "current-password"
+              }
+              className="w-full rounded-council border border-border-strong/70 bg-surface/85 py-3 pl-4 pr-12 text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
+              aria-invalid={password.length > 0 && !passwordValid}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-muted transition hover:bg-accent-soft hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+              aria-label={
+                showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+              }
+              aria-pressed={showPassword}
+            >
+              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+            </button>
+          </div>
         </label>
 
-        <ul className="grid gap-1.5 rounded-council border border-border/70 bg-surface-soft/45 px-4 py-3 text-xs text-muted">
-          {passwordRules.map((rule) => (
-            <li
-              key={rule.id}
-              className={`flex items-center gap-2 ${
-                rule.valid ? "text-marco" : "text-muted"
-              }`}
-            >
-              <span
-                className={`grid size-4 place-items-center rounded-full border text-[10px] ${
-                  rule.valid
-                    ? "border-marco bg-marco text-white"
-                    : "border-border-strong"
+        {mode === "register" && (
+          <ul className="grid gap-1.5 rounded-council border border-border/70 bg-surface-soft/45 px-4 py-3 text-xs text-muted">
+            {passwordRules.map((rule) => (
+              <li
+                key={rule.id}
+                className={`flex items-center gap-2 ${
+                  rule.valid ? "text-marco" : "text-muted"
                 }`}
-                aria-hidden
               >
-                {rule.valid ? "✓" : ""}
-              </span>
-              {rule.label}
-            </li>
-          ))}
-        </ul>
+                <span
+                  className={`grid size-4 place-items-center rounded-full border text-[10px] ${
+                    rule.valid
+                      ? "border-marco bg-marco text-white"
+                      : "border-border-strong"
+                  }`}
+                  aria-hidden
+                >
+                  {rule.valid ? "✓" : ""}
+                </span>
+                {rule.label}
+              </li>
+            ))}
+          </ul>
+        )}
 
         <Button type="submit" disabled={!formValid || submitting}>
           {submitting
@@ -331,6 +347,45 @@ function GoogleIcon() {
         fill="#EA4335"
         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.3 9.14 5.38 12 5.38z"
       />
+    </svg>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      className="size-5"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+    >
+      <path d="M2.25 12s3.5-6.25 9.75-6.25S21.75 12 21.75 12 18.25 18.25 12 18.25 2.25 12 2.25 12Z" />
+      <circle cx="12" cy="12" r="2.75" />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      className="size-5"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+    >
+      <path d="m3 3 18 18" />
+      <path d="M10.8 5.82q.58-.07 1.2-.07c6.25 0 9.75 6.25 9.75 6.25a17.4 17.4 0 0 1-2.67 3.46" />
+      <path d="M6.34 6.91C3.68 8.74 2.25 12 2.25 12S5.75 18.25 12 18.25c1.9 0 3.52-.58 4.86-1.38" />
+      <path d="M9.84 9.84a2.75 2.75 0 0 0 3.89 3.89" />
+      <path d="M14.1 10.02a2.75 2.75 0 0 0-1.9-1.72" />
     </svg>
   );
 }

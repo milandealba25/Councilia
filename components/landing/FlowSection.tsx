@@ -93,7 +93,7 @@ export function FlowSection() {
                 <p className="text-[13.5px] leading-relaxed text-foreground-soft">
                   {phase.body}
                 </p>
-                <div className="rounded-md bg-surface-soft/70 px-3 py-2 text-[12px] italic leading-relaxed text-foreground-soft ring-1 ring-border/60">
+                <div className="rounded-md border border-[color:rgb(196_80_58_/_0.26)] bg-[color:rgb(255_230_218_/_0.28)] px-3 py-2 text-[12px] italic leading-relaxed text-foreground-soft shadow-[0_1px_0_rgb(255_255_255_/_0.5)_inset]">
                   {phase.example}
                 </div>
                 <p className="mt-auto text-[10px] uppercase tracking-[0.14em] text-subtle">

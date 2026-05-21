@@ -40,6 +40,10 @@
 }
 
 @layer base {
+  html {
+    scroll-padding-top: 5rem;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-geist-sans), system-ui, sans-serif;
@@ -52,6 +56,25 @@
   ::selection {
     background: var(--accent-soft);
     color: var(--foreground);
+  }
+
+  input,
+  textarea {
+    caret-color: var(--accent-strong);
+  }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:hover,
+  textarea:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--foreground);
+    border-color: var(--border-strong);
+    box-shadow:
+      0 0 0 1000px var(--surface-soft) inset,
+      0 4px 14px -6px rgb(124 70 45 / 0.10);
+    transition: background-color 9999s ease-out;
   }
 }
 
@@ -87,16 +110,16 @@
     );
     --council-light: repeating-linear-gradient(
       100deg,
-      rgb(226 96 59 / 0.24) 10%,
-      rgb(217 154 43 / 0.22) 16%,
-      rgb(90 138 111 / 0.20) 22%,
-      rgb(196 80 58 / 0.15) 28%,
-      rgb(234 217 196 / 0.22) 34%
+      rgb(226 96 59 / 0.19) 10%,
+      rgb(217 154 43 / 0.18) 16%,
+      rgb(90 138 111 / 0.17) 22%,
+      rgb(196 80 58 / 0.12) 28%,
+      rgb(234 217 196 / 0.19) 34%
     );
     background-image: var(--council-veil), var(--council-light);
     background-position: 50% 50%, 50% 50%;
     background-size: 260%, 170%;
-    filter: saturate(1.05);
+    filter: saturate(0.92);
     mix-blend-mode: multiply;
   }
 
@@ -176,6 +199,28 @@
 @keyframes aurora {
   from { background-position: 50% 50%, 50% 50%; }
   to   { background-position: 350% 50%, 350% 50%; }
+}
+
+@keyframes section-dot-energy {
+  0% {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  16% {
+    opacity: 1;
+  }
+  72% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleY(1);
+  }
+}
+
+.section-dot-energy {
+  animation: section-dot-energy 520ms ease-out both;
 }
 
 @keyframes pulse-ring {
