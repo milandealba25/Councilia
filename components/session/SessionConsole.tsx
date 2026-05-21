@@ -78,6 +78,13 @@ interface ReplicaState {
   state: "streaming" | "complete";
 }
 
+interface CompletedTurn {
+  userMessage: string;
+  agents: Record<AgentId, AgentSlot>;
+  attenuated: AgentId[];
+  replica: ReplicaState | "skipped" | null;
+}
+
 interface State {
   ctx: UserContext | null;
   phase: Phase;
@@ -85,10 +92,6 @@ interface State {
   lastUserMessage: string | null;
   agents: Record<AgentId, AgentSlot>;
   attenuated: AgentId[];
-  /**
-   * Cuando la fase 1 termina y aún no llega el plan de réplica, mostramos
-   * un anuncio en lugar de la card (para que las posturas se lean primero).
-   */
   replicaPending: boolean;
   replica: ReplicaState | "skipped" | null;
   synthesis: Synthesis | null;
@@ -96,6 +99,7 @@ interface State {
   error: string | null;
   configError: ConfigErrorState | null;
   loading: boolean;
+  pastTurns: CompletedTurn[];
 }
 
 type Action =
@@ -128,6 +132,7 @@ const INITIAL_STATE: State = {
   error: null,
   configError: null,
   loading: false,
+  pastTurns: [],
 };
 
 function reducer(state: State, action: Action): State {
@@ -138,9 +143,20 @@ function reducer(state: State, action: Action): State {
     case "user_input":
       return { ...state, userInput: action.value };
 
-    case "submit_user":
+    case "submit_user": {
+      const archived: CompletedTurn | null = state.lastUserMessage
+        ? {
+            userMessage: state.lastUserMessage,
+            agents: state.agents,
+            attenuated: state.attenuated,
+            replica: state.replica,
+          }
+        : null;
       return {
         ...state,
+        pastTurns: archived
+          ? [...state.pastTurns, archived]
+          : state.pastTurns,
         userInput: "",
         lastUserMessage: action.message,
         agents: INITIAL_AGENT_STATE,
@@ -154,6 +170,7 @@ function reducer(state: State, action: Action): State {
         loading: true,
         phase: "fase1",
       };
+    }
 
     case "initial_event":
       return applyInitialEvent(state, action.event);
@@ -351,7 +368,7 @@ const PHASE_TRANSITION_MS = 800;
  * Tras terminar la mecanografía de todas las posturas visibles, arrancamos
  * voz casi inmediato para mantener sensación de conversación viva.
  */
-const POST_AGENT_REVEAL_MS = 1000;
+const POST_AGENT_REVEAL_MS = 0;
 
 async function playAudioBlob(
   blob: Blob,
@@ -625,10 +642,42 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       if (phase1VoiceQueue.length > 0) {
         const playCtrl = new AbortController();
         playbackAbortRef.current = playCtrl;
+
+        const blobCache = new Map<AgentId, Blob>();
+        const prefetchResults = await Promise.all(
+          phase1VoiceQueue.map(async (item) => {
+            try {
+              const res = await fetch("/api/voice/tts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ agent: item.agent, text: item.text }),
+                signal: ctrl.signal,
+              });
+              if (res.ok) {
+                const blob = await res.blob();
+                if (blob.size > 0) return { agent: item.agent, blob };
+              }
+            } catch { /* fallback on play */ }
+            return { agent: item.agent, blob: null as Blob | null };
+          }),
+        );
+        for (const { agent, blob } of prefetchResults) {
+          if (blob) blobCache.set(agent, blob);
+        }
+
         for (const item of phase1VoiceQueue) {
           if (ctrl.signal.aborted || playCtrl.signal.aborted) break;
           setSpeakingAgent(item.agent);
-          await playAgentVoice(item.agent, item.text, playCtrl.signal);
+          const cached = blobCache.get(item.agent);
+          if (cached) {
+            try {
+              await playAudioBlob(cached, playCtrl.signal);
+            } catch {
+              await playWithWebSpeechFallback(item.text, playCtrl.signal);
+            }
+          } else {
+            await playAgentVoice(item.agent, item.text, playCtrl.signal);
+          }
           setSpokenAgents((prev) => new Set(prev).add(item.agent));
         }
         setSpeakingAgent(null);
@@ -781,6 +830,41 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
           {state.error}
         </p>
       )}
+
+      {state.pastTurns.map((turn, turnIdx) => (
+        <div key={turnIdx} className="flex flex-col gap-6 border-b border-border/30 pb-8">
+          <div className="rounded-council border border-border bg-elevated/40 px-4 py-3 text-sm leading-relaxed text-foreground/85 opacity-80">
+            <p className="mb-1 text-[11px] uppercase tracking-wider text-muted">
+              Tú dijiste
+            </p>
+            {turn.userMessage}
+          </div>
+          <div className="mx-auto grid w-full max-w-6xl grid-cols-1 justify-items-center gap-5 sm:grid-cols-2 md:grid-cols-3">
+            {AGENT_IDS.map((id) => {
+              const slot = turn.agents[id];
+              if (!slot.text) return null;
+              return (
+                <AgentCard
+                  key={id}
+                  className="w-full max-w-md opacity-80"
+                  agent={id}
+                  state="complete"
+                  text={slot.text || undefined}
+                  attenuated={turn.attenuated.includes(id)}
+                />
+              );
+            })}
+          </div>
+          {turn.replica && turn.replica !== "skipped" && (
+            <ReplicaCard
+              speaker={turn.replica.speaker}
+              respondingTo={turn.replica.respondingTo}
+              text={turn.replica.text}
+              state="complete"
+            />
+          )}
+        </div>
+      ))}
 
       {state.lastUserMessage && (
         <div className="rounded-council border border-border bg-elevated/40 px-4 py-3 text-sm leading-relaxed text-foreground/85">

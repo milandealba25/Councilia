@@ -42,7 +42,7 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
   }
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-elevated/40">
+    <aside className="sticky top-0 flex h-dvh w-64 shrink-0 flex-col border-r border-border bg-elevated/40">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <span className="text-[11px] font-medium uppercase tracking-widest text-muted">
           Tus chats
@@ -86,8 +86,12 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
                   {s.title}
                 </p>
                 <p className="mt-0.5 text-[10px] text-muted">
-                  {dateStr} · {s.turns.length}{" "}
-                  {s.turns.length === 1 ? "turno" : "turnos"}
+                  {dateStr} ·{" "}
+                  {s.turns.length === 0
+                    ? "ningún turno"
+                    : s.turns.length === 1
+                      ? "1 turno"
+                      : `${s.turns.length} turnos`}
                 </p>
               </div>
               <button
