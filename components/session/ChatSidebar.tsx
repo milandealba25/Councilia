@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   getChatSessions,
   deleteChatSession,
@@ -17,6 +17,7 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setSessions(getChatSessions());
@@ -34,24 +35,37 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
     setConfirmDeleteId(null);
   }
 
-  if (collapsed) {
-    return (
+  return (
+    <>
+      {/* Toggle flotante — visible solo cuando collapsed */}
       <button
         type="button"
         onClick={() => setCollapsed(false)}
-        className="fixed left-3 top-3 z-30 flex size-9 items-center justify-center rounded-lg border border-border bg-elevated text-muted shadow-sm transition hover:border-accent/50 hover:text-foreground"
+        className="fixed left-3 top-3 z-30 flex size-9 items-center justify-center rounded-lg border border-border bg-elevated text-muted shadow-sm transition-all duration-300 hover:border-accent/50 hover:text-foreground"
+        style={{
+          opacity: collapsed ? 1 : 0,
+          pointerEvents: collapsed ? "auto" : "none",
+          transform: collapsed ? "translateX(0)" : "translateX(-12px)",
+        }}
         aria-label="Abrir historial"
         title="Abrir historial"
       >
         <ChevronRightIcon />
       </button>
-    );
-  }
 
-  return (
-    <>
-      <aside className="sticky top-0 flex h-dvh w-64 shrink-0 flex-col border-r border-border bg-elevated/40">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      {/* Sidebar con slide */}
+      <aside
+        ref={sidebarRef}
+        className="sticky top-0 flex h-dvh shrink-0 flex-col border-r border-border bg-elevated/40 transition-all duration-300 ease-in-out"
+        style={{
+          width: collapsed ? 0 : 256,
+          minWidth: collapsed ? 0 : 256,
+          opacity: collapsed ? 0 : 1,
+          transform: collapsed ? "translateX(-256px)" : "translateX(0)",
+          overflow: "hidden",
+        }}
+      >
+        <div className="flex w-64 items-center justify-between border-b border-border px-4 py-3">
           <span className="text-[11px] font-medium uppercase tracking-widest text-muted">
             Tus chats
           </span>
@@ -66,7 +80,7 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 py-2">
+        <div className="w-64 flex-1 overflow-y-auto px-2 py-2">
           {sessions.length === 0 && (
             <p className="px-2 py-4 text-center text-xs text-muted/70">
               Aún no tienes chats guardados.
@@ -89,16 +103,16 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
               <div
                 key={s.id}
                 className={`group relative rounded-lg transition ${
-                  isActive
-                    ? "bg-accent/10"
-                    : "hover:bg-elevated"
+                  isActive ? "bg-accent/10" : "hover:bg-elevated"
                 }`}
               >
                 <button
                   type="button"
                   onClick={() => onSelectChat(s.id)}
                   className={`flex w-full flex-col gap-0.5 px-3 py-2.5 text-left ${
-                    isActive ? "text-foreground" : "text-muted hover:text-foreground"
+                    isActive
+                      ? "text-foreground"
+                      : "text-muted hover:text-foreground"
                   }`}
                 >
                   <p className="truncate text-sm font-medium leading-snug">
@@ -122,7 +136,7 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
           })}
         </div>
 
-        <div className="border-t border-border px-3 py-3">
+        <div className="w-64 border-t border-border px-3 py-3">
           <button
             type="button"
             onClick={onNewChat}
@@ -134,8 +148,12 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
         </div>
       </aside>
 
+      {/* Modal de confirmación */}
       {confirmDeleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          style={{ animation: "sidebar-fade-in 200ms ease-out both" }}
+        >
           <div
             className="mx-4 w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-xl"
             style={{ animation: "soft-rise 200ms ease-out both" }}
