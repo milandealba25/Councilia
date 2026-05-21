@@ -444,9 +444,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   const abortRef = useRef<AbortController | null>(null);
   const playbackAbortRef = useRef<AbortController | null>(null);
   const activeChatIdRef = useRef<string | null>(chatId);
-  const agentsSectionRef = useRef<HTMLElement | null>(null);
-  const replicaSectionRef = useRef<HTMLElement | null>(null);
-  const inputSectionRef = useRef<HTMLDivElement | null>(null);
   const agentRevealGateRef = useRef<{
     pending: Set<AgentId>;
     resolve: () => void;
@@ -455,6 +452,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   const [speakingAgent, setSpeakingAgent] = useState<AgentId | null>(null);
   const [spokenAgents, setSpokenAgents] = useState<Set<AgentId>>(new Set());
   const [autoPlayPaused, setAutoPlayPaused] = useState(false);
+  const [composerExpanded, setComposerExpanded] = useState(false);
 
   const stopAllAudio = useCallback(() => {
     playbackAbortRef.current?.abort();
@@ -485,17 +483,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       agentRevealGateRef.current = null;
       g.resolve();
     }
-  }
-
-  function smoothScrollTo(node: HTMLElement | null) {
-    if (!node || typeof window === "undefined") return;
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    node.scrollIntoView({
-      behavior: reduceMotion ? "auto" : "smooth",
-      block: "start",
-    });
   }
 
   useEffect(() => {
@@ -549,24 +536,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
     [],
   );
 
-  // Al enviar un mensaje, deslizamos a la sección de los agentes.
-  useEffect(() => {
-    if (!state.lastUserMessage) return;
-    smoothScrollTo(agentsSectionRef.current);
-  }, [state.lastUserMessage]);
-
-  // Cuando entra la fase 2 (anuncio o plan), centramos la réplica.
-  useEffect(() => {
-    if (!state.replicaPending && !state.replica) return;
-    smoothScrollTo(replicaSectionRef.current);
-  }, [state.replicaPending, state.replica]);
-
-  // Cuando termina la réplica y volvemos a "wait", llevamos al input
-  // para que el usuario continúe el debate o pida la síntesis.
-  useEffect(() => {
-    if (state.phase !== "wait") return;
-    smoothScrollTo(inputSectionRef.current);
-  }, [state.phase]);
+  // (Auto-scroll desactivado: el usuario controla el scroll manualmente.)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -583,6 +553,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
     setSpeakingAgent(null);
     setSpokenAgents(new Set());
     setAutoPlayPaused(false);
+    setComposerExpanded(false);
     if (agentRevealGateRef.current) {
       const stuck = agentRevealGateRef.current;
       agentRevealGateRef.current = null;
@@ -822,7 +793,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
 
       {state.lastUserMessage && (
         <section
-          ref={agentsSectionRef}
           aria-label="Respuestas del council"
           className="flex scroll-mt-8 flex-col gap-5"
           style={{ animation: "soft-rise 500ms ease-out both" }}
@@ -872,7 +842,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
 
       {(state.replicaPending || state.replica) && (
         <section
-          ref={replicaSectionRef}
           aria-label="Réplica entre agentes"
           className="flex scroll-mt-8 flex-col gap-5"
           style={{ animation: "soft-rise 500ms ease-out both" }}
@@ -924,48 +893,98 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
 
       {showComposer && (
         <>
-          <div ref={inputSectionRef} className="scroll-mt-8" />
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-            <label
-              htmlFor="user-input"
-              className="text-xs font-medium uppercase tracking-wider text-muted"
+          {state.phase === "wait" && !composerExpanded ? (
+            <div
+              className="flex flex-col gap-3"
+              style={{ animation: "soft-rise 400ms ease-out both" }}
             >
-              {state.phase === "wait" ? "Sigue hablando" : "Cuéntales"}
-            </label>
-            <textarea
-              id="user-input"
-              value={state.userInput}
-              onChange={(e) =>
-                dispatch({ type: "user_input", value: e.target.value })
-              }
-              maxLength={4000}
-              rows={4}
-              disabled={state.loading || state.phase === "fase4"}
-              placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
-              className="resize-none rounded-council border border-border bg-elevated/60 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
-            />
-            <div className="flex items-center justify-between text-xs text-muted">
-              <span>{state.userInput.length} / 4000</span>
-              <div className="flex items-center gap-2">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted">
+                ¿Qué quieres hacer?
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  onClick={() => setComposerExpanded(true)}
+                >
+                  Continúa sobre el tema
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setComposerExpanded(true);
+                    dispatch({ type: "user_input", value: "" });
+                  }}
+                >
+                  Decirles otra cosa
+                </Button>
                 {canRequestSynthesis && (
                   <Button
-                    type="button"
                     variant="secondary"
                     onClick={handleSynthesis}
                   >
                     Pedir que cierren contigo
                   </Button>
                 )}
-                <Button type="submit" disabled={!canSubmit || state.loading}>
-                  {state.loading
-                    ? "Escuchando…"
-                    : state.phase === "wait"
-                      ? "Decirles otra cosa"
-                      : "Empezar"}
-                </Button>
               </div>
             </div>
-          </form>
+          ) : (
+            <form
+              onSubmit={handleSubmit}
+              className="flex flex-col gap-3"
+              style={
+                state.phase === "wait"
+                  ? { animation: "soft-rise 300ms ease-out both" }
+                  : undefined
+              }
+            >
+              <label
+                htmlFor="user-input"
+                className="text-xs font-medium uppercase tracking-wider text-muted"
+              >
+                {state.phase === "wait" || state.phase === "fase2"
+                  ? "Sigue hablando"
+                  : "Cuéntales"}
+              </label>
+              <textarea
+                id="user-input"
+                value={state.userInput}
+                onChange={(e) =>
+                  dispatch({ type: "user_input", value: e.target.value })
+                }
+                maxLength={4000}
+                rows={4}
+                disabled={state.loading || state.phase === "fase4"}
+                placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
+                className="resize-none rounded-council border border-border bg-elevated/60 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
+                autoFocus={state.phase === "wait"}
+              />
+              <div className="flex items-center justify-between text-xs text-muted">
+                <span>{state.userInput.length} / 4000</span>
+                <div className="flex items-center gap-2">
+                  {state.phase === "wait" && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setComposerExpanded(false)}
+                    >
+                      ← Atrás
+                    </Button>
+                  )}
+                  {canRequestSynthesis && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={handleSynthesis}
+                    >
+                      Pedir que cierren contigo
+                    </Button>
+                  )}
+                  <Button type="submit" disabled={!canSubmit || state.loading}>
+                    {state.loading ? "Escuchando…" : "Enviar"}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          )}
         </>
       )}
     </div>
