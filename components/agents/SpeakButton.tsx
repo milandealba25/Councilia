@@ -5,40 +5,44 @@ import { AGENT_LABELS, type AgentId } from "@/lib/agents/ids";
 
 interface Props {
   agent: AgentId;
-  /** Texto a leer en voz alta. Vacío o nulo deshabilita el botón. */
   text?: string;
-  /** Tamaño visual del botón. */
   size?: "sm" | "md";
   className?: string;
-  /** Fuerza deshabilitar el botón (p.ej. turno secuencial aún no llegó). */
   forceDisabled?: boolean;
-  /** Se llama antes de iniciar reproducción para detener cualquier otro audio activo. */
   onBeforePlay?: () => void;
+  /** El auto-playback secuencial está reproduciendo ESTE agente ahora. */
+  isAutoPlaying?: boolean;
+  /** El auto-playback está en pausa. */
+  autoPlayPaused?: boolean;
+  onPauseAutoPlay?: () => void;
+  onResumeAutoPlay?: () => void;
 }
 
-/**
- * Botón discreto para reproducir la voz del agente con la Web Speech API.
- *
- * - Si el navegador no soporta la API, no se renderiza nada (no rompe el layout).
- * - Si el texto aún no llegó, se muestra deshabilitado.
- * - Estados: idle/loading → "Escuchar", speaking → "Pausar", paused → "Continuar".
- *   Botón secundario "Detener" aparece en speaking/paused.
- */
-export function SpeakButton({ agent, text, size = "sm", className = "", forceDisabled = false, onBeforePlay }: Props) {
+export function SpeakButton({
+  agent,
+  text,
+  size = "sm",
+  className = "",
+  forceDisabled = false,
+  onBeforePlay,
+  isAutoPlaying = false,
+  autoPlayPaused = false,
+  onPauseAutoPlay,
+  onResumeAutoPlay,
+}: Props) {
   const { state, isSupported, speak, pause, resume, stop } = useSpeech({ agent });
 
   if (!isSupported) return null;
 
   const hasText = !!text && text.trim().length > 0;
-  const isSpeaking = state === "speaking";
-  const isPaused = state === "paused";
-  const disabled = forceDisabled || !hasText || state === "loading";
 
-  const label = isSpeaking
-    ? "Pausar"
-    : isPaused
-      ? "Continuar"
-      : "Escuchar";
+  const isSpeaking = isAutoPlaying ? !autoPlayPaused : state === "speaking";
+  const isPaused = isAutoPlaying ? autoPlayPaused : state === "paused";
+  const isActive = isSpeaking || isPaused;
+  const disabled =
+    forceDisabled || !hasText || (!isAutoPlaying && state === "loading");
+
+  const label = isSpeaking ? "Pausar" : isPaused ? "Continuar" : "Escuchar";
 
   const aria = isSpeaking
     ? `Pausar la voz de ${AGENT_LABELS[agent]}`
@@ -47,18 +51,32 @@ export function SpeakButton({ agent, text, size = "sm", className = "", forceDis
       : `Escuchar a ${AGENT_LABELS[agent]} en voz alta`;
 
   function handlePrimary() {
-    if (isSpeaking) return pause();
-    if (isPaused) return resume();
+    if (isAutoPlaying) {
+      if (autoPlayPaused) {
+        onResumeAutoPlay?.();
+      } else {
+        onPauseAutoPlay?.();
+      }
+      return;
+    }
+    if (state === "speaking") return pause();
+    if (state === "paused") return resume();
     if (text) {
       onBeforePlay?.();
       speak(text);
     }
   }
 
+  function handleStop() {
+    if (isAutoPlaying) {
+      onBeforePlay?.();
+      return;
+    }
+    stop();
+  }
+
   const sizeClasses =
-    size === "md"
-      ? "h-8 px-3 text-xs"
-      : "h-7 px-2.5 text-[11px]";
+    size === "md" ? "h-8 px-3 text-xs" : "h-7 px-2.5 text-[11px]";
 
   return (
     <div className={`inline-flex items-center gap-1.5 ${className}`}>
@@ -76,10 +94,10 @@ export function SpeakButton({ agent, text, size = "sm", className = "", forceDis
         />
         <span>{label}</span>
       </button>
-      {(isSpeaking || isPaused) && (
+      {isActive && (
         <button
           type="button"
-          onClick={stop}
+          onClick={handleStop}
           aria-label={`Detener la voz de ${AGENT_LABELS[agent]}`}
           title={`Detener la voz de ${AGENT_LABELS[agent]}`}
           className={`inline-flex items-center justify-center rounded-full border border-border bg-background/60 text-muted transition hover:border-error/50 hover:text-error ${size === "md" ? "h-8 w-8" : "h-7 w-7"}`}

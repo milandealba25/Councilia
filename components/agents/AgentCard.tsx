@@ -30,6 +30,12 @@ interface AgentCardProps {
   speakButtonDisabled?: boolean;
   /** Detiene todo audio activo antes de iniciar reproducción manual. */
   onBeforePlay?: () => void;
+  /** El auto-playback secuencial está reproduciendo ESTE agente. */
+  isAutoPlaying?: boolean;
+  /** El auto-playback está en pausa. */
+  autoPlayPaused?: boolean;
+  onPauseAutoPlay?: () => void;
+  onResumeAutoPlay?: () => void;
 }
 
 const STATE_LABEL: Record<State, string> = {
@@ -63,6 +69,10 @@ export function AgentCard({
   errorMessage,
   speakButtonDisabled = false,
   onBeforePlay,
+  isAutoPlaying = false,
+  autoPlayPaused = false,
+  onPauseAutoPlay,
+  onResumeAutoPlay,
 }: AgentCardProps) {
   const mood =
     state === "streaming"
@@ -161,7 +171,16 @@ export function AgentCard({
           <span className="text-[10px] uppercase tracking-wider text-subtle">
             Escúchalo en su voz
           </span>
-          <SpeakButton agent={agent} text={text} forceDisabled={speakButtonDisabled} onBeforePlay={onBeforePlay} />
+          <SpeakButton
+            agent={agent}
+            text={text}
+            forceDisabled={speakButtonDisabled}
+            onBeforePlay={onBeforePlay}
+            isAutoPlaying={isAutoPlaying}
+            autoPlayPaused={autoPlayPaused}
+            onPauseAutoPlay={onPauseAutoPlay}
+            onResumeAutoPlay={onResumeAutoPlay}
+          />
         </footer>
       )}
     </article>

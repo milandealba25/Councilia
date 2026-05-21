@@ -26,8 +26,18 @@ import {
 import {
   startVoiceContextPlayback,
   stopAllVoicePlayback,
+  pauseVoicePlayback,
+  resumeVoicePlayback,
   unlockVoicePlayback,
 } from "@/lib/voice/audioContextPlayer";
+import {
+  createChatSession,
+  saveChatTurn,
+  getActiveChatId,
+  setActiveChatId,
+  getChatSession,
+  type ChatTurn,
+} from "@/lib/chat/chatStorage";
 
 /**
  * Máquina de estados de una sesión (doc 05, §1).
@@ -423,11 +433,17 @@ async function playAgentVoice(
   }
 }
 
-export function SessionConsole() {
+interface SessionConsoleProps {
+  chatId: string | null;
+  onChatCreated?: (id: string) => void;
+}
+
+export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
   const playbackAbortRef = useRef<AbortController | null>(null);
+  const activeChatIdRef = useRef<string | null>(chatId);
   const agentsSectionRef = useRef<HTMLElement | null>(null);
   const replicaSectionRef = useRef<HTMLElement | null>(null);
   const inputSectionRef = useRef<HTMLDivElement | null>(null);
@@ -438,6 +454,7 @@ export function SessionConsole() {
 
   const [speakingAgent, setSpeakingAgent] = useState<AgentId | null>(null);
   const [spokenAgents, setSpokenAgents] = useState<Set<AgentId>>(new Set());
+  const [autoPlayPaused, setAutoPlayPaused] = useState(false);
 
   const stopAllAudio = useCallback(() => {
     playbackAbortRef.current?.abort();
@@ -447,6 +464,17 @@ export function SessionConsole() {
       window.speechSynthesis.cancel();
     }
     setSpeakingAgent(null);
+    setAutoPlayPaused(false);
+  }, []);
+
+  const pausePlayback = useCallback(() => {
+    pauseVoicePlayback();
+    setAutoPlayPaused(true);
+  }, []);
+
+  const resumePlayback = useCallback(() => {
+    resumeVoicePlayback();
+    setAutoPlayPaused(false);
   }, []);
 
   function releaseAgentRevealGate(id: AgentId) {
@@ -469,6 +497,18 @@ export function SessionConsole() {
       block: "start",
     });
   }
+
+  useEffect(() => {
+    activeChatIdRef.current = chatId;
+  }, [chatId]);
+
+  useEffect(() => {
+    if (!activeChatIdRef.current) {
+      const session = createChatSession();
+      activeChatIdRef.current = session.id;
+      onChatCreated?.(session.id);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const stored = loadUserContext();
@@ -542,6 +582,7 @@ export function SessionConsole() {
     abortRef.current = ctrl;
     setSpeakingAgent(null);
     setSpokenAgents(new Set());
+    setAutoPlayPaused(false);
     if (agentRevealGateRef.current) {
       const stuck = agentRevealGateRef.current;
       agentRevealGateRef.current = null;
@@ -658,6 +699,27 @@ export function SessionConsole() {
           setSpeakingAgent(null);
         }
       }
+
+      if (activeChatIdRef.current) {
+        const turn: ChatTurn = {
+          userMessage: message,
+          agents: {
+            marco: collected.marco.trim(),
+            elena: collected.elena.trim(),
+            rafael: collected.rafael.trim(),
+          },
+          replica:
+            replicaSpeaker && replicaText.trim().length > 0
+              ? {
+                  speaker: replicaSpeaker,
+                  respondingTo: postures.find((p) => p.agent !== replicaSpeaker)?.agent ?? "marco",
+                  text: replicaText.trim(),
+                }
+              : null,
+        };
+        saveChatTurn(activeChatIdRef.current, turn);
+      }
+
       dispatch({ type: "replica_done" });
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
@@ -724,12 +786,12 @@ export function SessionConsole() {
 
   const canSubmit =
     state.userInput.trim().length > 0 &&
-    (state.phase === "idle" || state.phase === "wait");
+    (state.phase === "idle" || state.phase === "wait" || state.phase === "fase2");
 
   const canRequestSynthesis =
     state.phase === "wait" && !state.synthesis && !state.loading;
   const showComposer =
-    !state.loading && (state.phase === "idle" || state.phase === "wait");
+    state.phase === "idle" || state.phase === "wait" || state.phase === "fase2";
 
   return (
     <div className="flex flex-col gap-10">
@@ -797,6 +859,10 @@ export function SessionConsole() {
                     !spokenAgents.has(id)
                   }
                   onBeforePlay={stopAllAudio}
+                  isAutoPlaying={speakingAgent === id}
+                  autoPlayPaused={autoPlayPaused}
+                  onPauseAutoPlay={pausePlayback}
+                  onResumeAutoPlay={resumePlayback}
                 />
               );
             })}
@@ -831,6 +897,10 @@ export function SessionConsole() {
               text={state.replica.text}
               state={state.replica.state}
               onBeforePlay={stopAllAudio}
+              isAutoPlaying={speakingAgent === state.replica.speaker}
+              autoPlayPaused={autoPlayPaused}
+              onPauseAutoPlay={pausePlayback}
+              onResumeAutoPlay={resumePlayback}
             />
           ) : null}
         </section>

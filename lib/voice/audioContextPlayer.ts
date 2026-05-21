@@ -16,6 +16,26 @@ export function stopAllVoicePlayback(): void {
   activeSources.clear();
 }
 
+export function pauseVoicePlayback(): void {
+  const ctx = getOrCreateVoiceAudioContext();
+  if (ctx && ctx.state === "running") {
+    void ctx.suspend();
+  }
+  if (typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined") {
+    window.speechSynthesis.pause();
+  }
+}
+
+export function resumeVoicePlayback(): void {
+  const ctx = getOrCreateVoiceAudioContext();
+  if (ctx && ctx.state === "suspended") {
+    void ctx.resume();
+  }
+  if (typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined") {
+    window.speechSynthesis.resume();
+  }
+}
+
 function getAudioContextCtor():
   | (new (contextOptions?: AudioContextOptions) => AudioContext)
   | null {
