@@ -26,6 +26,10 @@ interface AgentCardProps {
   attenuated?: boolean;
   /** Mensaje de error que viene del servidor (cuando `state === "error"`). */
   errorMessage?: string;
+  /** Fuerza deshabilitar el SpeakButton (turno secuencial aún no llegó). */
+  speakButtonDisabled?: boolean;
+  /** Detiene todo audio activo antes de iniciar reproducción manual. */
+  onBeforePlay?: () => void;
 }
 
 const STATE_LABEL: Record<State, string> = {
@@ -57,6 +61,8 @@ export function AgentCard({
   isUserTyping = false,
   attenuated = false,
   errorMessage,
+  speakButtonDisabled = false,
+  onBeforePlay,
 }: AgentCardProps) {
   const mood =
     state === "streaming"
@@ -155,7 +161,7 @@ export function AgentCard({
           <span className="text-[10px] uppercase tracking-wider text-subtle">
             Escúchalo en su voz
           </span>
-          <SpeakButton agent={agent} text={text} />
+          <SpeakButton agent={agent} text={text} forceDisabled={speakButtonDisabled} onBeforePlay={onBeforePlay} />
         </footer>
       )}
     </article>

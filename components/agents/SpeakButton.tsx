@@ -10,6 +10,10 @@ interface Props {
   /** Tamaño visual del botón. */
   size?: "sm" | "md";
   className?: string;
+  /** Fuerza deshabilitar el botón (p.ej. turno secuencial aún no llegó). */
+  forceDisabled?: boolean;
+  /** Se llama antes de iniciar reproducción para detener cualquier otro audio activo. */
+  onBeforePlay?: () => void;
 }
 
 /**
@@ -20,7 +24,7 @@ interface Props {
  * - Estados: idle/loading → "Escuchar", speaking → "Pausar", paused → "Continuar".
  *   Botón secundario "Detener" aparece en speaking/paused.
  */
-export function SpeakButton({ agent, text, size = "sm", className = "" }: Props) {
+export function SpeakButton({ agent, text, size = "sm", className = "", forceDisabled = false, onBeforePlay }: Props) {
   const { state, isSupported, speak, pause, resume, stop } = useSpeech({ agent });
 
   if (!isSupported) return null;
@@ -28,7 +32,7 @@ export function SpeakButton({ agent, text, size = "sm", className = "" }: Props)
   const hasText = !!text && text.trim().length > 0;
   const isSpeaking = state === "speaking";
   const isPaused = state === "paused";
-  const disabled = !hasText || state === "loading";
+  const disabled = forceDisabled || !hasText || state === "loading";
 
   const label = isSpeaking
     ? "Pausar"
@@ -45,7 +49,10 @@ export function SpeakButton({ agent, text, size = "sm", className = "" }: Props)
   function handlePrimary() {
     if (isSpeaking) return pause();
     if (isPaused) return resume();
-    if (text) speak(text);
+    if (text) {
+      onBeforePlay?.();
+      speak(text);
+    }
   }
 
   const sizeClasses =

@@ -7,6 +7,14 @@ export interface VoicePlaybackHandle {
 }
 
 let sharedAudioContext: AudioContext | null = null;
+const activeSources = new Set<AudioBufferSourceNode>();
+
+export function stopAllVoicePlayback(): void {
+  for (const source of activeSources) {
+    try { source.stop(); } catch { /* no-op */ }
+  }
+  activeSources.clear();
+}
 
 function getAudioContextCtor():
   | (new (contextOptions?: AudioContextOptions) => AudioContext)
@@ -55,9 +63,11 @@ export async function startVoiceContextPlayback(
   const source = ctx.createBufferSource();
   source.buffer = audioBuffer;
   source.connect(ctx.destination);
+  activeSources.add(source);
 
   const done = new Promise<void>((resolve) => {
     function cleanup() {
+      activeSources.delete(source);
       source.onended = null;
       signal?.removeEventListener("abort", onAbort);
     }

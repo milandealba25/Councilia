@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { loadUserContext } from "@/lib/survey/storage";
-import type { UserContext } from "@/lib/survey/survey.v1";
+import { loadUserContext, saveUserContext } from "@/lib/survey/storage";
+import { SURVEY_VERSION, type UserContext } from "@/lib/survey/survey.v1";
 import { AGENT_IDS, type AgentId } from "@/lib/agents/ids";
 import { AgentCard } from "@/components/agents/AgentCard";
 import { Button } from "@/components/ui/Button";
@@ -25,6 +25,7 @@ import {
 } from "@/orchestrator/llm";
 import {
   startVoiceContextPlayback,
+  stopAllVoicePlayback,
   unlockVoicePlayback,
 } from "@/lib/voice/audioContextPlayer";
 
@@ -340,7 +341,7 @@ const PHASE_TRANSITION_MS = 800;
  * Tras terminar la mecanografía de todas las posturas visibles, arrancamos
  * voz casi inmediato para mantener sensación de conversación viva.
  */
-const POST_AGENT_REVEAL_MS = 250;
+const POST_AGENT_REVEAL_MS = 1000;
 
 async function playAudioBlob(
   blob: Blob,
@@ -435,6 +436,19 @@ export function SessionConsole() {
     resolve: () => void;
   } | null>(null);
 
+  const [speakingAgent, setSpeakingAgent] = useState<AgentId | null>(null);
+  const [spokenAgents, setSpokenAgents] = useState<Set<AgentId>>(new Set());
+
+  const stopAllAudio = useCallback(() => {
+    playbackAbortRef.current?.abort();
+    playbackAbortRef.current = null;
+    stopAllVoicePlayback();
+    if (typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined") {
+      window.speechSynthesis.cancel();
+    }
+    setSpeakingAgent(null);
+  }, []);
+
   function releaseAgentRevealGate(id: AgentId) {
     const g = agentRevealGateRef.current;
     if (!g || !g.pending.has(id)) return;
@@ -459,6 +473,22 @@ export function SessionConsole() {
   useEffect(() => {
     const stored = loadUserContext();
     if (!stored) {
+      const guestMode =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("guest") === "1";
+      if (guestMode) {
+        const guestContext: UserContext = {
+          surveyVersion: SURVEY_VERSION,
+          decisionType: "vida",
+          ageRange: "prefer_not_say",
+          urgency: "explorando",
+          needFromCouncil: "estructurar",
+          fearedLoss: "arrepentirme",
+        };
+        saveUserContext(guestContext);
+        dispatch({ type: "ctx_loaded", ctx: guestContext });
+        return;
+      }
       router.replace("/onboarding");
       return;
     }
@@ -507,10 +537,11 @@ export function SessionConsole() {
     void unlockVoicePlayback();
 
     abortRef.current?.abort();
-    playbackAbortRef.current?.abort();
-    playbackAbortRef.current = null;
+    stopAllAudio();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    setSpeakingAgent(null);
+    setSpokenAgents(new Set());
     if (agentRevealGateRef.current) {
       const stuck = agentRevealGateRef.current;
       agentRevealGateRef.current = null;
@@ -576,8 +607,6 @@ export function SessionConsole() {
         agentRevealGateRef.current = null;
       }
 
-      // 1) Al terminar de escribir, reproducimos automáticamente las posturas
-      // en secuencia (Marco -> Elena -> Rafael) antes de pasar a discusión.
       const phase1VoiceQueue = AGENT_IDS
         .map((id) => ({ agent: id, text: collected[id].trim() }))
         .filter((item) => item.text.length > 0);
@@ -585,9 +614,12 @@ export function SessionConsole() {
         const playCtrl = new AbortController();
         playbackAbortRef.current = playCtrl;
         for (const item of phase1VoiceQueue) {
-          if (ctrl.signal.aborted || playCtrl.signal.aborted) return;
+          if (ctrl.signal.aborted || playCtrl.signal.aborted) break;
+          setSpeakingAgent(item.agent);
           await playAgentVoice(item.agent, item.text, playCtrl.signal);
+          setSpokenAgents((prev) => new Set(prev).add(item.agent));
         }
+        setSpeakingAgent(null);
       }
 
       dispatch({ type: "phase1_done" });
@@ -617,12 +649,13 @@ export function SessionConsole() {
         if (ev.type === "delta") replicaText += ev.text;
       }
 
-      // 2) Luego se escucha automáticamente la discusión/réplica.
       if (replicaSpeaker && replicaText.trim().length > 0) {
         const playCtrl = new AbortController();
         playbackAbortRef.current = playCtrl;
-        if (!ctrl.signal.aborted) {
+        if (!ctrl.signal.aborted && !playCtrl.signal.aborted) {
+          setSpeakingAgent(replicaSpeaker);
           await playAgentVoice(replicaSpeaker, replicaText.trim(), playCtrl.signal);
+          setSpeakingAgent(null);
         }
       }
       dispatch({ type: "replica_done" });
@@ -758,6 +791,12 @@ export function SessionConsole() {
                     state.userInput.length > 0 &&
                     (state.phase === "idle" || state.phase === "wait")
                   }
+                  speakButtonDisabled={
+                    speakingAgent !== null &&
+                    speakingAgent !== id &&
+                    !spokenAgents.has(id)
+                  }
+                  onBeforePlay={stopAllAudio}
                 />
               );
             })}
@@ -791,6 +830,7 @@ export function SessionConsole() {
               respondingTo={state.replica.respondingTo}
               text={state.replica.text}
               state={state.replica.state}
+              onBeforePlay={stopAllAudio}
             />
           ) : null}
         </section>
