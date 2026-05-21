@@ -175,7 +175,8 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
               <button
                 type="button"
                 onClick={handleConfirmDelete}
-                className="rounded-lg bg-error/90 px-4 py-2 text-xs font-medium text-white transition hover:bg-error"
+                className="rounded-lg px-4 py-2 text-xs font-semibold shadow-sm transition"
+                style={{ backgroundColor: "#c0392b", color: "#ffffff" }}
               >
                 Borrar
               </button>
