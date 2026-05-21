@@ -63,6 +63,11 @@ export async function unlockVoicePlayback(): Promise<void> {
   if (ctx.state === "suspended") {
     await ctx.resume();
   }
+  const silentBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+  const source = ctx.createBufferSource();
+  source.buffer = silentBuffer;
+  source.connect(ctx.destination);
+  source.start(0);
 }
 
 export async function startVoiceContextPlayback(
@@ -75,6 +80,7 @@ export async function startVoiceContextPlayback(
   }
   if (ctx.state === "suspended") {
     await ctx.resume();
+    await new Promise((r) => setTimeout(r, 30));
   }
 
   const data = await blob.arrayBuffer();
