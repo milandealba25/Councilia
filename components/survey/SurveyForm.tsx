@@ -9,6 +9,13 @@ import {
   type UserContext,
 } from "@/lib/survey/survey.v1";
 import { loadAuthSession } from "@/lib/auth/client";
+import {
+  fetchSurveyStatus,
+  loadEntryEmail,
+  markSurveyPending,
+  saveEntryEmail,
+  syncPendingSurvey,
+} from "@/lib/auth/flow";
 import { saveUserContext } from "@/lib/survey/storage";
 import { Button } from "@/components/ui/Button";
 
@@ -35,6 +42,7 @@ export function SurveyForm() {
   const [answers, setAnswers] = useState<Answers>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(true);
 
   const total = surveyV1Questions.length;
   const answered = surveyV1Questions.filter(
@@ -47,7 +55,28 @@ export function SurveyForm() {
     setAnswers((prev) => ({ ...prev, [key]: value }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  useEffect(() => {
+    const email = new URLSearchParams(window.location.search).get("email");
+    if (email) saveEntryEmail(email);
+
+    async function guardCompletedSurvey() {
+      const session = loadAuthSession();
+      if (!session) {
+        setCheckingStatus(false);
+        return;
+      }
+      const status = await fetchSurveyStatus(session);
+      if (status?.completed) {
+        router.replace("/session" as never);
+        return;
+      }
+      setCheckingStatus(false);
+    }
+
+    void guardCompletedSurvey();
+  }, [router]);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isComplete || submitting) return;
     setSubmitting(true);
@@ -65,11 +94,27 @@ export function SurveyForm() {
     }
 
     saveUserContext(parsed.data);
-    if (!loadAuthSession()) {
-      router.push("/login?next=/session&reason=survey" as never);
+    const session = loadAuthSession();
+    if (!session) {
+      markSurveyPending();
+      const email = loadEntryEmail();
+      const suffix = email ? `&email=${encodeURIComponent(email)}` : "";
+      router.push(
+        `/login?mode=register&next=/session&reason=survey${suffix}` as never,
+      );
+      return;
+    }
+    const synced = await syncPendingSurvey(session, { force: true });
+    if (!synced) {
+      setError("No pudimos guardar la encuesta en tu cuenta. Intenta de nuevo.");
+      setSubmitting(false);
       return;
     }
     router.push("/session" as never);
+  }
+
+  if (checkingStatus) {
+    return <p className="text-sm text-muted">Revisando tus respuestas...</p>;
   }
 
   return (
@@ -176,8 +221,8 @@ export function SurveyForm() {
 
       <div className="flex flex-col gap-3 border-t border-border/60 pt-6 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-md text-xs leading-relaxed text-muted">
-          Solo guardamos esto mientras dura tu sesión. Puedes borrarlo cuando
-          quieras.
+          Si creas cuenta, guardaremos esta encuesta una sola vez para que el
+          council mantenga contexto entre chats.
         </p>
         <Button type="submit" disabled={!isComplete || submitting}>
           {submitting

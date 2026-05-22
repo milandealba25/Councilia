@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  chatChangeEventName,
   getChatSessions,
-  deleteChatSession,
-  renameChatSession,
+  deletePersistentChatSession,
+  refreshChatSessionsFromServer,
+  renamePersistentChatSession,
   exportChatSession,
   type ChatSession,
 } from "@/lib/chat/chatStorage";
@@ -27,7 +29,20 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
 
   useEffect(() => {
     setSessions(getChatSessions());
+    void refreshChatSessionsFromServer().then(setSessions);
   }, [activeChatId]);
+
+  useEffect(() => {
+    function syncSessions() {
+      setSessions(getChatSessions());
+    }
+    window.addEventListener(chatChangeEventName(), syncSessions);
+    window.addEventListener("storage", syncSessions);
+    return () => {
+      window.removeEventListener(chatChangeEventName(), syncSessions);
+      window.removeEventListener("storage", syncSessions);
+    };
+  }, []);
 
   // Cerrar menú al hacer click fuera
   useEffect(() => {
@@ -58,9 +73,9 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
     setMenuOpenId(null);
   }
 
-  function handleRenameSubmit() {
+  async function handleRenameSubmit() {
     if (!renamingId) return;
-    renameChatSession(renamingId, renameValue);
+    await renamePersistentChatSession(renamingId, renameValue);
     setSessions(getChatSessions());
     setRenamingId(null);
   }
@@ -70,9 +85,9 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
     setConfirmDeleteId(id);
   }
 
-  function handleConfirmDelete() {
+  async function handleConfirmDelete() {
     if (!confirmDeleteId) return;
-    deleteChatSession(confirmDeleteId);
+    await deletePersistentChatSession(confirmDeleteId);
     setSessions(getChatSessions());
     setConfirmDeleteId(null);
   }
@@ -164,7 +179,7 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
                 <button
                   type="button"
                   onClick={() => onSelectChat(s.id)}
-                  className={`flex w-full flex-col gap-0.5 px-3 py-2.5 pr-9 text-left ${
+                  className={`flex w-full flex-col gap-0.5 px-3 py-2.5 pr-16 text-left ${
                     isActive
                       ? "text-foreground"
                       : "text-muted hover:text-foreground"
@@ -176,9 +191,9 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
                       type="text"
                       value={renameValue}
                       onChange={(e) => setRenameValue(e.target.value)}
-                      onBlur={handleRenameSubmit}
+                      onBlur={() => void handleRenameSubmit()}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") handleRenameSubmit();
+                        if (e.key === "Enter") void handleRenameSubmit();
                         if (e.key === "Escape") setRenamingId(null);
                       }}
                       onClick={(e) => e.stopPropagation()}
@@ -195,6 +210,21 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
                 </button>
 
                 {/* Botón de 3 puntos */}
+                {!isRenaming && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRenameStart(s.id);
+                    }}
+                    className="absolute right-8 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted/40 opacity-0 transition hover:bg-background hover:text-foreground group-hover:opacity-100"
+                    aria-label="Editar nombre"
+                    title="Editar nombre"
+                  >
+                    <PencilIcon />
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={(e) => handleMenuToggle(e, s.id)}
@@ -282,7 +312,7 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
               </button>
               <button
                 type="button"
-                onClick={handleConfirmDelete}
+                onClick={() => void handleConfirmDelete()}
                 className="rounded-lg px-4 py-2 text-xs font-semibold shadow-sm transition"
                 style={{ backgroundColor: "#c0392b", color: "#ffffff" }}
               >

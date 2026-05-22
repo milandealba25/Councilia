@@ -9,6 +9,7 @@ import {
   loadAuthSession,
   type AuthSession,
 } from "@/lib/auth/client";
+import { fetchSurveyStatus } from "@/lib/auth/flow";
 import { loadUserContext } from "@/lib/survey/storage";
 
 const VOICE_KEY = "councilia.voiceEnabled";
@@ -20,9 +21,15 @@ export function AccountPanel() {
   const [voiceOn, setVoiceOn] = useState(true);
 
   useEffect(() => {
-    setSession(loadAuthSession());
+    const current = loadAuthSession();
+    setSession(current);
     setHasSurvey(!!loadUserContext());
     setVoiceOn(localStorage.getItem(VOICE_KEY) !== "false");
+    if (current) {
+      void fetchSurveyStatus(current).then((status) => {
+        if (status?.completed) setHasSurvey(true);
+      });
+    }
   }, []);
 
   function handleLogout() {

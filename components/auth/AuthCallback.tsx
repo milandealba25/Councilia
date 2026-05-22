@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { saveAuthSession } from "@/lib/auth/client";
+import { resolvePostAuthRedirect } from "@/lib/auth/flow";
 
 type Status = "loading" | "error";
 
@@ -64,7 +65,8 @@ export function AuthCallback() {
         expiresAt: expiresIn > 0 ? Date.now() + expiresIn * 1000 : null,
         user: data.user,
       });
-      router.replace(next as never);
+      const destination = await resolvePostAuthRedirect(next);
+      router.replace(destination as never);
     }
 
     void finishLogin();

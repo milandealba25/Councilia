@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadUserContext, saveUserContext } from "@/lib/survey/storage";
+import { loadAuthSession } from "@/lib/auth/client";
 import { SURVEY_VERSION, type UserContext } from "@/lib/survey/survey.v1";
 import { AGENT_IDS, type AgentId } from "@/lib/agents/ids";
 import { AgentCard } from "@/components/agents/AgentCard";
@@ -31,11 +32,11 @@ import {
   unlockVoicePlayback,
 } from "@/lib/voice/audioContextPlayer";
 import {
-  createChatSession,
-  saveChatTurn,
-  getActiveChatId,
+  buildConversationMemory,
+  createPersistentChatSession,
   setActiveChatId,
   getChatSession,
+  savePersistentChatTurn,
   type ChatTurn,
 } from "@/lib/chat/chatStorage";
 
@@ -104,6 +105,7 @@ interface State {
 
 type Action =
   | { type: "ctx_loaded"; ctx: UserContext }
+  | { type: "hydrate_chat"; turns: ChatTurn[] }
   | { type: "user_input"; value: string }
   | { type: "submit_user"; message: string }
   | { type: "initial_event"; event: InitialEvent }
@@ -139,6 +141,14 @@ function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "ctx_loaded":
       return { ...state, ctx: action.ctx };
+
+    case "hydrate_chat":
+      return {
+        ...INITIAL_STATE,
+        ctx: state.ctx,
+        phase: action.turns.length > 0 ? "wait" : "idle",
+        pastTurns: action.turns.map(chatTurnToCompletedTurn),
+      };
 
     case "user_input":
       return { ...state, userInput: action.value };
@@ -357,6 +367,33 @@ function markAllError(
   }
   return next;
 }
+function chatTurnToCompletedTurn(turn: ChatTurn): CompletedTurn {
+  return {
+    userMessage: turn.userMessage,
+    agents: {
+      marco: {
+        state: turn.agents.marco ? "complete" : "idle",
+        text: turn.agents.marco ?? "",
+      },
+      elena: {
+        state: turn.agents.elena ? "complete" : "idle",
+        text: turn.agents.elena ?? "",
+      },
+      rafael: {
+        state: turn.agents.rafael ? "complete" : "idle",
+        text: turn.agents.rafael ?? "",
+      },
+    },
+    attenuated: [],
+    replica: turn.replica
+      ? {
+          ...turn.replica,
+          tensionScore: 0,
+          state: "complete",
+        }
+      : null,
+  };
+}
 
 /**
  * Pausa breve tras mostrar "Alguien toma la palabra" y antes de pedir la réplica
@@ -470,7 +507,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   const [spokenAgents, setSpokenAgents] = useState<Set<AgentId>>(new Set());
   const [autoPlayPaused, setAutoPlayPaused] = useState(false);
   const [composerExpanded, setComposerExpanded] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(() => {
+  const [voiceEnabled] = useState(() => {
     if (typeof window === "undefined") return true;
     return localStorage.getItem("councilia.voiceEnabled") !== "false";
   });
@@ -496,12 +533,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
     setAutoPlayPaused(false);
   }, []);
 
-  const toggleVoice = useCallback((on: boolean) => {
-    setVoiceEnabled(on);
-    localStorage.setItem("councilia.voiceEnabled", String(on));
-    if (!on) stopAllAudio();
-  }, [stopAllAudio]);
-
   function releaseAgentRevealGate(id: AgentId) {
     const g = agentRevealGateRef.current;
     if (!g || !g.pending.has(id)) return;
@@ -514,22 +545,43 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
 
   useEffect(() => {
     activeChatIdRef.current = chatId;
+    const storedChat = chatId ? getChatSession(chatId) : null;
+    if (storedChat) {
+      dispatch({ type: "hydrate_chat", turns: storedChat.turns });
+    }
   }, [chatId]);
 
   useEffect(() => {
     if (!activeChatIdRef.current) {
-      const session = createChatSession();
-      activeChatIdRef.current = session.id;
-      onChatCreated?.(session.id);
+      async function createChat() {
+        const guestMode =
+          typeof window !== "undefined" &&
+          new URLSearchParams(window.location.search).get("guest") === "1";
+        if (!loadAuthSession() && !guestMode) return;
+        try {
+          const session = await createPersistentChatSession();
+          activeChatIdRef.current = session.id;
+          setActiveChatId(session.id);
+          onChatCreated?.(session.id);
+        } catch {
+          router.replace("/onboarding" as never);
+        }
+      }
+      void createChat();
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    const guestMode =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("guest") === "1";
+    if (!loadAuthSession() && !guestMode) {
+      router.replace("/");
+      return;
+    }
+
     const stored = loadUserContext();
     if (!stored) {
-      const guestMode =
-        typeof window !== "undefined" &&
-        new URLSearchParams(window.location.search).get("guest") === "1";
       if (guestMode) {
         const guestContext: UserContext = {
           surveyVersion: SURVEY_VERSION,
@@ -587,6 +639,8 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       stuck.resolve();
     }
 
+    const conversationMemory = buildConversationMemory(activeChatIdRef.current);
+
     dispatch({ type: "submit_user", message });
 
     try {
@@ -597,6 +651,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       for await (const ev of streamInitial({
         userContext: state.ctx,
         userMessage: message,
+        conversationMemory,
         signal: ctrl.signal,
       })) {
         dispatch({ type: "initial_event", event: ev });
@@ -714,6 +769,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       for await (const ev of streamReplica({
         userContext: state.ctx,
         userMessage: message,
+        conversationMemory,
         postures,
         signal: ctrl.signal,
       })) {
@@ -749,7 +805,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
                 }
               : null,
         };
-        saveChatTurn(activeChatIdRef.current, turn);
+        await savePersistentChatTurn(activeChatIdRef.current, turn);
       }
 
       dispatch({ type: "replica_done" });
@@ -786,6 +842,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       const synthesis = await requestSynthesis({
         userContext: state.ctx,
         transcript,
+        conversationMemory: buildConversationMemory(activeChatIdRef.current),
         signal: ctrl.signal,
       });
       dispatch({ type: "synthesis_done", synthesis });
@@ -1140,9 +1197,9 @@ function ConfigErrorBanner({
   onDismiss: () => void;
 }) {
   const HINTS: Partial<Record<LlmErrorCode, string>> = {
-    auth: "Define una clave válida en OPENAI_API_KEY y reinicia el servidor. En local, edita .env.local y reinicia npm run dev.",
+    auth: "Define una clave válida en GEMINI_API_KEY y reinicia el servidor. En local, edita .env.local y reinicia npm run dev.",
     quota:
-      "El proveedor está limitando llamadas. Espera unos segundos o revisa tu cuota en el dashboard de OpenAI.",
+      "El proveedor está limitando llamadas. Espera unos segundos o revisa la cuota disponible de Gemini.",
     network:
       "La red entre el servidor y el proveedor de IA falló. Reintenta; si persiste, revisa logs del hosting.",
   };
@@ -1198,25 +1255,5 @@ function CrisisBanner({
       Empezar de nuevo cuando estés
     </button>
     </div>
-  );
-}
-
-function SpeakerOnIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-    </svg>
-  );
-}
-
-function SpeakerOffIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-      <line x1="23" y1="9" x2="17" y2="15" />
-      <line x1="17" y1="9" x2="23" y2="15" />
-    </svg>
   );
 }

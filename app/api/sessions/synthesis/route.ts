@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { userContext, transcript } = parsed;
+  const { userContext, transcript, conversationMemory } = parsed;
   let llm;
   try {
     llm = getLlm();
@@ -76,6 +76,10 @@ export async function POST(req: Request) {
     "",
     renderIntentCalibrationBlock(userContext),
     "",
+    conversationMemory
+      ? `Memoria breve de conversaciones previas:\n${conversationMemory}`
+      : "",
+    conversationMemory ? "" : "",
     "Transcripción de la deliberación:",
     ...transcript.map((t) => `[${t.role}] ${t.text.trim()}`),
     "",

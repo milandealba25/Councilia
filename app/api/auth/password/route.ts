@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import {
-  getSupabaseServiceRoleKey,
   requireSupabaseConfig,
 } from "@/lib/db/supabase";
+import { checkEmailInUse } from "@/lib/auth/emailLookup";
 import {
   getProfileAvatarUrl,
   getProfileName,
@@ -96,7 +96,9 @@ export async function POST(request: Request) {
   }
 
   if (mode === "register") {
-    const emailInUse = await checkEmailInUse(supabaseConfig.url, email);
+    const emailInUse = await checkEmailInUse(supabaseConfig.url, email).catch(
+      () => false,
+    );
     if (emailInUse) {
       return NextResponse.json(
         { error: "Ese correo ya tiene una cuenta. Prueba iniciar sesión." },
@@ -224,67 +226,6 @@ function getAuthSession(
     refreshToken: data?.refresh_token ?? data?.session?.refresh_token ?? null,
     expiresIn: data?.expires_in ?? data?.session?.expires_in,
   };
-}
-
-async function checkEmailInUse(
-  supabaseUrl: string,
-  email: string,
-): Promise<boolean> {
-  const serviceRoleKey = getSupabaseServiceRoleKey();
-  if (!serviceRoleKey) return false;
-
-  if (await checkPublicUserEmailInUse(supabaseUrl, email, serviceRoleKey)) {
-    return true;
-  }
-
-  return checkAuthEmailInUse(supabaseUrl, email, serviceRoleKey);
-}
-
-async function checkPublicUserEmailInUse(
-  supabaseUrl: string,
-  email: string,
-  serviceRoleKey: string,
-): Promise<boolean> {
-  const url = new URL("/rest/v1/users", supabaseUrl);
-  url.searchParams.set("select", "id");
-  url.searchParams.set("email", `eq.${email}`);
-  url.searchParams.set("limit", "1");
-
-  const response = await fetch(url, {
-    headers: {
-      apikey: serviceRoleKey,
-      authorization: `Bearer ${serviceRoleKey}`,
-    },
-  });
-
-  if (!response.ok) return false;
-  const rows = (await response.json().catch(() => [])) as unknown[];
-  return rows.length > 0;
-}
-
-async function checkAuthEmailInUse(
-  supabaseUrl: string,
-  email: string,
-  serviceRoleKey: string,
-): Promise<boolean> {
-  const url = new URL("/auth/v1/admin/users", supabaseUrl);
-  url.searchParams.set("page", "1");
-  url.searchParams.set("per_page", "200");
-
-  const response = await fetch(url, {
-    headers: {
-      apikey: serviceRoleKey,
-      authorization: `Bearer ${serviceRoleKey}`,
-    },
-  });
-
-  if (!response.ok) return false;
-  const data = (await response.json().catch(() => null)) as
-    | { users?: Array<{ email?: string }> }
-    | Array<{ email?: string }>
-    | null;
-  const users = Array.isArray(data) ? data : data?.users ?? [];
-  return users.some((u) => u.email?.toLowerCase() === email);
 }
 
 function getUserName(candidate: {

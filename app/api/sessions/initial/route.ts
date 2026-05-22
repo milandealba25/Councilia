@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { userContext, userMessage } = parsed;
+  const { userContext, userMessage, conversationMemory } = parsed;
   const crisis = detectCrisis(userMessage);
   const active = activeAgents(userContext);
   const attenuated = (["marco", "elena", "rafael"] as const).filter(
@@ -138,6 +138,7 @@ export async function POST(req: Request) {
         for await (const ev of runner.runInitial({
           userContext,
           userMessage,
+          conversationMemory,
           signal: abort.signal,
         })) {
           if (ev.type === "done") {
