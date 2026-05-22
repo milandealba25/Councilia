@@ -72,7 +72,7 @@ export function AccountCheckOverlay({ open, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-foreground/18 px-4 backdrop-blur-[6px]"
+      className="fixed inset-0 z-50 grid place-items-center bg-foreground/45 px-4 py-6 backdrop-blur-sm"
       style={{ animation: "sidebar-fade-in 180ms ease-out both" }}
       role="dialog"
       aria-modal="true"
@@ -83,63 +83,86 @@ export function AccountCheckOverlay({ open, onClose }: Props) {
     >
       <form
         onSubmit={handleSubmit}
-        className="relative w-full max-w-lg overflow-hidden rounded-council-lg border border-border/80 bg-surface/92 p-6 shadow-council-lg backdrop-blur md:p-8"
+        className="relative w-full max-w-[34rem] overflow-hidden rounded-council-lg border border-border-strong/80 bg-surface text-left shadow-[0_28px_90px_-28px_rgb(31_24_21_/_0.55)] ring-1 ring-white/70"
         style={{ animation: "soft-rise 260ms ease-out both" }}
         noValidate
       >
+        <div
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-accent via-elena to-marco"
+        />
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 grid size-8 place-items-center rounded-full border border-border bg-surface text-muted transition hover:border-accent hover:text-foreground"
+          className="absolute right-4 top-4 grid size-10 place-items-center rounded-full border border-border-strong/70 bg-surface text-muted shadow-soft transition hover:border-accent hover:bg-accent-soft hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
           aria-label="Cerrar"
         >
           <CloseIcon />
         </button>
 
-        <p className="text-xs font-medium uppercase tracking-widest text-accent">
-          Acceso
-        </p>
-        <h2
-          id="account-check-title"
-          className="mt-3 text-balance text-2xl font-semibold tracking-tight text-foreground md:text-3xl"
-        >
-          Revisa si ya tienes cuenta
-        </h2>
-        <p className="mt-3 max-w-md text-sm leading-relaxed text-muted">
-          Escribe tu correo y te llevamos al siguiente paso correcto.
-        </p>
-
-        <label className="mt-6 grid gap-2 text-sm text-foreground-soft">
-          Correo
-          <input
-            ref={inputRef}
-            type="email"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setError(null);
-            }}
-            onBlur={() => setEmail(cleanEmail)}
-            placeholder="tu@correo.com"
-            autoComplete="email"
-            aria-invalid={email.length > 0 && !valid}
-            className="rounded-council border border-border-strong/70 bg-surface px-4 py-3 text-base text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
-          />
-        </label>
-
-        {error && (
-          <p className="mt-3 rounded-council border border-error/40 bg-error/10 px-4 py-3 text-sm text-error">
-            {error}
+        <div className="px-6 pb-5 pt-7 md:px-8 md:pt-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+            Acceso
           </p>
-        )}
+          <h2
+            id="account-check-title"
+            className="mt-3 max-w-sm text-balance text-2xl font-semibold tracking-tight text-foreground md:text-3xl"
+          >
+            Revisemos tu correo
+          </h2>
+          <p className="mt-3 max-w-md text-sm leading-relaxed text-muted md:text-base">
+            Si ya tienes cuenta, te llevamos a iniciar sesión. Si no, abrimos tu
+            onboarding con este correo.
+          </p>
+        </div>
 
-        <Button
-          type="submit"
-          className="mt-5 w-full"
-          disabled={!valid || submitting}
-        >
-          {submitting ? "Revisando..." : "Continuar"}
-        </Button>
+        <div className="border-y border-border bg-elevated/80 px-6 py-5 md:px-8">
+          <label className="grid gap-2 text-sm font-medium text-foreground-soft">
+            Correo
+            <input
+              ref={inputRef}
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError(null);
+              }}
+              onBlur={() => setEmail(cleanEmail)}
+              placeholder="tu@correo.com"
+              autoComplete="email"
+              disabled={submitting}
+              aria-invalid={email.length > 0 && !valid}
+              aria-describedby={error ? "account-check-error" : undefined}
+              className="min-h-12 rounded-council border border-border-strong bg-surface px-4 py-3 text-base text-foreground shadow-soft outline-none transition placeholder:text-subtle disabled:cursor-wait disabled:bg-surface-soft focus:border-accent focus:ring-4 focus:ring-accent/20"
+            />
+          </label>
+
+          {error && (
+            <p
+              id="account-check-error"
+              className="mt-3 rounded-council border border-error/35 bg-error/10 px-4 py-3 text-sm font-medium text-error"
+            >
+              {error}
+            </p>
+          )}
+        </div>
+
+        <div className="px-6 pb-6 pt-5 md:px-8 md:pb-8">
+          <Button
+            type="submit"
+            className="min-h-12 w-full text-base"
+            disabled={!valid || submitting}
+          >
+            {submitting && (
+              <span
+                aria-hidden
+                className="size-4 rounded-full border-2 border-accent-foreground/45 border-t-accent-foreground"
+                style={{ animation: "spin 700ms linear infinite" }}
+              />
+            )}
+            {submitting ? "Revisando..." : "Continuar"}
+          </Button>
+        </div>
       </form>
     </div>
   );

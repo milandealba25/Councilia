@@ -6,7 +6,9 @@
     "node": "20.x"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev-prewarm.mjs",
+    "dev:raw": "next dev",
+    "dev:turbo": "node scripts/dev-prewarm.mjs --turbo",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
