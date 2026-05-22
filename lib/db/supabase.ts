@@ -1,14 +1,6 @@
 import "server-only";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
-
-/**
- * A6 (base) · Cliente Supabase server-side.
- *
- * El paquete `@supabase/supabase-js` se añadirá cuando llegue la migración
- * inicial (J1). Por ahora exponemos un factory tipado que valida config y
- * deja un único lugar donde inyectar el cliente real (sin esparcir lectura
- * de envs por la app).
- */
 
 export interface SupabaseConfig {
   url: string;
@@ -32,4 +24,28 @@ export function requireSupabaseConfig(): SupabaseConfig {
 
 export function getSupabaseServiceRoleKey(): string | null {
   return env.SUPABASE_SERVICE_ROLE_KEY ?? null;
+}
+
+let _anonClient: SupabaseClient | null = null;
+let _adminClient: SupabaseClient | null = null;
+
+export function getSupabaseClient(): SupabaseClient | null {
+  const cfg = getSupabaseConfig();
+  if (!cfg) return null;
+  if (!_anonClient) {
+    _anonClient = createClient(cfg.url, cfg.anonKey);
+  }
+  return _anonClient;
+}
+
+export function getSupabaseAdmin(): SupabaseClient | null {
+  const cfg = getSupabaseConfig();
+  const serviceKey = getSupabaseServiceRoleKey();
+  if (!cfg || !serviceKey) return null;
+  if (!_adminClient) {
+    _adminClient = createClient(cfg.url, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+  }
+  return _adminClient;
 }

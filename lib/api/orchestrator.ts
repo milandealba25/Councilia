@@ -1,7 +1,7 @@
 import "server-only";
 import { AgentRunner } from "@/orchestrator/agentRunner";
 import { DebateRouter } from "@/orchestrator/debateRouter";
-import { GeminiLlm } from "@/orchestrator/adapters/gemini";
+import { OpenAILlm } from "@/orchestrator/adapters/openai";
 import type { Llm } from "@/orchestrator/llm";
 
 /**
@@ -11,7 +11,7 @@ import type { Llm } from "@/orchestrator/llm";
 let cachedLlm: Llm | null = null;
 
 export function getLlm(): Llm {
-  if (!cachedLlm) cachedLlm = new GeminiLlm();
+  if (!cachedLlm) cachedLlm = new OpenAILlm();
   return cachedLlm;
 }
 

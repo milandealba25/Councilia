@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, LinkButton } from "@/components/ui/Button";
@@ -280,10 +279,6 @@ export function LoginForm() {
         Entrar con Google
       </LinkButton>
 
-      <LinkButton href="/session?guest=1" variant="ghost" className="w-full">
-        Entrar sin iniciar sesión
-      </LinkButton>
-
       {notice && (
         <p
           className="rounded-council border border-marco/30 bg-marco-soft/70 px-4 py-3 text-sm leading-relaxed text-foreground-soft"
@@ -299,14 +294,6 @@ export function LoginForm() {
         </p>
       )}
 
-      {reason === "survey" && (
-        <Link
-          href={next as never}
-          className="text-center text-sm text-muted underline-offset-4 hover:text-accent-strong hover:underline"
-        >
-          Continuar con este flujo
-        </Link>
-      )}
     </div>
   );
 }

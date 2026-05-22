@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getChatSessions,
   deleteChatSession,
+  renameChatSession,
+  exportChatSession,
   type ChatSession,
 } from "@/lib/chat/chatStorage";
 
@@ -16,15 +18,55 @@ interface Props {
 export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [collapsed, setCollapsed] = useState(false);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const sidebarRef = useRef<HTMLElement>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setSessions(getChatSessions());
   }, [activeChatId]);
 
-  function handleDeleteRequest(e: React.MouseEvent, id: string) {
+  // Cerrar menú al hacer click fuera
+  useEffect(() => {
+    if (!menuOpenId) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpenId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpenId]);
+
+  // Focus del input de renombrar
+  useEffect(() => {
+    if (renamingId) renameInputRef.current?.focus();
+  }, [renamingId]);
+
+  function handleMenuToggle(e: React.MouseEvent, id: string) {
     e.stopPropagation();
+    setMenuOpenId((prev) => (prev === id ? null : id));
+  }
+
+  function handleRenameStart(id: string) {
+    const session = sessions.find((s) => s.id === id);
+    setRenameValue(session?.title ?? "");
+    setRenamingId(id);
+    setMenuOpenId(null);
+  }
+
+  function handleRenameSubmit() {
+    if (!renamingId) return;
+    renameChatSession(renamingId, renameValue);
+    setSessions(getChatSessions());
+    setRenamingId(null);
+  }
+
+  function handleDeleteRequest(id: string) {
+    setMenuOpenId(null);
     setConfirmDeleteId(id);
   }
 
@@ -35,9 +77,22 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
     setConfirmDeleteId(null);
   }
 
+  const handleExport = useCallback((id: string) => {
+    setMenuOpenId(null);
+    const md = exportChatSession(id);
+    if (!md) return;
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `councilia-chat-${id}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
   return (
     <>
-      {/* Toggle flotante — visible solo cuando collapsed */}
+      {/* Toggle flotante */}
       <button
         type="button"
         onClick={() => setCollapsed(false)}
@@ -53,9 +108,8 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
         <ChevronRightIcon />
       </button>
 
-      {/* Sidebar con slide */}
+      {/* Sidebar */}
       <aside
-        ref={sidebarRef}
         className="sticky top-0 flex h-dvh shrink-0 flex-col border-r border-border bg-elevated/40 transition-all duration-300 ease-in-out"
         style={{
           width: collapsed ? 0 : 256,
@@ -88,6 +142,7 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
           )}
           {sessions.map((s) => {
             const isActive = s.id === activeChatId;
+            const isRenaming = renamingId === s.id;
             const date = new Date(s.updatedAt);
             const dateStr = date.toLocaleDateString("es-MX", {
               day: "numeric",
@@ -109,28 +164,81 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
                 <button
                   type="button"
                   onClick={() => onSelectChat(s.id)}
-                  className={`flex w-full flex-col gap-0.5 px-3 py-2.5 text-left ${
+                  className={`flex w-full flex-col gap-0.5 px-3 py-2.5 pr-9 text-left ${
                     isActive
                       ? "text-foreground"
                       : "text-muted hover:text-foreground"
                   }`}
                 >
-                  <p className="truncate text-sm font-medium leading-snug">
-                    {s.title}
-                  </p>
+                  {isRenaming ? (
+                    <input
+                      ref={renameInputRef}
+                      type="text"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onBlur={handleRenameSubmit}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleRenameSubmit();
+                        if (e.key === "Escape") setRenamingId(null);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full rounded border border-accent/40 bg-background px-1.5 py-0.5 text-sm font-medium text-foreground outline-none focus:border-accent"
+                    />
+                  ) : (
+                    <p className="truncate text-sm font-medium leading-snug">
+                      {s.title}
+                    </p>
+                  )}
                   <p className="text-[10px] text-muted">
                     {dateStr} · {turnLabel}
                   </p>
                 </button>
+
+                {/* Botón de 3 puntos */}
                 <button
                   type="button"
-                  onClick={(e) => handleDeleteRequest(e, s.id)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted/40 opacity-0 transition hover:bg-error/10 hover:text-error group-hover:opacity-100"
-                  aria-label="Eliminar chat"
-                  title="Eliminar chat"
+                  onClick={(e) => handleMenuToggle(e, s.id)}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted/40 opacity-0 transition hover:bg-background hover:text-foreground group-hover:opacity-100"
+                  aria-label="Opciones"
+                  title="Opciones"
                 >
-                  <TrashIcon />
+                  <MoreIcon />
                 </button>
+
+                {/* Dropdown */}
+                {menuOpenId === s.id && (
+                  <div
+                    ref={menuRef}
+                    className="absolute right-1 top-full z-40 mt-1 w-40 overflow-hidden rounded-lg border border-border bg-background shadow-lg"
+                    style={{ animation: "soft-rise 150ms ease-out both" }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleRenameStart(s.id)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-foreground transition hover:bg-elevated"
+                    >
+                      <PencilIcon />
+                      Renombrar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExport(s.id)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-foreground transition hover:bg-elevated"
+                    >
+                      <ExportIcon />
+                      Exportar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteRequest(s.id)}
+                      className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-left text-xs transition hover:bg-elevated"
+                      style={{ color: "#c0392b" }}
+                    >
+                      <TrashIcon />
+                      Borrar
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -148,7 +256,7 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
         </div>
       </aside>
 
-      {/* Modal de confirmación */}
+      {/* Modal de confirmación de borrado */}
       {confirmDeleteId && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -175,7 +283,8 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
               <button
                 type="button"
                 onClick={handleConfirmDelete}
-                className="rounded-lg bg-error/90 px-4 py-2 text-xs font-medium text-white transition hover:bg-error"
+                className="rounded-lg px-4 py-2 text-xs font-semibold shadow-sm transition"
+                style={{ backgroundColor: "#c0392b", color: "#ffffff" }}
               >
                 Borrar
               </button>
@@ -186,6 +295,8 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
     </>
   );
 }
+
+/* ─── Íconos ─── */
 
 function ChevronLeftIcon() {
   return (
@@ -208,6 +319,34 @@ function PlusIcon() {
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="12" cy="5" r="1.5" />
+      <circle cx="12" cy="12" r="1.5" />
+      <circle cx="12" cy="19" r="1.5" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
+      <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    </svg>
+  );
+}
+
+function ExportIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
     </svg>
   );
 }

@@ -65,11 +65,10 @@ export async function POST(req: Request) {
       },
     });
   } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("[tts] ElevenLabs error:", detail, err);
     return NextResponse.json(
-      {
-        error: "tts_failed",
-        detail: err instanceof Error ? err.message : "unknown",
-      },
+      { error: "tts_failed", detail },
       { status: 502 },
     );
   }

@@ -81,6 +81,36 @@ export function saveChatTurn(chatId: string, turn: ChatTurn): void {
   writeAll(all);
 }
 
+export function renameChatSession(id: string, title: string): void {
+  const all = readAll();
+  const idx = all.findIndex((s) => s.id === id);
+  if (idx === -1) return;
+  all[idx].title = title.trim() || all[idx].title;
+  all[idx].updatedAt = Date.now();
+  writeAll(all);
+}
+
+export function exportChatSession(id: string): string | null {
+  const session = getChatSession(id);
+  if (!session) return null;
+  const lines: string[] = [`# ${session.title}`, ""];
+  for (const [i, turn] of session.turns.entries()) {
+    lines.push(`## Turno ${i + 1}`);
+    lines.push(`**Tú:** ${turn.userMessage}`, "");
+    for (const [agent, text] of Object.entries(turn.agents)) {
+      lines.push(`**${agent.charAt(0).toUpperCase() + agent.slice(1)}:** ${text}`, "");
+    }
+    if (turn.replica) {
+      lines.push(
+        `**Réplica (${turn.replica.speaker} → ${turn.replica.respondingTo}):** ${turn.replica.text}`,
+        "",
+      );
+    }
+    lines.push("---", "");
+  }
+  return lines.join("\n");
+}
+
 export function deleteChatSession(id: string): void {
   const all = readAll().filter((s) => s.id !== id);
   writeAll(all);
