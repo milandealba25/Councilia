@@ -8,6 +8,7 @@ import { AGENT_IDS } from "@/lib/agents/ids";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const ttsRequestSchema = z.object({
   agent: z.enum(AGENT_IDS),

@@ -23,6 +23,7 @@ import { emit as emitEvent } from "@/lib/observability/events";
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   const requestId = crypto.randomUUID();
