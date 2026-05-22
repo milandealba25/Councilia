@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   SURVEY_VERSION,
@@ -20,6 +20,14 @@ const QUESTION_INTROS: Record<string, string> = {
   needFromCouncil: "· ALGO IMPORTANTE…",
   fearedLoss: "· UNA ÚLTIMA COSA…",
   ageRange: "· TU RANGO DE EDAD…",
+};
+
+const QUESTION_ACKS: Record<string, string> = {
+  decisionType: "Okay, anotado.",
+  urgency: "Está bien, te sigo.",
+  needFromCouncil: "Lo entiendo.",
+  fearedLoss: "Gracias, lo tengo.",
+  ageRange: "Perfecto, anotado.",
 };
 
 export function SurveyForm() {
@@ -87,6 +95,7 @@ export function SurveyForm() {
       {surveyV1Questions.map((question, idx) => {
         const selected = answers[question.id];
         const answeredThis = selected !== undefined;
+        const ackText = QUESTION_ACKS[question.id] ?? "Anotado.";
         return (
           <fieldset
             key={question.id}
@@ -103,9 +112,14 @@ export function SurveyForm() {
                 {QUESTION_INTROS[question.id] ?? ""}
               </span>
             </legend>
-            <p className="text-balance text-lg font-medium leading-snug text-foreground md:text-xl">
-              {question.title}
-            </p>
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-5">
+              <p className="text-balance text-lg font-medium leading-snug text-foreground md:text-xl">
+                {question.title}
+              </p>
+              {answeredThis && (
+                <AnswerTypingEcho key={`${question.id}-${selected}`} text={ackText} />
+              )}
+            </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {question.options.map((opt) => {
                 const isSelected = selected === opt.value;
@@ -150,14 +164,6 @@ export function SurveyForm() {
                 );
               })}
             </div>
-            {answeredThis && (
-              <p
-                className="text-[12px] text-subtle"
-                style={{ animation: "soft-rise 400ms ease-out both" }}
-              >
-                Gracias. Anotado.
-              </p>
-            )}
           </fieldset>
         );
       })}
@@ -182,5 +188,37 @@ export function SurveyForm() {
         </Button>
       </div>
     </form>
+  );
+}
+
+function AnswerTypingEcho({ text }: { text: string }) {
+  const [visible, setVisible] = useState("");
+
+  useEffect(() => {
+    setVisible("");
+    let idx = 0;
+    const timer = window.setInterval(() => {
+      idx += 1;
+      setVisible(text.slice(0, idx));
+      if (idx >= text.length) {
+        window.clearInterval(timer);
+      }
+    }, 28);
+    return () => window.clearInterval(timer);
+  }, [text]);
+
+  const done = visible.length >= text.length;
+
+  return (
+    <p
+      className="max-w-md text-sm leading-relaxed text-muted"
+      style={{ animation: "soft-rise 360ms ease-out both" }}
+      aria-live="polite"
+    >
+      {visible}
+      {!done && (
+        <span className="ml-1 inline-block h-4 w-[1px] animate-pulse bg-accent align-middle" />
+      )}
+    </p>
   );
 }

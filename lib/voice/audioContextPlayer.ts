@@ -7,6 +7,34 @@ export interface VoicePlaybackHandle {
 }
 
 let sharedAudioContext: AudioContext | null = null;
+const activeSources = new Set<AudioBufferSourceNode>();
+
+export function stopAllVoicePlayback(): void {
+  for (const source of activeSources) {
+    try { source.stop(); } catch { /* no-op */ }
+  }
+  activeSources.clear();
+}
+
+export function pauseVoicePlayback(): void {
+  const ctx = getOrCreateVoiceAudioContext();
+  if (ctx && ctx.state === "running") {
+    void ctx.suspend();
+  }
+  if (typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined") {
+    window.speechSynthesis.pause();
+  }
+}
+
+export function resumeVoicePlayback(): void {
+  const ctx = getOrCreateVoiceAudioContext();
+  if (ctx && ctx.state === "suspended") {
+    void ctx.resume();
+  }
+  if (typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined") {
+    window.speechSynthesis.resume();
+  }
+}
 
 function getAudioContextCtor():
   | (new (contextOptions?: AudioContextOptions) => AudioContext)
@@ -35,6 +63,11 @@ export async function unlockVoicePlayback(): Promise<void> {
   if (ctx.state === "suspended") {
     await ctx.resume();
   }
+  const silentBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+  const source = ctx.createBufferSource();
+  source.buffer = silentBuffer;
+  source.connect(ctx.destination);
+  source.start(0);
 }
 
 export async function startVoiceContextPlayback(
@@ -47,6 +80,7 @@ export async function startVoiceContextPlayback(
   }
   if (ctx.state === "suspended") {
     await ctx.resume();
+    await new Promise((r) => setTimeout(r, 30));
   }
 
   const data = await blob.arrayBuffer();
@@ -55,9 +89,11 @@ export async function startVoiceContextPlayback(
   const source = ctx.createBufferSource();
   source.buffer = audioBuffer;
   source.connect(ctx.destination);
+  activeSources.add(source);
 
   const done = new Promise<void>((resolve) => {
     function cleanup() {
+      activeSources.delete(source);
       source.onended = null;
       signal?.removeEventListener("abort", onAbort);
     }

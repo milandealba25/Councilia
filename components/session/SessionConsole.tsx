@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { loadUserContext } from "@/lib/survey/storage";
-import type { UserContext } from "@/lib/survey/survey.v1";
+import { loadUserContext, saveUserContext } from "@/lib/survey/storage";
+import { SURVEY_VERSION, type UserContext } from "@/lib/survey/survey.v1";
 import { AGENT_IDS, type AgentId } from "@/lib/agents/ids";
 import { AgentCard } from "@/components/agents/AgentCard";
 import { Button } from "@/components/ui/Button";
@@ -25,8 +25,19 @@ import {
 } from "@/orchestrator/llm";
 import {
   startVoiceContextPlayback,
+  stopAllVoicePlayback,
+  pauseVoicePlayback,
+  resumeVoicePlayback,
   unlockVoicePlayback,
 } from "@/lib/voice/audioContextPlayer";
+import {
+  createChatSession,
+  saveChatTurn,
+  getActiveChatId,
+  setActiveChatId,
+  getChatSession,
+  type ChatTurn,
+} from "@/lib/chat/chatStorage";
 
 /**
  * Máquina de estados de una sesión (doc 05, §1).
@@ -67,6 +78,13 @@ interface ReplicaState {
   state: "streaming" | "complete";
 }
 
+interface CompletedTurn {
+  userMessage: string;
+  agents: Record<AgentId, AgentSlot>;
+  attenuated: AgentId[];
+  replica: ReplicaState | "skipped" | null;
+}
+
 interface State {
   ctx: UserContext | null;
   phase: Phase;
@@ -74,10 +92,6 @@ interface State {
   lastUserMessage: string | null;
   agents: Record<AgentId, AgentSlot>;
   attenuated: AgentId[];
-  /**
-   * Cuando la fase 1 termina y aún no llega el plan de réplica, mostramos
-   * un anuncio en lugar de la card (para que las posturas se lean primero).
-   */
   replicaPending: boolean;
   replica: ReplicaState | "skipped" | null;
   synthesis: Synthesis | null;
@@ -85,6 +99,7 @@ interface State {
   error: string | null;
   configError: ConfigErrorState | null;
   loading: boolean;
+  pastTurns: CompletedTurn[];
 }
 
 type Action =
@@ -117,6 +132,7 @@ const INITIAL_STATE: State = {
   error: null,
   configError: null,
   loading: false,
+  pastTurns: [],
 };
 
 function reducer(state: State, action: Action): State {
@@ -127,9 +143,20 @@ function reducer(state: State, action: Action): State {
     case "user_input":
       return { ...state, userInput: action.value };
 
-    case "submit_user":
+    case "submit_user": {
+      const archived: CompletedTurn | null = state.lastUserMessage
+        ? {
+            userMessage: state.lastUserMessage,
+            agents: state.agents,
+            attenuated: state.attenuated,
+            replica: state.replica,
+          }
+        : null;
       return {
         ...state,
+        pastTurns: archived
+          ? [...state.pastTurns, archived]
+          : state.pastTurns,
         userInput: "",
         lastUserMessage: action.message,
         agents: INITIAL_AGENT_STATE,
@@ -143,6 +170,7 @@ function reducer(state: State, action: Action): State {
         loading: true,
         phase: "fase1",
       };
+    }
 
     case "initial_event":
       return applyInitialEvent(state, action.event);
@@ -340,7 +368,7 @@ const PHASE_TRANSITION_MS = 800;
  * Tras terminar la mecanografía de todas las posturas visibles, arrancamos
  * voz casi inmediato para mantener sensación de conversación viva.
  */
-const POST_AGENT_REVEAL_MS = 250;
+const POST_AGENT_REVEAL_MS = 0;
 
 async function playAudioBlob(
   blob: Blob,
@@ -422,18 +450,47 @@ async function playAgentVoice(
   }
 }
 
-export function SessionConsole() {
+interface SessionConsoleProps {
+  chatId: string | null;
+  onChatCreated?: (id: string) => void;
+}
+
+export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
   const playbackAbortRef = useRef<AbortController | null>(null);
-  const agentsSectionRef = useRef<HTMLElement | null>(null);
-  const replicaSectionRef = useRef<HTMLElement | null>(null);
-  const inputSectionRef = useRef<HTMLDivElement | null>(null);
+  const activeChatIdRef = useRef<string | null>(chatId);
   const agentRevealGateRef = useRef<{
     pending: Set<AgentId>;
     resolve: () => void;
   } | null>(null);
+
+  const [speakingAgent, setSpeakingAgent] = useState<AgentId | null>(null);
+  const [spokenAgents, setSpokenAgents] = useState<Set<AgentId>>(new Set());
+  const [autoPlayPaused, setAutoPlayPaused] = useState(false);
+  const [composerExpanded, setComposerExpanded] = useState(false);
+
+  const stopAllAudio = useCallback(() => {
+    playbackAbortRef.current?.abort();
+    playbackAbortRef.current = null;
+    stopAllVoicePlayback();
+    if (typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined") {
+      window.speechSynthesis.cancel();
+    }
+    setSpeakingAgent(null);
+    setAutoPlayPaused(false);
+  }, []);
+
+  const pausePlayback = useCallback(() => {
+    pauseVoicePlayback();
+    setAutoPlayPaused(true);
+  }, []);
+
+  const resumePlayback = useCallback(() => {
+    resumeVoicePlayback();
+    setAutoPlayPaused(false);
+  }, []);
 
   function releaseAgentRevealGate(id: AgentId) {
     const g = agentRevealGateRef.current;
@@ -445,20 +502,37 @@ export function SessionConsole() {
     }
   }
 
-  function smoothScrollTo(node: HTMLElement | null) {
-    if (!node || typeof window === "undefined") return;
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    node.scrollIntoView({
-      behavior: reduceMotion ? "auto" : "smooth",
-      block: "start",
-    });
-  }
+  useEffect(() => {
+    activeChatIdRef.current = chatId;
+  }, [chatId]);
+
+  useEffect(() => {
+    if (!activeChatIdRef.current) {
+      const session = createChatSession();
+      activeChatIdRef.current = session.id;
+      onChatCreated?.(session.id);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const stored = loadUserContext();
     if (!stored) {
+      const guestMode =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("guest") === "1";
+      if (guestMode) {
+        const guestContext: UserContext = {
+          surveyVersion: SURVEY_VERSION,
+          decisionType: "vida",
+          ageRange: "prefer_not_say",
+          urgency: "explorando",
+          needFromCouncil: "estructurar",
+          fearedLoss: "arrepentirme",
+        };
+        saveUserContext(guestContext);
+        dispatch({ type: "ctx_loaded", ctx: guestContext });
+        return;
+      }
       router.replace("/onboarding");
       return;
     }
@@ -479,24 +553,7 @@ export function SessionConsole() {
     [],
   );
 
-  // Al enviar un mensaje, deslizamos a la sección de los agentes.
-  useEffect(() => {
-    if (!state.lastUserMessage) return;
-    smoothScrollTo(agentsSectionRef.current);
-  }, [state.lastUserMessage]);
-
-  // Cuando entra la fase 2 (anuncio o plan), centramos la réplica.
-  useEffect(() => {
-    if (!state.replicaPending && !state.replica) return;
-    smoothScrollTo(replicaSectionRef.current);
-  }, [state.replicaPending, state.replica]);
-
-  // Cuando termina la réplica y volvemos a "wait", llevamos al input
-  // para que el usuario continúe el debate o pida la síntesis.
-  useEffect(() => {
-    if (state.phase !== "wait") return;
-    smoothScrollTo(inputSectionRef.current);
-  }, [state.phase]);
+  // (Auto-scroll desactivado: el usuario controla el scroll manualmente.)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -507,10 +564,13 @@ export function SessionConsole() {
     void unlockVoicePlayback();
 
     abortRef.current?.abort();
-    playbackAbortRef.current?.abort();
-    playbackAbortRef.current = null;
+    stopAllAudio();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    setSpeakingAgent(null);
+    setSpokenAgents(new Set());
+    setAutoPlayPaused(false);
+    setComposerExpanded(false);
     if (agentRevealGateRef.current) {
       const stuck = agentRevealGateRef.current;
       agentRevealGateRef.current = null;
@@ -576,18 +636,51 @@ export function SessionConsole() {
         agentRevealGateRef.current = null;
       }
 
-      // 1) Al terminar de escribir, reproducimos automáticamente las posturas
-      // en secuencia (Marco -> Elena -> Rafael) antes de pasar a discusión.
       const phase1VoiceQueue = AGENT_IDS
         .map((id) => ({ agent: id, text: collected[id].trim() }))
         .filter((item) => item.text.length > 0);
       if (phase1VoiceQueue.length > 0) {
         const playCtrl = new AbortController();
         playbackAbortRef.current = playCtrl;
-        for (const item of phase1VoiceQueue) {
-          if (ctrl.signal.aborted || playCtrl.signal.aborted) return;
-          await playAgentVoice(item.agent, item.text, playCtrl.signal);
+
+        const blobCache = new Map<AgentId, Blob>();
+        const prefetchResults = await Promise.all(
+          phase1VoiceQueue.map(async (item) => {
+            try {
+              const res = await fetch("/api/voice/tts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ agent: item.agent, text: item.text }),
+                signal: ctrl.signal,
+              });
+              if (res.ok) {
+                const blob = await res.blob();
+                if (blob.size > 0) return { agent: item.agent, blob };
+              }
+            } catch { /* fallback on play */ }
+            return { agent: item.agent, blob: null as Blob | null };
+          }),
+        );
+        for (const { agent, blob } of prefetchResults) {
+          if (blob) blobCache.set(agent, blob);
         }
+
+        for (const item of phase1VoiceQueue) {
+          if (ctrl.signal.aborted || playCtrl.signal.aborted) break;
+          setSpeakingAgent(item.agent);
+          const cached = blobCache.get(item.agent);
+          if (cached) {
+            try {
+              await playAudioBlob(cached, playCtrl.signal);
+            } catch {
+              await playWithWebSpeechFallback(item.text, playCtrl.signal);
+            }
+          } else {
+            await playAgentVoice(item.agent, item.text, playCtrl.signal);
+          }
+          setSpokenAgents((prev) => new Set(prev).add(item.agent));
+        }
+        setSpeakingAgent(null);
       }
 
       dispatch({ type: "phase1_done" });
@@ -617,14 +710,36 @@ export function SessionConsole() {
         if (ev.type === "delta") replicaText += ev.text;
       }
 
-      // 2) Luego se escucha automáticamente la discusión/réplica.
       if (replicaSpeaker && replicaText.trim().length > 0) {
         const playCtrl = new AbortController();
         playbackAbortRef.current = playCtrl;
-        if (!ctrl.signal.aborted) {
+        if (!ctrl.signal.aborted && !playCtrl.signal.aborted) {
+          setSpeakingAgent(replicaSpeaker);
           await playAgentVoice(replicaSpeaker, replicaText.trim(), playCtrl.signal);
+          setSpeakingAgent(null);
         }
       }
+
+      if (activeChatIdRef.current) {
+        const turn: ChatTurn = {
+          userMessage: message,
+          agents: {
+            marco: collected.marco.trim(),
+            elena: collected.elena.trim(),
+            rafael: collected.rafael.trim(),
+          },
+          replica:
+            replicaSpeaker && replicaText.trim().length > 0
+              ? {
+                  speaker: replicaSpeaker,
+                  respondingTo: postures.find((p) => p.agent !== replicaSpeaker)?.agent ?? "marco",
+                  text: replicaText.trim(),
+                }
+              : null,
+        };
+        saveChatTurn(activeChatIdRef.current, turn);
+      }
+
       dispatch({ type: "replica_done" });
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
@@ -691,12 +806,12 @@ export function SessionConsole() {
 
   const canSubmit =
     state.userInput.trim().length > 0 &&
-    (state.phase === "idle" || state.phase === "wait");
+    (state.phase === "idle" || state.phase === "wait" || state.phase === "fase2");
 
   const canRequestSynthesis =
     state.phase === "wait" && !state.synthesis && !state.loading;
   const showComposer =
-    !state.loading && (state.phase === "idle" || state.phase === "wait");
+    state.phase === "idle" || state.phase === "wait" || state.phase === "fase2";
 
   return (
     <div className="flex flex-col gap-10">
@@ -716,6 +831,41 @@ export function SessionConsole() {
         </p>
       )}
 
+      {state.pastTurns.map((turn, turnIdx) => (
+        <div key={turnIdx} className="flex flex-col gap-6 border-b border-border/30 pb-8">
+          <div className="rounded-council border border-border bg-elevated/40 px-4 py-3 text-sm leading-relaxed text-foreground/85 opacity-80">
+            <p className="mb-1 text-[11px] uppercase tracking-wider text-muted">
+              Tú dijiste
+            </p>
+            {turn.userMessage}
+          </div>
+          <div className="mx-auto grid w-full max-w-6xl grid-cols-1 justify-items-center gap-5 sm:grid-cols-2 md:grid-cols-3">
+            {AGENT_IDS.map((id) => {
+              const slot = turn.agents[id];
+              if (!slot.text) return null;
+              return (
+                <AgentCard
+                  key={id}
+                  className="w-full max-w-md opacity-80"
+                  agent={id}
+                  state="complete"
+                  text={slot.text || undefined}
+                  attenuated={turn.attenuated.includes(id)}
+                />
+              );
+            })}
+          </div>
+          {turn.replica && turn.replica !== "skipped" && (
+            <ReplicaCard
+              speaker={turn.replica.speaker}
+              respondingTo={turn.replica.respondingTo}
+              text={turn.replica.text}
+              state="complete"
+            />
+          )}
+        </div>
+      ))}
+
       {state.lastUserMessage && (
         <div className="rounded-council border border-border bg-elevated/40 px-4 py-3 text-sm leading-relaxed text-foreground/85">
           <p className="mb-1 text-[11px] uppercase tracking-wider text-muted">
@@ -727,7 +877,6 @@ export function SessionConsole() {
 
       {state.lastUserMessage && (
         <section
-          ref={agentsSectionRef}
           aria-label="Respuestas del council"
           className="flex scroll-mt-8 flex-col gap-5"
           style={{ animation: "soft-rise 500ms ease-out both" }}
@@ -758,6 +907,16 @@ export function SessionConsole() {
                     state.userInput.length > 0 &&
                     (state.phase === "idle" || state.phase === "wait")
                   }
+                  speakButtonDisabled={
+                    speakingAgent !== null &&
+                    speakingAgent !== id &&
+                    !spokenAgents.has(id)
+                  }
+                  onBeforePlay={stopAllAudio}
+                  isAutoPlaying={speakingAgent === id}
+                  autoPlayPaused={autoPlayPaused}
+                  onPauseAutoPlay={pausePlayback}
+                  onResumeAutoPlay={resumePlayback}
                 />
               );
             })}
@@ -767,7 +926,6 @@ export function SessionConsole() {
 
       {(state.replicaPending || state.replica) && (
         <section
-          ref={replicaSectionRef}
           aria-label="Réplica entre agentes"
           className="flex scroll-mt-8 flex-col gap-5"
           style={{ animation: "soft-rise 500ms ease-out both" }}
@@ -791,6 +949,11 @@ export function SessionConsole() {
               respondingTo={state.replica.respondingTo}
               text={state.replica.text}
               state={state.replica.state}
+              onBeforePlay={stopAllAudio}
+              isAutoPlaying={speakingAgent === state.replica.speaker}
+              autoPlayPaused={autoPlayPaused}
+              onPauseAutoPlay={pausePlayback}
+              onResumeAutoPlay={resumePlayback}
             />
           ) : null}
         </section>
@@ -814,48 +977,98 @@ export function SessionConsole() {
 
       {showComposer && (
         <>
-          <div ref={inputSectionRef} className="scroll-mt-8" />
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-            <label
-              htmlFor="user-input"
-              className="text-xs font-medium uppercase tracking-wider text-muted"
+          {state.phase === "wait" && !composerExpanded ? (
+            <div
+              className="flex flex-col gap-3"
+              style={{ animation: "soft-rise 400ms ease-out both" }}
             >
-              {state.phase === "wait" ? "Sigue hablando" : "Cuéntales"}
-            </label>
-            <textarea
-              id="user-input"
-              value={state.userInput}
-              onChange={(e) =>
-                dispatch({ type: "user_input", value: e.target.value })
-              }
-              maxLength={4000}
-              rows={4}
-              disabled={state.loading || state.phase === "fase4"}
-              placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
-              className="resize-none rounded-council border border-border bg-elevated/60 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
-            />
-            <div className="flex items-center justify-between text-xs text-muted">
-              <span>{state.userInput.length} / 4000</span>
-              <div className="flex items-center gap-2">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted">
+                ¿Qué quieres hacer?
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  onClick={() => setComposerExpanded(true)}
+                >
+                  Continúa sobre el tema
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setComposerExpanded(true);
+                    dispatch({ type: "user_input", value: "" });
+                  }}
+                >
+                  Decirles otra cosa
+                </Button>
                 {canRequestSynthesis && (
                   <Button
-                    type="button"
                     variant="secondary"
                     onClick={handleSynthesis}
                   >
                     Pedir que cierren contigo
                   </Button>
                 )}
-                <Button type="submit" disabled={!canSubmit || state.loading}>
-                  {state.loading
-                    ? "Escuchando…"
-                    : state.phase === "wait"
-                      ? "Decirles otra cosa"
-                      : "Empezar"}
-                </Button>
               </div>
             </div>
-          </form>
+          ) : (
+            <form
+              onSubmit={handleSubmit}
+              className="flex flex-col gap-3"
+              style={
+                state.phase === "wait"
+                  ? { animation: "soft-rise 300ms ease-out both" }
+                  : undefined
+              }
+            >
+              <label
+                htmlFor="user-input"
+                className="text-xs font-medium uppercase tracking-wider text-muted"
+              >
+                {state.phase === "wait" || state.phase === "fase2"
+                  ? "Sigue hablando"
+                  : "Cuéntales"}
+              </label>
+              <textarea
+                id="user-input"
+                value={state.userInput}
+                onChange={(e) =>
+                  dispatch({ type: "user_input", value: e.target.value })
+                }
+                maxLength={4000}
+                rows={4}
+                disabled={state.loading || state.phase === "fase4"}
+                placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
+                className="resize-none rounded-council border border-border bg-elevated/60 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
+                autoFocus={state.phase === "wait"}
+              />
+              <div className="flex items-center justify-between text-xs text-muted">
+                <span>{state.userInput.length} / 4000</span>
+                <div className="flex items-center gap-2">
+                  {state.phase === "wait" && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setComposerExpanded(false)}
+                    >
+                      ← Atrás
+                    </Button>
+                  )}
+                  {canRequestSynthesis && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={handleSynthesis}
+                    >
+                      Pedir que cierren contigo
+                    </Button>
+                  )}
+                  <Button type="submit" disabled={!canSubmit || state.loading}>
+                    {state.loading ? "Escuchando…" : "Enviar"}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          )}
         </>
       )}
     </div>
