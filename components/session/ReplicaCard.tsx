@@ -10,6 +10,14 @@ interface Props {
   respondingTo: AgentId;
   text: string;
   state: State;
+  /** Fuerza deshabilitar el SpeakButton. */
+  speakButtonDisabled?: boolean;
+  /** Detiene todo audio activo antes de iniciar reproducción manual. */
+  onBeforePlay?: () => void;
+  isAutoPlaying?: boolean;
+  autoPlayPaused?: boolean;
+  onPauseAutoPlay?: () => void;
+  onResumeAutoPlay?: () => void;
 }
 
 const STATE_DOT: Record<State, string> = {
@@ -33,6 +41,12 @@ export function ReplicaCard({
   respondingTo,
   text,
   state,
+  speakButtonDisabled = false,
+  onBeforePlay,
+  isAutoPlaying = false,
+  autoPlayPaused = false,
+  onPauseAutoPlay,
+  onResumeAutoPlay,
 }: Props) {
   return (
     <article className="relative flex flex-col items-center gap-4 rounded-council border border-accent/40 bg-elevated p-6 text-center shadow-council">
@@ -103,7 +117,16 @@ export function ReplicaCard({
           <span className="text-[10px] uppercase tracking-wider text-subtle">
             Escucha la pregunta de {AGENT_LABELS[speaker]}
           </span>
-          <SpeakButton agent={speaker} text={text} />
+          <SpeakButton
+            agent={speaker}
+            text={text}
+            forceDisabled={speakButtonDisabled}
+            onBeforePlay={onBeforePlay}
+            isAutoPlaying={isAutoPlaying}
+            autoPlayPaused={autoPlayPaused}
+            onPauseAutoPlay={onPauseAutoPlay}
+            onResumeAutoPlay={onResumeAutoPlay}
+          />
         </footer>
       )}
     </article>

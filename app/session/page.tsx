@@ -1,8 +1,4 @@
-import Link from "next/link";
-import { Container } from "@/components/ui/Container";
-import { SessionConsole } from "@/components/session/SessionConsole";
-import { AgentFace } from "@/components/agents/AgentFace";
-import { AGENT_IDS } from "@/lib/agents/ids";
+import { SessionLayout } from "@/components/session/SessionLayout";
 
 export const metadata = {
   title: "Tu council",
@@ -13,56 +9,5 @@ export const metadata = {
 };
 
 export default function SessionPage() {
-  return (
-    <main className="min-h-dvh py-12">
-      <Container className="max-w-5xl">
-        <div className="flex items-center justify-between">
-          <Link
-            href="/"
-            className="text-xs uppercase tracking-wider text-muted hover:text-foreground"
-          >
-            ← Inicio
-          </Link>
-          <Link
-            href="/onboarding"
-            className="text-xs uppercase tracking-wider text-muted hover:text-foreground"
-          >
-            Cambiar mis respuestas
-          </Link>
-        </div>
-
-        <header className="mt-8 mb-10">
-          <div
-            className="mb-5 flex items-center gap-3"
-            aria-label="Tu council"
-          >
-            {AGENT_IDS.map((id, i) => (
-              <span
-                key={id}
-                style={{
-                  animation: `soft-rise 700ms ease-out ${i * 140}ms both`,
-                }}
-              >
-                <AgentFace agent={id} size={52} mood="listening" />
-              </span>
-            ))}
-          </div>
-          <p className="text-xs font-medium uppercase tracking-widest text-accent">
-            Tu council está aquí
-          </p>
-          <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-            Marco, Elena y Rafael te están esperando.
-          </h1>
-          <p className="mt-3 max-w-2xl leading-relaxed text-muted">
-            Cuéntales lo que te tiene así. Sin filtros. Cuando termines, te
-            van a responder los tres a la vez, sin ponerse de acuerdo. Si dos
-            de ellos se contradicen, uno toma la palabra y te hace una sola
-            pregunta dura. Después, tu turno.
-          </p>
-        </header>
-
-        <SessionConsole />
-      </Container>
-    </main>
-  );
+  return <SessionLayout />;
 }
