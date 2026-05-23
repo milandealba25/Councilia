@@ -1,10 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { Container } from "@/components/ui/Container";
 
 const COLUMNS: Array<{
   title: string;
-  links: Array<{ href: string; label: string }>;
+  links: Array<{ href: string; label: string; startAction?: boolean }>;
 }> = [
   {
     title: "Conocer",
@@ -13,7 +15,11 @@ const COLUMNS: Array<{
       { href: "/#flujo", label: "Cómo es una sesión" },
       { href: "/#ejemplo", label: "Un caso real" },
       { href: "/#principios", label: "Lo que cuidamos" },
-      { href: "/onboarding", label: "Sentarme con ellos" },
+      {
+        href: "/login?next=/session",
+        label: "Sentarme con ellos",
+        startAction: true,
+      },
     ],
   },
   {
@@ -33,7 +39,7 @@ const COLUMNS: Array<{
   },
 ];
 
-export function Footer() {
+export function Footer({ onStart }: { onStart?: () => void }) {
   return (
     <footer className="border-t border-border/70 bg-surface-soft/40 py-16">
       <Container>
@@ -75,13 +81,23 @@ export function Footer() {
               </p>
               <ul className="mt-4 flex flex-col gap-2 text-sm">
                 {col.links.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="text-foreground-soft transition-colors hover:text-accent-strong"
-                    >
-                      {link.label}
-                    </Link>
+                  <li key={`${link.href}-${link.label}`}>
+                    {link.startAction && onStart ? (
+                      <button
+                        type="button"
+                        onClick={onStart}
+                        className="text-left text-foreground-soft transition-colors hover:text-accent-strong"
+                      >
+                        {link.label}
+                      </button>
+                    ) : (
+                      <Link
+                        href={link.href}
+                        className="text-foreground-soft transition-colors hover:text-accent-strong"
+                      >
+                        {link.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>

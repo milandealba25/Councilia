@@ -30,8 +30,13 @@ export function AuthNavButton() {
 
   if (!session) {
     return (
-      <LinkButton href="/login" variant="secondary" className="px-3 sm:px-5">
-        Login
+      <LinkButton
+        href="/login"
+        variant="secondary"
+        className="shrink-0 px-3 text-xs sm:px-5 sm:text-sm"
+      >
+        <span className="sm:hidden">Entrar</span>
+        <span className="hidden sm:inline">Iniciar sesión</span>
       </LinkButton>
     );
   }

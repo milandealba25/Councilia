@@ -1,15 +1,10 @@
 "use client";
+
 import {
   userContextSchema,
   type UserContext,
 } from "./survey.v1";
 import { loadAuthSession } from "@/lib/auth/client";
-
-/**
- * C3 (versión cliente) · Persistencia local del userContext.
- * Vive en sessionStorage hasta el registro (G4). Cuando el usuario crea
- * cuenta, se migra al primer council en Supabase.
- */
 
 const KEY = "councilia.userContext.v1";
 const DRAFT_KEY = "councilia.userContextDraft.v1";

@@ -3,7 +3,7 @@ import { renderDocMarkdown } from "@/lib/markdown";
 import { CookiePreferencesPanel } from "@/components/cookies/CookiePreferencesPanel";
 
 export const metadata = {
-  title: "Cookies · COUNCILia",
+  title: "Cookies",
   description:
     "Qué cookies usamos, para qué, y cómo gestionar tus preferencias.",
 };

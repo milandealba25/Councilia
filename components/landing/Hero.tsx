@@ -1,5 +1,3 @@
-"use client";
-
 import { Container } from "@/components/ui/Container";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
@@ -7,7 +5,7 @@ import { CouncilHeroPanel } from "@/components/landing/CouncilHeroPanel";
 
 export function Hero({ onStart }: { onStart: () => void }) {
   return (
-    <section className="relative overflow-hidden">
+    <section id="inicio" className="relative overflow-hidden">
       <HeroGrid />
       <Container className="relative pt-20 pb-24 md:pt-28 md:pb-32">
         <div className="flex flex-col gap-7 lg:gap-7">
@@ -23,6 +21,13 @@ export function Hero({ onStart }: { onStart: () => void }) {
               <h1 className="mt-7 text-balance font-sans text-[2.75rem] font-semibold leading-[1.04] tracking-tight text-foreground md:text-[4.25rem]">
                 Tres voces que no te van a dar la razón.
               </h1>
+            </Reveal>
+
+            <Reveal delay={110}>
+              <p className="mt-5 max-w-2xl text-balance text-base font-medium leading-relaxed text-foreground md:text-lg">
+                Una app de IA para pensar decisiones difíciles con tres
+                perspectivas críticas: largo plazo, riesgo y supuestos.
+              </p>
             </Reveal>
           </div>
 
@@ -42,7 +47,7 @@ export function Hero({ onStart }: { onStart: () => void }) {
 
               <Reveal delay={200}>
                 <div
-                  id="empezar"
+                  id="hero-cta"
                   className="mt-10 flex flex-wrap items-center gap-3"
                 >
                   <Button type="button" onClick={onStart} variant="primary">
@@ -76,7 +81,7 @@ export function Hero({ onStart }: { onStart: () => void }) {
             </div>
 
             <Reveal delay={120} className="w-full">
-              <CouncilHeroPanel />
+              <CouncilHeroPanel onStart={onStart} />
             </Reveal>
           </div>
         </div>

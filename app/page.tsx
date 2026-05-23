@@ -11,6 +11,7 @@ import { ExampleSection } from "@/components/landing/ExampleSection";
 import { PrinciplesSection } from "@/components/landing/PrinciplesSection";
 import { CTASection } from "@/components/landing/CTASection";
 import { Footer } from "@/components/landing/Footer";
+import { SectionDotsNav } from "@/components/landing/SectionDotsNav";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { loadAuthSession } from "@/lib/auth/client";
 import { resolvePostAuthRedirect } from "@/lib/auth/flow";
@@ -44,6 +45,7 @@ export default function Home() {
     >
       <AuroraBackground />
       <Header fixed onStart={goToAccess} />
+      <SectionDotsNav />
       <main className="relative z-10">
         <div className="pt-16">
           <Hero onStart={goToAccess} />
@@ -56,7 +58,7 @@ export default function Home() {
         <CTASection onStart={goToAccess} />
       </main>
       <div className="relative z-10">
-        <Footer />
+        <Footer onStart={goToAccess} />
       </div>
     </div>
   );

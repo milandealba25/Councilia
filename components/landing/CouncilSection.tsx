@@ -80,7 +80,14 @@ export function CouncilSection() {
                 />
 
                 <div className="relative flex justify-center">
-                  <AgentFace agent={agent} size={80} mood="calm" />
+                  <div
+                    className="agent-card-face"
+                    style={
+                      { "--agent-color": AGENT_VAR[agent] } as React.CSSProperties
+                    }
+                  >
+                    <AgentFace agent={agent} size={84} mood="calm" />
+                  </div>
                   <span className="absolute right-0 top-0 text-[10px] uppercase tracking-[0.18em] text-subtle">
                     0{idx + 1}
                   </span>

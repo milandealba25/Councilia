@@ -23,11 +23,11 @@ import { Button } from "@/components/ui/Button";
 type Answers = Partial<Omit<UserContext, "surveyVersion">>;
 
 const QUESTION_INTROS: Record<string, string> = {
-  decisionType: "Para empezar…",
-  urgency: "· Y DIME…",
-  needFromCouncil: "· ALGO IMPORTANTE…",
-  fearedLoss: "· UNA ÚLTIMA COSA…",
-  ageRange: "· TU RANGO DE EDAD…",
+  decisionType: "Para empezar...",
+  urgency: "· Y DIME...",
+  needFromCouncil: "· ALGO IMPORTANTE...",
+  fearedLoss: "· UNA ÚLTIMA COSA...",
+  ageRange: "· TU RANGO DE EDAD...",
 };
 
 const QUESTION_ACKS: Record<string, string> = {
@@ -170,7 +170,7 @@ export function SurveyForm() {
                 return (
                   <label
                     key={opt.value}
-                    className={`group relative flex cursor-pointer items-center gap-3 rounded-council border bg-elevated/60 px-4 py-3 text-sm transition-all duration-200 ${
+                    className={`group relative flex cursor-pointer items-center gap-3 rounded-council border bg-elevated/60 px-4 py-3 text-sm transition-all duration-200 focus-within:outline-none focus-within:ring-2 focus-within:ring-accent/45 focus-within:ring-offset-2 focus-within:ring-offset-background ${
                       isSelected
                         ? "border-accent bg-accent-soft/40 text-foreground shadow-council"
                         : "border-border text-muted hover:-translate-y-px hover:border-accent/60 hover:bg-surface-soft/60 hover:text-foreground"
@@ -220,12 +220,12 @@ export function SurveyForm() {
 
       <div className="flex flex-col gap-3 border-t border-border/60 pt-6 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-md text-xs leading-relaxed text-muted">
-          Si creas cuenta, guardaremos esta encuesta una sola vez para que el
-          council mantenga contexto entre chats.
+          Guardaremos estas respuestas para que el council mantenga contexto
+          entre chats.
         </p>
         <Button type="submit" disabled={!isComplete || submitting}>
           {submitting
-            ? "Reuniéndolos…"
+            ? "Reuniéndolos..."
             : isComplete
               ? "Sentarme con ellos"
               : `Faltan ${total - answered}`}

@@ -3,17 +3,19 @@ import { Suspense } from "react";
 import { AgentFace } from "@/components/agents/AgentFace";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { Container } from "@/components/ui/Container";
-import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { AGENT_IDS } from "@/lib/agents/ids";
 
 export const metadata = {
-  title: "Login · COUNCILia",
+  title: "Iniciar sesión",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function LoginPage() {
   return (
-    <main className="relative isolate grid min-h-dvh place-items-center overflow-hidden px-4 py-10">
-      <AuroraBackground />
+    <main className="relative isolate grid min-h-dvh place-items-center overflow-hidden px-4 py-8 md:py-10">
       <Container className="relative z-10 w-full max-w-xl">
         <Link
           href="/"
@@ -22,12 +24,27 @@ export default function LoginPage() {
           ← Inicio
         </Link>
 
-        <div className="mt-8 grid gap-7">
+        <div className="mt-7 grid gap-6">
           <header className="text-center">
+            <div
+              className="mb-4 flex items-center justify-center gap-2.5"
+              aria-hidden
+            >
+              {AGENT_IDS.map((id, i) => (
+                <span
+                  key={id}
+                  style={{
+                    animation: `soft-rise 650ms ease-out ${i * 110}ms both`,
+                  }}
+                >
+                  <AgentFace agent={id} size={40} mood="listening" />
+                </span>
+              ))}
+            </div>
             <p className="text-xs font-medium uppercase tracking-widest text-accent">
               Acceso
             </p>
-            <h1 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+            <h1 className="mx-auto mt-3 max-w-lg text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
               Entra para que el council recuerde lo importante.
             </h1>
             <p className="mx-auto mt-4 max-w-lg leading-relaxed text-muted">
@@ -37,7 +54,7 @@ export default function LoginPage() {
           </header>
 
           <section
-            className="rounded-council-lg border border-border/70 bg-surface/70 p-5 shadow-council md:p-6"
+            className="rounded-council-lg border border-border/70 bg-surface/76 p-5 shadow-council md:p-6"
             style={{ animation: "soft-rise 600ms ease-out 120ms both" }}
           >
             <Suspense
@@ -48,22 +65,6 @@ export default function LoginPage() {
               <LoginForm />
             </Suspense>
           </section>
-
-          <div
-            className="flex items-center justify-center gap-4 pt-1"
-            aria-hidden
-          >
-            {AGENT_IDS.map((id, i) => (
-              <span
-                key={id}
-                style={{
-                  animation: `soft-rise 700ms ease-out ${220 + i * 140}ms both`,
-                }}
-              >
-                <AgentFace agent={id} size={58} mood="listening" />
-              </span>
-            ))}
-          </div>
         </div>
       </Container>
     </main>

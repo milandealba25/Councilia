@@ -2,7 +2,7 @@ import { LegalLayout } from "@/components/legal/LegalLayout";
 import { renderDocMarkdown } from "@/lib/markdown";
 
 export const metadata = {
-  title: "Términos · COUNCILia",
+  title: "Términos",
   description:
     "Términos y condiciones de uso del servicio COUNCILia (MVP v1.1).",
 };

@@ -1,12 +1,10 @@
-"use client";
-
 import { Container } from "@/components/ui/Container";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
 
 export function CTASection({ onStart }: { onStart: () => void }) {
   return (
-    <section className="border-t border-border/70 py-24 md:py-32">
+    <section id="empezar" className="border-t border-border/70 py-24 md:py-32">
       <Container>
         <Reveal>
           <div className="relative overflow-hidden rounded-council-xl border border-border bg-gradient-to-br from-surface via-surface-soft to-accent-soft/70 p-10 shadow-council-lg md:p-16">
@@ -31,9 +29,8 @@ export function CTASection({ onStart }: { onStart: () => void }) {
                 Antes de sentarte con ellos, queremos saber quién llega.
               </h2>
               <p className="mt-5 max-w-xl text-lg leading-relaxed text-foreground-soft">
-                Cinco preguntas suaves. Con eso ajustamos el tono, el ritmo y
-                qué cuida cada voz contigo. Sin cuenta, sin pago, sin
-                obstáculos.
+                Primero entra o crea tu cuenta. Luego cinco preguntas suaves
+                ajustan el tono, el ritmo y qué cuida cada voz contigo.
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
                 <Button type="button" onClick={onStart} variant="primary">
