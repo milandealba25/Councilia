@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   getChatSessions,
   deleteChatSession,
+  getChatStorageEventName,
+  updateChatSessionTitle,
   type ChatSession,
 } from "@/lib/chat/chatStorage";
 
@@ -17,10 +19,21 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
   const sidebarRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    setSessions(getChatSessions());
+    function refreshSessions() {
+      setSessions(getChatSessions());
+    }
+    refreshSessions();
+    window.addEventListener("storage", refreshSessions);
+    window.addEventListener(getChatStorageEventName(), refreshSessions);
+    return () => {
+      window.removeEventListener("storage", refreshSessions);
+      window.removeEventListener(getChatStorageEventName(), refreshSessions);
+    };
   }, [activeChatId]);
 
   function handleDeleteRequest(e: React.MouseEvent, id: string) {
@@ -30,9 +43,30 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
 
   function handleConfirmDelete() {
     if (!confirmDeleteId) return;
+    const wasActive = confirmDeleteId === activeChatId;
     deleteChatSession(confirmDeleteId);
     setSessions(getChatSessions());
     setConfirmDeleteId(null);
+    if (wasActive) onNewChat();
+  }
+
+  function handleEditRequest(e: React.MouseEvent, session: ChatSession) {
+    e.stopPropagation();
+    setEditingId(session.id);
+    setEditingTitle(session.title);
+  }
+
+  function handleSaveTitle() {
+    if (!editingId) return;
+    updateChatSessionTitle(editingId, editingTitle);
+    setSessions(getChatSessions());
+    setEditingId(null);
+    setEditingTitle("");
+  }
+
+  function handleCancelEdit() {
+    setEditingId(null);
+    setEditingTitle("");
   }
 
   return (
@@ -109,19 +143,46 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
                 <button
                   type="button"
                   onClick={() => onSelectChat(s.id)}
-                  className={`flex w-full flex-col gap-0.5 px-3 py-2.5 text-left ${
+                  className={`flex w-full flex-col gap-0.5 px-3 py-2.5 pr-16 text-left ${
                     isActive
                       ? "text-foreground"
                       : "text-muted hover:text-foreground"
                   }`}
                 >
-                  <p className="truncate text-sm font-medium leading-snug">
-                    {s.title}
-                  </p>
+                  {editingId === s.id ? (
+                    <input
+                      value={editingTitle}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onBlur={handleSaveTitle}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveTitle();
+                        if (e.key === "Escape") handleCancelEdit();
+                      }}
+                      className="w-full rounded-md border border-accent/40 bg-background px-2 py-1 text-sm font-medium text-foreground outline-none ring-1 ring-accent/20"
+                      maxLength={80}
+                      autoFocus
+                    />
+                  ) : (
+                    <p className="truncate text-sm font-medium leading-snug">
+                      {s.title}
+                    </p>
+                  )}
                   <p className="text-[10px] text-muted">
                     {dateStr} · {turnLabel}
                   </p>
                 </button>
+                {editingId !== s.id && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleEditRequest(e, s)}
+                    className="absolute right-9 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted/40 opacity-0 transition hover:bg-accent/10 hover:text-accent group-hover:opacity-100"
+                    aria-label="Renombrar chat"
+                    title="Renombrar chat"
+                  >
+                    <PencilIcon />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={(e) => handleDeleteRequest(e, s.id)}
@@ -219,6 +280,15 @@ function TrashIcon() {
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
       <path d="M10 11v6" />
       <path d="M14 11v6" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   );
 }

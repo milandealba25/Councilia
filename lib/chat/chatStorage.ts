@@ -1,6 +1,7 @@
 "use client";
 
 import type { AgentId } from "@/lib/agents/ids";
+import { loadAuthSession } from "@/lib/auth/client";
 
 export interface ChatTurn {
   userMessage: string;
@@ -22,14 +23,29 @@ export interface ChatSession {
 
 const SESSIONS_KEY = "councilia.chatSessions.v1";
 const ACTIVE_KEY = "councilia.activeChatId.v1";
+const CHAT_STORAGE_EVENT = "councilia:chat-storage-change";
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function ownerScope(): string {
+  const session = loadAuthSession();
+  return session?.user.id ? `user:${session.user.id}` : "guest";
+}
+
+function scopedKey(key: string): string {
+  return `${key}:${ownerScope()}`;
+}
+
+function emitChatStorageChange(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(CHAT_STORAGE_EVENT));
+}
+
 function readAll(): ChatSession[] {
   if (typeof window === "undefined") return [];
-  const raw = localStorage.getItem(SESSIONS_KEY);
+  const raw = localStorage.getItem(scopedKey(SESSIONS_KEY));
   if (!raw) return [];
   try {
     return JSON.parse(raw) as ChatSession[];
@@ -40,7 +56,8 @@ function readAll(): ChatSession[] {
 
 function writeAll(sessions: ChatSession[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+  localStorage.setItem(scopedKey(SESSIONS_KEY), JSON.stringify(sessions));
+  emitChatStorageChange();
 }
 
 export function getChatSessions(): ChatSession[] {
@@ -81,6 +98,17 @@ export function saveChatTurn(chatId: string, turn: ChatTurn): void {
   writeAll(all);
 }
 
+export function updateChatSessionTitle(id: string, title: string): void {
+  const cleanTitle = title.trim().replace(/\s+/g, " ").slice(0, 80);
+  if (!cleanTitle) return;
+  const all = readAll();
+  const idx = all.findIndex((s) => s.id === id);
+  if (idx === -1) return;
+  all[idx].title = cleanTitle;
+  all[idx].updatedAt = Date.now();
+  writeAll(all);
+}
+
 export function deleteChatSession(id: string): void {
   const all = readAll().filter((s) => s.id !== id);
   writeAll(all);
@@ -91,15 +119,19 @@ export function deleteChatSession(id: string): void {
 
 export function getActiveChatId(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(ACTIVE_KEY);
+  return localStorage.getItem(scopedKey(ACTIVE_KEY));
 }
 
 export function setActiveChatId(id: string): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(ACTIVE_KEY, id);
+  localStorage.setItem(scopedKey(ACTIVE_KEY), id);
 }
 
 export function clearActiveChatId(): void {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(ACTIVE_KEY);
+  localStorage.removeItem(scopedKey(ACTIVE_KEY));
+}
+
+export function getChatStorageEventName(): string {
+  return CHAT_STORAGE_EVENT;
 }
