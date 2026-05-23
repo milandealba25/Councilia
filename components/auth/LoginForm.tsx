@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { saveAuthSession, type AuthSession } from "@/lib/auth/client";
+import { resolvePostAuthRedirect } from "@/lib/auth/flow";
 import {
   getPasswordRules,
   isValidEmail,
@@ -35,9 +35,11 @@ export function LoginForm() {
   );
   const reason = params.get("reason");
   const routeError = params.get("error");
-  const [mode, setMode] = useState<AuthMode>("login");
+  const requestedMode = params.get("mode") === "register" ? "register" : "login";
+  const requestedEmail = sanitizeEmail(params.get("email"));
+  const [mode, setMode] = useState<AuthMode>(requestedMode);
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(requestedEmail);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -54,6 +56,11 @@ export function LoginForm() {
   const passwordRules = getPasswordRules(cleanPassword);
   const passwordValid = isValidPassword(cleanPassword);
   const formValid = nameValid && emailValid && passwordValid;
+
+  useEffect(() => {
+    setMode(requestedMode);
+    if (requestedEmail) setEmail(requestedEmail);
+  }, [requestedEmail, requestedMode]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -100,7 +107,8 @@ export function LoginForm() {
     }
 
     saveAuthSession(data.session);
-    router.replace(next as never);
+    const destination = await resolvePostAuthRedirect(next);
+    router.replace(destination as never);
   }
 
   return (
@@ -110,9 +118,8 @@ export function LoginForm() {
           className="rounded-council border border-accent/30 bg-accent-soft/35 px-4 py-3 text-sm leading-relaxed text-foreground-soft"
           style={{ animation: "soft-rise 450ms ease-out both" }}
         >
-          Tus respuestas ya quedaron guardadas para esta sesión. Si entras
-          ahora, podremos asociarlas a tu cuenta cuando activemos historial y
-          persistencia completa.
+          Tus respuestas ya quedaron guardadas. Al entrar, las asociamos a tu
+          cuenta para que el council recuerde lo importante.
         </div>
       )}
 
@@ -296,10 +303,6 @@ export function LoginForm() {
         Entrar con Google
       </LinkButton>
 
-      <LinkButton href="/session?guest=1" variant="ghost" className="w-full">
-        Entrar sin iniciar sesión
-      </LinkButton>
-
       {notice && (
         <p
           className="rounded-council border border-marco/30 bg-marco-soft/70 px-4 py-3 text-sm leading-relaxed text-foreground-soft"
@@ -315,14 +318,6 @@ export function LoginForm() {
         </p>
       )}
 
-      {reason === "survey" && (
-        <Link
-          href={next as never}
-          className="text-center text-sm text-muted underline-offset-4 hover:text-accent-strong hover:underline"
-        >
-          Continuar con este flujo
-        </Link>
-      )}
     </div>
   );
 }

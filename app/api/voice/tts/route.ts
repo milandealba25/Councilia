@@ -8,6 +8,7 @@ import { AGENT_IDS } from "@/lib/agents/ids";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const ttsRequestSchema = z.object({
   agent: z.enum(AGENT_IDS),
@@ -64,11 +65,10 @@ export async function POST(req: Request) {
       },
     });
   } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("[tts] ElevenLabs error:", detail, err);
     return NextResponse.json(
-      {
-        error: "tts_failed",
-        detail: err instanceof Error ? err.message : "unknown",
-      },
+      { error: "tts_failed", detail },
       { status: 502 },
     );
   }

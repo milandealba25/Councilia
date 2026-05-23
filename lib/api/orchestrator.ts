@@ -2,7 +2,9 @@ import "server-only";
 import { AgentRunner } from "@/orchestrator/agentRunner";
 import { DebateRouter } from "@/orchestrator/debateRouter";
 import { GeminiLlm } from "@/orchestrator/adapters/gemini";
+import { OpenAILlm } from "@/orchestrator/adapters/openai";
 import type { Llm } from "@/orchestrator/llm";
+import { env } from "@/lib/env";
 
 /**
  * Singletons del orquestador por request scope.
@@ -11,7 +13,9 @@ import type { Llm } from "@/orchestrator/llm";
 let cachedLlm: Llm | null = null;
 
 export function getLlm(): Llm {
-  if (!cachedLlm) cachedLlm = new GeminiLlm();
+  if (!cachedLlm) {
+    cachedLlm = env.GEMINI_API_KEY ? new GeminiLlm() : new OpenAILlm();
+  }
   return cachedLlm;
 }
 

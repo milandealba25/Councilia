@@ -14,7 +14,7 @@ const KEY = "councilia.userContext.v1";
 
 export function loadUserContext(): UserContext | null {
   if (typeof window === "undefined") return null;
-  const raw = sessionStorage.getItem(KEY);
+  const raw = sessionStorage.getItem(KEY) ?? localStorage.getItem(KEY);
   if (!raw) return null;
   try {
     return userContextSchema.parse(JSON.parse(raw));
@@ -26,9 +26,11 @@ export function loadUserContext(): UserContext | null {
 export function saveUserContext(ctx: UserContext): void {
   if (typeof window === "undefined") return;
   sessionStorage.setItem(KEY, JSON.stringify(ctx));
+  localStorage.setItem(KEY, JSON.stringify(ctx));
 }
 
 export function clearUserContext(): void {
   if (typeof window === "undefined") return;
   sessionStorage.removeItem(KEY);
+  localStorage.removeItem(KEY);
 }

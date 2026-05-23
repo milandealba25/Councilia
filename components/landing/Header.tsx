@@ -1,8 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { AuthNavButton } from "@/components/auth/AuthNavButton";
 import { Container } from "@/components/ui/Container";
-import { LinkButton } from "@/components/ui/Button";
+import { Button, LinkButton } from "@/components/ui/Button";
 
 const NAV = [
   { href: "#council", label: "Quiénes son" },
@@ -13,9 +15,10 @@ const NAV = [
 
 interface HeaderProps {
   fixed?: boolean;
+  onStart?: () => void;
 }
 
-export function Header({ fixed = false }: HeaderProps) {
+export function Header({ fixed = false, onStart }: HeaderProps) {
   return (
     <header
       className={`${
@@ -48,14 +51,26 @@ export function Header({ fixed = false }: HeaderProps) {
 
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <AuthNavButton />
-          <LinkButton
-            href="/onboarding"
-            variant="primary"
-            className="shrink-0 px-3 text-xs sm:px-5 sm:text-sm"
-          >
-            <span className="sm:hidden">Empezar</span>
-            <span className="hidden sm:inline">Sentarme con ellos</span>
-          </LinkButton>
+          {onStart ? (
+            <Button
+              type="button"
+              onClick={onStart}
+              variant="primary"
+              className="shrink-0 px-3 text-xs sm:px-5 sm:text-sm"
+            >
+              <span className="sm:hidden">Empezar</span>
+              <span className="hidden sm:inline">Sentarme con ellos</span>
+            </Button>
+          ) : (
+            <LinkButton
+              href="/onboarding"
+              variant="primary"
+              className="shrink-0 px-3 text-xs sm:px-5 sm:text-sm"
+            >
+              <span className="sm:hidden">Empezar</span>
+              <span className="hidden sm:inline">Sentarme con ellos</span>
+            </LinkButton>
+          )}
         </div>
       </Container>
     </header>

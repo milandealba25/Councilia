@@ -2,8 +2,13 @@
   "name": "councilia",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev-prewarm.mjs",
+    "dev:raw": "next dev",
+    "dev:turbo": "node scripts/dev-prewarm.mjs --turbo",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -17,8 +22,11 @@
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.47.0",
     "@google/generative-ai": "^0.24.1",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.106.1",
     "marked": "^15.0.12",
     "next": "14.2.35",
+    "openai": "^6.39.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "server-only": "^0.0.1",

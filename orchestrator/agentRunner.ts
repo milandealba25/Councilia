@@ -30,6 +30,7 @@ export interface RunInitialEvent {
 export interface RunInitialOpts {
   userContext: UserContext;
   userMessage: string;
+  conversationMemory?: string;
   signal?: AbortSignal;
 }
 
@@ -69,7 +70,7 @@ export class AgentRunner {
           userContext: opts.userContext,
         });
         for await (const chunk of this.llm.stream({
-          systemPrompt: system,
+          systemPrompt: withConversationMemory(system, opts.conversationMemory),
           messages: [{ role: "user", content: opts.userMessage }],
           maxTokens: spec.maxOutputTokens,
           signal: opts.signal,
@@ -111,6 +112,7 @@ export class AgentRunner {
     otherAgentPosture: string;
     userContext: UserContext;
     userMessage: string;
+    conversationMemory?: string;
     signal?: AbortSignal;
   }): AsyncIterable<string> {
     const spec = getAgent(args.agent);
@@ -121,10 +123,21 @@ export class AgentRunner {
       otherAgentPosture: args.otherAgentPosture,
     });
     yield* this.llm.stream({
-      systemPrompt: system,
+      systemPrompt: withConversationMemory(system, args.conversationMemory),
       messages: [{ role: "user", content: args.userMessage }],
       maxTokens: spec.maxOutputTokens,
       signal: args.signal,
     });
   }
+}
+
+function withConversationMemory(system: string, memory?: string): string {
+  const clean = memory?.trim();
+  if (!clean) return system;
+  return [
+    system,
+    "",
+    "Memoria breve de conversaciones previas (usar como contexto, no citar como verdad absoluta):",
+    clean,
+  ].join("\n");
 }

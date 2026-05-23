@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  chatChangeEventName,
+  deletePersistentChatSession,
+  exportChatSession,
   getChatSessions,
-  deleteChatSession,
-  getChatStorageEventName,
-  updateChatSessionTitle,
+  refreshChatSessionsFromServer,
+  renamePersistentChatSession,
   type ChatSession,
 } from "@/lib/chat/chatStorage";
 
@@ -18,60 +20,93 @@ interface Props {
 export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [collapsed, setCollapsed] = useState(false);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState("");
-  const sidebarRef = useRef<HTMLElement>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    function refreshSessions() {
-      setSessions(getChatSessions());
-    }
-    refreshSessions();
-    window.addEventListener("storage", refreshSessions);
-    window.addEventListener(getChatStorageEventName(), refreshSessions);
-    return () => {
-      window.removeEventListener("storage", refreshSessions);
-      window.removeEventListener(getChatStorageEventName(), refreshSessions);
-    };
+    setSessions(getChatSessions());
+    void refreshChatSessionsFromServer().then(setSessions);
   }, [activeChatId]);
 
-  function handleDeleteRequest(e: React.MouseEvent, id: string) {
+  useEffect(() => {
+    function syncSessions() {
+      setSessions(getChatSessions());
+    }
+    window.addEventListener(chatChangeEventName(), syncSessions);
+    window.addEventListener("storage", syncSessions);
+    return () => {
+      window.removeEventListener(chatChangeEventName(), syncSessions);
+      window.removeEventListener("storage", syncSessions);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpenId) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpenId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpenId]);
+
+  useEffect(() => {
+    if (renamingId) renameInputRef.current?.focus();
+  }, [renamingId]);
+
+  function handleMenuToggle(e: React.MouseEvent, id: string) {
     e.stopPropagation();
+    setMenuOpenId((prev) => (prev === id ? null : id));
+  }
+
+  function handleRenameStart(id: string) {
+    const session = sessions.find((s) => s.id === id);
+    setRenameValue(session?.title ?? "");
+    setRenamingId(id);
+    setMenuOpenId(null);
+  }
+
+  async function handleRenameSubmit() {
+    if (!renamingId) return;
+    await renamePersistentChatSession(renamingId, renameValue);
+    setSessions(getChatSessions());
+    setRenamingId(null);
+  }
+
+  function handleDeleteRequest(id: string) {
+    setMenuOpenId(null);
     setConfirmDeleteId(id);
   }
 
-  function handleConfirmDelete() {
+  async function handleConfirmDelete() {
     if (!confirmDeleteId) return;
     const wasActive = confirmDeleteId === activeChatId;
-    deleteChatSession(confirmDeleteId);
+    await deletePersistentChatSession(confirmDeleteId);
     setSessions(getChatSessions());
     setConfirmDeleteId(null);
     if (wasActive) onNewChat();
   }
 
-  function handleEditRequest(e: React.MouseEvent, session: ChatSession) {
-    e.stopPropagation();
-    setEditingId(session.id);
-    setEditingTitle(session.title);
-  }
-
-  function handleSaveTitle() {
-    if (!editingId) return;
-    updateChatSessionTitle(editingId, editingTitle);
-    setSessions(getChatSessions());
-    setEditingId(null);
-    setEditingTitle("");
-  }
-
-  function handleCancelEdit() {
-    setEditingId(null);
-    setEditingTitle("");
-  }
+  const handleExport = useCallback((id: string) => {
+    setMenuOpenId(null);
+    const md = exportChatSession(id);
+    if (!md) return;
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `councilia-chat-${id}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
 
   return (
     <>
-      {/* Toggle flotante — visible solo cuando collapsed */}
       <button
         type="button"
         onClick={() => setCollapsed(false)}
@@ -87,9 +122,7 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
         <ChevronRightIcon />
       </button>
 
-      {/* Sidebar con slide */}
       <aside
-        ref={sidebarRef}
         className="sticky top-0 flex h-dvh shrink-0 flex-col border-r border-border bg-elevated/40 transition-all duration-300 ease-in-out"
         style={{
           width: collapsed ? 0 : 256,
@@ -122,6 +155,7 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
           )}
           {sessions.map((s) => {
             const isActive = s.id === activeChatId;
+            const isRenaming = renamingId === s.id;
             const date = new Date(s.updatedAt);
             const dateStr = date.toLocaleDateString("es-MX", {
               day: "numeric",
@@ -149,19 +183,20 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
                       : "text-muted hover:text-foreground"
                   }`}
                 >
-                  {editingId === s.id ? (
+                  {isRenaming ? (
                     <input
-                      value={editingTitle}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => setEditingTitle(e.target.value)}
-                      onBlur={handleSaveTitle}
+                      ref={renameInputRef}
+                      type="text"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onBlur={() => void handleRenameSubmit()}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") handleSaveTitle();
-                        if (e.key === "Escape") handleCancelEdit();
+                        if (e.key === "Enter") void handleRenameSubmit();
+                        if (e.key === "Escape") setRenamingId(null);
                       }}
+                      onClick={(e) => e.stopPropagation()}
                       className="w-full rounded-md border border-accent/40 bg-background px-2 py-1 text-sm font-medium text-foreground outline-none ring-1 ring-accent/20"
                       maxLength={80}
-                      autoFocus
                     />
                   ) : (
                     <p className="truncate text-sm font-medium leading-snug">
@@ -172,26 +207,65 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
                     {dateStr} · {turnLabel}
                   </p>
                 </button>
-                {editingId !== s.id && (
+
+                {!isRenaming && (
                   <button
                     type="button"
-                    onClick={(e) => handleEditRequest(e, s)}
-                    className="absolute right-9 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted/40 opacity-0 transition hover:bg-accent/10 hover:text-accent group-hover:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRenameStart(s.id);
+                    }}
+                    className="absolute right-8 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted/40 opacity-0 transition hover:bg-accent/10 hover:text-accent group-hover:opacity-100"
                     aria-label="Renombrar chat"
                     title="Renombrar chat"
                   >
                     <PencilIcon />
                   </button>
                 )}
+
                 <button
                   type="button"
-                  onClick={(e) => handleDeleteRequest(e, s.id)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted/40 opacity-0 transition hover:bg-error/10 hover:text-error group-hover:opacity-100"
-                  aria-label="Eliminar chat"
-                  title="Eliminar chat"
+                  onClick={(e) => handleMenuToggle(e, s.id)}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted/40 opacity-0 transition hover:bg-background hover:text-foreground group-hover:opacity-100"
+                  aria-label="Opciones"
+                  title="Opciones"
                 >
-                  <TrashIcon />
+                  <MoreIcon />
                 </button>
+
+                {menuOpenId === s.id && (
+                  <div
+                    ref={menuRef}
+                    className="absolute right-1 top-full z-40 mt-1 w-40 overflow-hidden rounded-lg border border-border bg-background shadow-lg"
+                    style={{ animation: "soft-rise 150ms ease-out both" }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleRenameStart(s.id)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-foreground transition hover:bg-elevated"
+                    >
+                      <PencilIcon />
+                      Renombrar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExport(s.id)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-foreground transition hover:bg-elevated"
+                    >
+                      <ExportIcon />
+                      Exportar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteRequest(s.id)}
+                      className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-left text-xs transition hover:bg-elevated"
+                      style={{ color: "#c0392b" }}
+                    >
+                      <TrashIcon />
+                      Borrar
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -209,7 +283,6 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
         </div>
       </aside>
 
-      {/* Modal de confirmación */}
       {confirmDeleteId && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -235,8 +308,9 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
               </button>
               <button
                 type="button"
-                onClick={handleConfirmDelete}
-                className="rounded-lg bg-error/90 px-4 py-2 text-xs font-medium text-white transition hover:bg-error"
+                onClick={() => void handleConfirmDelete()}
+                className="rounded-lg px-4 py-2 text-xs font-semibold shadow-sm transition"
+                style={{ backgroundColor: "#c0392b", color: "#ffffff" }}
               >
                 Borrar
               </button>
@@ -273,13 +347,12 @@ function PlusIcon() {
   );
 }
 
-function TrashIcon() {
+function MoreIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="12" cy="5" r="1.5" />
+      <circle cx="12" cy="12" r="1.5" />
+      <circle cx="12" cy="19" r="1.5" />
     </svg>
   );
 }
@@ -289,6 +362,27 @@ function PencilIcon() {
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+function ExportIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
     </svg>
   );
 }

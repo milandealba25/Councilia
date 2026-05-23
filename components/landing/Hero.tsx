@@ -1,9 +1,11 @@
+"use client";
+
 import { Container } from "@/components/ui/Container";
-import { LinkButton } from "@/components/ui/Button";
+import { Button, LinkButton } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
 import { CouncilHeroPanel } from "@/components/landing/CouncilHeroPanel";
 
-export function Hero() {
+export function Hero({ onStart }: { onStart: () => void }) {
   return (
     <section id="inicio" className="relative overflow-hidden">
       <HeroGrid />
@@ -50,9 +52,9 @@ export function Hero() {
                   id="hero-cta"
                   className="mt-10 flex flex-wrap items-center gap-3"
                 >
-                  <LinkButton href="/onboarding" variant="primary">
+                  <Button type="button" onClick={onStart} variant="primary">
                     Sentarme con ellos
-                  </LinkButton>
+                  </Button>
                   <LinkButton href="#council" variant="secondary">
                     Conocer a Marco, Elena y Rafael
                   </LinkButton>

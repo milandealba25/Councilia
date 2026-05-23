@@ -84,7 +84,7 @@ export class LlmError extends Error {
 export function llmErrorHeadline(code: LlmErrorCode): string {
   switch (code) {
     case "auth":
-      return "El council no puede hablar: la clave de Gemini no es válida o no está configurada.";
+      return "El council no puede hablar: la clave de IA no es válida o no está configurada.";
     case "quota":
       return "El proveedor de IA dijo que esperáramos. Intenta de nuevo en un momento.";
     case "blocked":

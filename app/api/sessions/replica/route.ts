@@ -17,6 +17,7 @@ import { emit as emitEvent } from "@/lib/observability/events";
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 type Event =
   | {
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { userContext, userMessage, postures } = parsed;
+  const { userContext, userMessage, conversationMemory, postures } = parsed;
 
   const stream = sseStreamFromIterable(
     (async function* (): AsyncIterable<SseEvent<Event>> {
@@ -68,6 +69,7 @@ export async function POST(req: Request) {
           postures,
           userContext,
           userMessage,
+          conversationMemory,
         });
       } catch (err) {
         const code: LlmErrorCode =

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Container } from "@/components/ui/Container";
 import { SessionConsole } from "./SessionConsole";
@@ -8,8 +8,9 @@ import { ChatSidebar } from "./ChatSidebar";
 import { AgentFace } from "@/components/agents/AgentFace";
 import { AGENT_IDS } from "@/lib/agents/ids";
 import {
-  createChatSession,
+  createPersistentChatSession,
   getActiveChatId,
+  refreshChatSessionsFromServer,
   setActiveChatId,
 } from "@/lib/chat/chatStorage";
 
@@ -17,11 +18,33 @@ export function SessionLayout() {
   const [chatId, setChatId] = useState<string | null>(() => getActiveChatId());
   const [consoleKey, setConsoleKey] = useState(0);
 
+  useEffect(() => {
+    async function hydrateChats() {
+      const sessions = await refreshChatSessionsFromServer();
+      const active = getActiveChatId();
+      if (active) {
+        setChatId(active);
+        setConsoleKey((k) => k + 1);
+        return;
+      }
+      if (sessions[0]) {
+        setActiveChatId(sessions[0].id);
+        setChatId(sessions[0].id);
+        setConsoleKey((k) => k + 1);
+      }
+    }
+
+    void hydrateChats();
+  }, []);
+
   const handleNewChat = useCallback(() => {
-    const session = createChatSession();
-    setChatId(session.id);
-    setActiveChatId(session.id);
-    setConsoleKey((k) => k + 1);
+    async function create() {
+      const session = await createPersistentChatSession();
+      setChatId(session.id);
+      setActiveChatId(session.id);
+      setConsoleKey((k) => k + 1);
+    }
+    void create();
   }, []);
 
   const handleSelectChat = useCallback((id: string) => {
@@ -52,10 +75,10 @@ export function SessionLayout() {
               ← Inicio
             </Link>
             <Link
-              href="/onboarding"
+              href="/account"
               className="text-xs uppercase tracking-wider text-muted hover:text-foreground"
             >
-              Cambiar mis respuestas
+              Cuenta
             </Link>
           </div>
 
