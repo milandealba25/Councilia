@@ -1,10 +1,8 @@
-"use client";
-
 import { Container } from "@/components/ui/Container";
-import { Button, LinkButton } from "@/components/ui/Button";
+import { LinkButton } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
 
-export function CTASection({ onStart }: { onStart: () => void }) {
+export function CTASection() {
   return (
     <section id="empezar" className="border-t border-border/70 py-24 md:py-32">
       <Container>
@@ -36,9 +34,9 @@ export function CTASection({ onStart }: { onStart: () => void }) {
                 obstáculos.
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
-                <Button type="button" onClick={onStart} variant="primary">
+                <LinkButton href="/onboarding" variant="primary">
                   Empezar a hablar
-                </Button>
+                </LinkButton>
                 <LinkButton href="#ejemplo" variant="secondary">
                   Ver primero un ejemplo
                 </LinkButton>

@@ -68,16 +68,11 @@ async function* streamPost<T>(
 export function streamInitial(args: {
   userContext: UserContext;
   userMessage: string;
-  conversationMemory?: string;
   signal?: AbortSignal;
 }): AsyncIterable<InitialEvent> {
   return streamPost<InitialEvent>(
     "/api/sessions/initial",
-    {
-      userContext: args.userContext,
-      userMessage: args.userMessage,
-      conversationMemory: args.conversationMemory,
-    },
+    { userContext: args.userContext, userMessage: args.userMessage },
     args.signal,
   );
 }
@@ -85,7 +80,6 @@ export function streamInitial(args: {
 export function streamReplica(args: {
   userContext: UserContext;
   userMessage: string;
-  conversationMemory?: string;
   postures: Array<{ agent: AgentId; text: string }>;
   signal?: AbortSignal;
 }): AsyncIterable<ReplicaEvent> {
@@ -94,7 +88,6 @@ export function streamReplica(args: {
     {
       userContext: args.userContext,
       userMessage: args.userMessage,
-      conversationMemory: args.conversationMemory,
       postures: args.postures,
     },
     args.signal,
@@ -122,7 +115,6 @@ export class SynthesisRequestError extends Error {
 export async function requestSynthesis(args: {
   userContext: UserContext;
   transcript: TranscriptTurn[];
-  conversationMemory?: string;
   signal?: AbortSignal;
 }): Promise<Synthesis> {
   const res = await fetch("/api/sessions/synthesis", {
@@ -131,7 +123,6 @@ export async function requestSynthesis(args: {
     body: JSON.stringify({
       userContext: args.userContext,
       transcript: args.transcript,
-      conversationMemory: args.conversationMemory,
     }),
     signal: args.signal,
   });

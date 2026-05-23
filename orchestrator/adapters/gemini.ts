@@ -16,14 +16,6 @@ import {
   type LlmMessage,
 } from "@/orchestrator/llm";
 
-export const DEFAULT_GEMINI_MODELS = [
-  "gemini-3.1-flash-lite",
-  "gemini-2.5-flash-lite",
-  "gemini-3.5-flash",
-  "gemini-2.5-flash",
-  "gemini-3-flash",
-] as const;
-
 function toGeminiContents(messages: ReadonlyArray<LlmMessage>): Content[] {
   return messages.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
@@ -31,6 +23,13 @@ function toGeminiContents(messages: ReadonlyArray<LlmMessage>): Content[] {
   }));
 }
 
+/**
+ * Modelos Gemini 2.5+ usan "thinking" interno que consume parte del
+ * `maxOutputTokens`. Para posturas cortas (~80–120 tokens visibles) y
+ * latencia baja, lo deseable es desactivarlo. Es configurable por env
+ * (`GEMINI_THINKING_BUDGET`): entero ≥ 0. `0` deshabilita, ausente o
+ * negativo deja que el modelo decida.
+ */
 function buildGenerationConfig(
   req: LlmCompletionRequest,
 ): Record<string, unknown> {
@@ -46,6 +45,10 @@ function buildGenerationConfig(
   return cfg;
 }
 
+/**
+ * Clasifica un error nativo del SDK de Google en el `LlmErrorCode` que
+ * usa el orquestador. Aísla al resto del sistema del shape del SDK.
+ */
 function classifyGeminiError(err: unknown): LlmError {
   if (err instanceof LlmError) return err;
 
@@ -58,7 +61,7 @@ function classifyGeminiError(err: unknown): LlmError {
   if (err instanceof GoogleGenerativeAIResponseError) {
     return new LlmError(
       "blocked",
-      "Gemini bloqueo la respuesta por politicas de seguridad.",
+      "Gemini bloqueó la respuesta por políticas de seguridad.",
       { cause: err },
     );
   }
@@ -82,12 +85,13 @@ function classifyGeminiError(err: unknown): LlmError {
       code = "auth";
     } else if (status === 429) {
       code = "quota";
-    } else if (status === 404 || (status && status >= 500)) {
+    } else if (status && status >= 500) {
       code = "network";
     }
     return new LlmError(code, err.message, { status, cause: err });
   }
 
+  // AbortController desde fuera del SDK (route handler abortó).
   if (err instanceof Error && err.name === "AbortError") {
     return new LlmError("aborted", err.message, { cause: err });
   }
@@ -99,121 +103,84 @@ function classifyGeminiError(err: unknown): LlmError {
   return new LlmError("unknown", String(err));
 }
 
-function parseModelList(value: string | undefined): string[] {
-  if (!value) return [];
-  return value
-    .split(",")
-    .map((m) => m.trim())
-    .filter(Boolean);
-}
-
-function isRetryableModelError(err: LlmError): boolean {
-  return (
-    err.code === "quota" || err.code === "network" || err.code === "unknown"
-  );
-}
-
-function noModelAvailableError(errors: ReadonlyArray<LlmError>): LlmError {
-  const last = errors[errors.length - 1];
-  return new LlmError(
-    "quota",
-    "Ningun modelo Gemini disponible en este momento.",
-    { status: last?.status, cause: last ?? errors },
-  );
-}
-
+/**
+ * Adapter de Google Gemini para la interfaz Llm (K2).
+ *
+ * Reglas:
+ *   - Solo este archivo conoce el SDK de `@google/generative-ai`.
+ *   - Todos los errores se normalizan a `LlmError` con `code` semántico
+ *     para que el orquestador y la UI no tengan que parsear texto.
+ */
 export class GeminiLlm implements Llm {
   private readonly genAI: GoogleGenerativeAI;
-  private readonly modelIds: string[];
+  private readonly modelId: string;
 
-  constructor(opts?: { apiKey?: string; model?: string; models?: string[] }) {
+  constructor(opts?: { apiKey?: string; model?: string }) {
     const apiKey = opts?.apiKey ?? requireGeminiKey();
     this.genAI = new GoogleGenerativeAI(apiKey);
-    this.modelIds =
-      opts?.models?.filter(Boolean) ??
-      (opts?.model ? [opts.model] : parseModelList(process.env.GEMINI_MODELS));
-    if (this.modelIds.length === 0) {
-      this.modelIds = [...DEFAULT_GEMINI_MODELS];
-    }
+    this.modelId =
+      opts?.model ?? process.env.GEMINI_MODEL ?? "gemini-flash-latest";
   }
 
   async complete(req: LlmCompletionRequest): Promise<LlmCompletionResult> {
-    const errors: LlmError[] = [];
-    for (const modelId of this.modelIds) {
-      try {
-        const model = this.genAI.getGenerativeModel({
-          model: modelId,
-          systemInstruction: req.systemPrompt,
-        });
-        const result = await model.generateContent(
-          {
-            contents: toGeminiContents(req.messages),
-            generationConfig:
-              buildGenerationConfig(req) as unknown as Record<string, never>,
-          },
-          { signal: req.signal },
-        );
-        const response = result.response;
-        const meta = response.usageMetadata;
-        return {
-          text: response.text(),
-          model: modelId,
-          usage: {
-            inputTokens: meta?.promptTokenCount,
-            outputTokens: meta?.candidatesTokenCount,
-          },
-        };
-      } catch (err) {
-        const llmError = classifyGeminiError(err);
-        if (!isRetryableModelError(llmError)) throw llmError;
-        errors.push(llmError);
-      }
+    try {
+      const model = this.genAI.getGenerativeModel({
+        model: this.modelId,
+        systemInstruction: req.systemPrompt,
+      });
+      const result = await model.generateContent(
+        {
+          contents: toGeminiContents(req.messages),
+          // El SDK v0.24 no tipa `thinkingConfig`; lo pasamos como bag de
+          // configuración y el backend lo aplica si el modelo lo soporta.
+          generationConfig:
+            buildGenerationConfig(req) as unknown as Record<string, never>,
+        },
+        { signal: req.signal },
+      );
+      const response = result.response;
+      const text = response.text();
+      const meta = response.usageMetadata;
+      return {
+        text,
+        model: this.modelId,
+        usage: {
+          inputTokens: meta?.promptTokenCount,
+          outputTokens: meta?.candidatesTokenCount,
+        },
+      };
+    } catch (err) {
+      throw classifyGeminiError(err);
     }
-    throw noModelAvailableError(errors);
   }
 
   async *stream(req: LlmCompletionRequest): AsyncIterable<string> {
-    const errors: LlmError[] = [];
-    for (const modelId of this.modelIds) {
-      let streamIter: AsyncIterable<{ text: () => string }>;
-      let yielded = false;
-
-      try {
-        const model = this.genAI.getGenerativeModel({
-          model: modelId,
-          systemInstruction: req.systemPrompt,
-        });
-        const result = await model.generateContentStream(
-          {
-            contents: toGeminiContents(req.messages),
-            generationConfig:
-              buildGenerationConfig(req) as unknown as Record<string, never>,
-          },
-          { signal: req.signal },
-        );
-        streamIter = result.stream;
-      } catch (err) {
-        const llmError = classifyGeminiError(err);
-        if (!isRetryableModelError(llmError)) throw llmError;
-        errors.push(llmError);
-        continue;
-      }
-
-      try {
-        for await (const chunk of streamIter) {
-          const piece = chunk.text();
-          if (piece) {
-            yielded = true;
-            yield piece;
-          }
-        }
-        return;
-      } catch (err) {
-        const llmError = classifyGeminiError(err);
-        if (yielded || !isRetryableModelError(llmError)) throw llmError;
-        errors.push(llmError);
-      }
+    let streamIter: AsyncIterable<{ text: () => string }>;
+    try {
+      const model = this.genAI.getGenerativeModel({
+        model: this.modelId,
+        systemInstruction: req.systemPrompt,
+      });
+      const result = await model.generateContentStream(
+        {
+          contents: toGeminiContents(req.messages),
+          generationConfig:
+            buildGenerationConfig(req) as unknown as Record<string, never>,
+        },
+        { signal: req.signal },
+      );
+      streamIter = result.stream;
+    } catch (err) {
+      throw classifyGeminiError(err);
     }
-    throw noModelAvailableError(errors);
+
+    try {
+      for await (const chunk of streamIter) {
+        const piece = chunk.text();
+        if (piece) yield piece;
+      }
+    } catch (err) {
+      throw classifyGeminiError(err);
+    }
   }
 }

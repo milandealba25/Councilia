@@ -13,14 +13,12 @@ const agentIdSchema = z.enum(AGENT_IDS);
 export const initialRequestSchema = z.object({
   userContext: userContextSchema,
   userMessage: z.string().trim().min(1).max(4000),
-  conversationMemory: z.string().trim().max(2500).optional(),
 });
 export type InitialRequest = z.infer<typeof initialRequestSchema>;
 
 export const replicaRequestSchema = z.object({
   userContext: userContextSchema,
   userMessage: z.string().trim().min(1).max(4000),
-  conversationMemory: z.string().trim().max(2500).optional(),
   postures: z
     .array(
       z.object({
@@ -35,7 +33,6 @@ export type ReplicaRequest = z.infer<typeof replicaRequestSchema>;
 
 export const synthesisRequestSchema = z.object({
   userContext: userContextSchema,
-  conversationMemory: z.string().trim().max(2500).optional(),
   transcript: z
     .array(
       z.object({

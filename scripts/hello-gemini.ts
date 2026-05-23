@@ -20,10 +20,7 @@ async function main() {
     process.exit(1);
   }
 
-  const modelId =
-    process.env.GEMINI_MODELS?.split(",").map((m) => m.trim()).find(Boolean) ??
-    process.env.GEMINI_MODEL ??
-    "gemini-3.1-flash-lite";
+  const modelId = process.env.GEMINI_MODEL ?? "gemini-flash-latest";
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: modelId });
   const result = await model.generateContent({

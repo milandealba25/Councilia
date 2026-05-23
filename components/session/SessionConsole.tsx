@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadUserContext, saveUserContext } from "@/lib/survey/storage";
-import { loadAuthSession } from "@/lib/auth/client";
 import { SURVEY_VERSION, type UserContext } from "@/lib/survey/survey.v1";
 import { AGENT_IDS, type AgentId } from "@/lib/agents/ids";
 import { AgentCard } from "@/components/agents/AgentCard";
@@ -32,11 +31,8 @@ import {
   unlockVoicePlayback,
 } from "@/lib/voice/audioContextPlayer";
 import {
-  buildConversationMemory,
-  createPersistentChatSession,
-  getChatSession,
-  savePersistentChatTurn,
-  setActiveChatId,
+  createChatSession,
+  saveChatTurn,
   type ChatTurn,
 } from "@/lib/chat/chatStorage";
 
@@ -105,7 +101,6 @@ interface State {
 
 type Action =
   | { type: "ctx_loaded"; ctx: UserContext }
-  | { type: "hydrate_chat"; turns: ChatTurn[] }
   | { type: "user_input"; value: string }
   | { type: "submit_user"; message: string }
   | { type: "initial_event"; event: InitialEvent }
@@ -141,14 +136,6 @@ function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "ctx_loaded":
       return { ...state, ctx: action.ctx };
-
-    case "hydrate_chat":
-      return {
-        ...INITIAL_STATE,
-        ctx: state.ctx,
-        phase: action.turns.length > 0 ? "wait" : "idle",
-        pastTurns: action.turns.map(chatTurnToCompletedTurn),
-      };
 
     case "user_input":
       return { ...state, userInput: action.value };
@@ -367,33 +354,6 @@ function markAllError(
   }
   return next;
 }
-function chatTurnToCompletedTurn(turn: ChatTurn): CompletedTurn {
-  return {
-    userMessage: turn.userMessage,
-    agents: {
-      marco: {
-        state: turn.agents.marco ? "complete" : "idle",
-        text: turn.agents.marco ?? "",
-      },
-      elena: {
-        state: turn.agents.elena ? "complete" : "idle",
-        text: turn.agents.elena ?? "",
-      },
-      rafael: {
-        state: turn.agents.rafael ? "complete" : "idle",
-        text: turn.agents.rafael ?? "",
-      },
-    },
-    attenuated: [],
-    replica: turn.replica
-      ? {
-          ...turn.replica,
-          tensionScore: 0,
-          state: "complete",
-        }
-      : null,
-  };
-}
 
 /**
  * Pausa breve tras mostrar "Alguien toma la palabra" y antes de pedir la réplica
@@ -507,10 +467,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   const [spokenAgents, setSpokenAgents] = useState<Set<AgentId>>(new Set());
   const [autoPlayPaused, setAutoPlayPaused] = useState(false);
   const [composerExpanded, setComposerExpanded] = useState(false);
-  const [voiceEnabled] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return localStorage.getItem("councilia.voiceEnabled") !== "false";
-  });
 
   const stopAllAudio = useCallback(() => {
     playbackAbortRef.current?.abort();
@@ -545,43 +501,22 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
 
   useEffect(() => {
     activeChatIdRef.current = chatId;
-    const storedChat = chatId ? getChatSession(chatId) : null;
-    if (storedChat) {
-      dispatch({ type: "hydrate_chat", turns: storedChat.turns });
-    }
   }, [chatId]);
 
   useEffect(() => {
     if (!activeChatIdRef.current) {
-      async function createChat() {
-        const guestMode =
-          typeof window !== "undefined" &&
-          new URLSearchParams(window.location.search).get("guest") === "1";
-        if (!loadAuthSession() && !guestMode) return;
-        try {
-          const session = await createPersistentChatSession();
-          activeChatIdRef.current = session.id;
-          setActiveChatId(session.id);
-          onChatCreated?.(session.id);
-        } catch {
-          router.replace("/onboarding" as never);
-        }
-      }
-      void createChat();
+      const session = createChatSession();
+      activeChatIdRef.current = session.id;
+      onChatCreated?.(session.id);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const guestMode =
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).get("guest") === "1";
-    if (!loadAuthSession() && !guestMode) {
-      router.replace("/");
-      return;
-    }
-
     const stored = loadUserContext();
     if (!stored) {
+      const guestMode =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("guest") === "1";
       if (guestMode) {
         const guestContext: UserContext = {
           surveyVersion: SURVEY_VERSION,
@@ -639,8 +574,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       stuck.resolve();
     }
 
-    const conversationMemory = buildConversationMemory(activeChatIdRef.current);
-
     dispatch({ type: "submit_user", message });
 
     try {
@@ -651,7 +584,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       for await (const ev of streamInitial({
         userContext: state.ctx,
         userMessage: message,
-        conversationMemory,
         signal: ctrl.signal,
       })) {
         dispatch({ type: "initial_event", event: ev });
@@ -701,53 +633,51 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
         agentRevealGateRef.current = null;
       }
 
-      if (voiceEnabled) {
-        const phase1VoiceQueue = AGENT_IDS
-          .map((id) => ({ agent: id, text: collected[id].trim() }))
-          .filter((item) => item.text.length > 0);
-        if (phase1VoiceQueue.length > 0) {
-          const playCtrl = new AbortController();
-          playbackAbortRef.current = playCtrl;
+      const phase1VoiceQueue = AGENT_IDS
+        .map((id) => ({ agent: id, text: collected[id].trim() }))
+        .filter((item) => item.text.length > 0);
+      if (phase1VoiceQueue.length > 0) {
+        const playCtrl = new AbortController();
+        playbackAbortRef.current = playCtrl;
 
-          const blobCache = new Map<AgentId, Blob>();
-          const prefetchResults = await Promise.all(
-            phase1VoiceQueue.map(async (item) => {
-              try {
-                const res = await fetch("/api/voice/tts", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ agent: item.agent, text: item.text }),
-                  signal: ctrl.signal,
-                });
-                if (res.ok) {
-                  const blob = await res.blob();
-                  if (blob.size > 0) return { agent: item.agent, blob };
-                }
-              } catch { /* fallback on play */ }
-              return { agent: item.agent, blob: null as Blob | null };
-            }),
-          );
-          for (const { agent, blob } of prefetchResults) {
-            if (blob) blobCache.set(agent, blob);
-          }
-
-          for (const item of phase1VoiceQueue) {
-            if (ctrl.signal.aborted || playCtrl.signal.aborted) break;
-            setSpeakingAgent(item.agent);
-            const cached = blobCache.get(item.agent);
-            if (cached) {
-              try {
-                await playAudioBlob(cached, playCtrl.signal);
-              } catch {
-                await playWithWebSpeechFallback(item.text, playCtrl.signal);
+        const blobCache = new Map<AgentId, Blob>();
+        const prefetchResults = await Promise.all(
+          phase1VoiceQueue.map(async (item) => {
+            try {
+              const res = await fetch("/api/voice/tts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ agent: item.agent, text: item.text }),
+                signal: ctrl.signal,
+              });
+              if (res.ok) {
+                const blob = await res.blob();
+                if (blob.size > 0) return { agent: item.agent, blob };
               }
-            } else {
-              await playAgentVoice(item.agent, item.text, playCtrl.signal);
-            }
-            setSpokenAgents((prev) => new Set(prev).add(item.agent));
-          }
-          setSpeakingAgent(null);
+            } catch { /* fallback on play */ }
+            return { agent: item.agent, blob: null as Blob | null };
+          }),
+        );
+        for (const { agent, blob } of prefetchResults) {
+          if (blob) blobCache.set(agent, blob);
         }
+
+        for (const item of phase1VoiceQueue) {
+          if (ctrl.signal.aborted || playCtrl.signal.aborted) break;
+          setSpeakingAgent(item.agent);
+          const cached = blobCache.get(item.agent);
+          if (cached) {
+            try {
+              await playAudioBlob(cached, playCtrl.signal);
+            } catch {
+              await playWithWebSpeechFallback(item.text, playCtrl.signal);
+            }
+          } else {
+            await playAgentVoice(item.agent, item.text, playCtrl.signal);
+          }
+          setSpokenAgents((prev) => new Set(prev).add(item.agent));
+        }
+        setSpeakingAgent(null);
       }
 
       dispatch({ type: "phase1_done" });
@@ -769,7 +699,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       for await (const ev of streamReplica({
         userContext: state.ctx,
         userMessage: message,
-        conversationMemory,
         postures,
         signal: ctrl.signal,
       })) {
@@ -778,7 +707,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
         if (ev.type === "delta") replicaText += ev.text;
       }
 
-      if (voiceEnabled && replicaSpeaker && replicaText.trim().length > 0) {
+      if (replicaSpeaker && replicaText.trim().length > 0) {
         const playCtrl = new AbortController();
         playbackAbortRef.current = playCtrl;
         if (!ctrl.signal.aborted && !playCtrl.signal.aborted) {
@@ -805,7 +734,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
                 }
               : null,
         };
-        await savePersistentChatTurn(activeChatIdRef.current, turn);
+        saveChatTurn(activeChatIdRef.current, turn);
       }
 
       dispatch({ type: "replica_done" });
@@ -842,7 +771,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       const synthesis = await requestSynthesis({
         userContext: state.ctx,
         transcript,
-        conversationMemory: buildConversationMemory(activeChatIdRef.current),
         signal: ctrl.signal,
       });
       dispatch({ type: "synthesis_done", synthesis });
@@ -1197,11 +1125,11 @@ function ConfigErrorBanner({
   onDismiss: () => void;
 }) {
   const HINTS: Partial<Record<LlmErrorCode, string>> = {
-    auth: "Define una clave válida en GEMINI_API_KEY y reinicia el servidor. En local, edita .env.local y reinicia npm run dev.",
+    auth: "Define una clave válida de Gemini en GEMINI_API_KEY (Vercel u otro hosting) y vuelve a desplegar. En local, edita .env.local y reinicia npm run dev.",
     quota:
-      "El proveedor está limitando llamadas. Espera unos segundos o revisa la cuota disponible de Gemini.",
+      "El proveedor está limitando llamadas. Espera unos segundos o sube la cuota en Google AI Studio.",
     network:
-      "La red entre el servidor y el proveedor de IA falló. Reintenta; si persiste, revisa logs del hosting.",
+      "La red entre el servidor y Gemini falló. Reintenta; si persiste, revisa logs del hosting.",
   };
   const hint = HINTS[code];
   return (
@@ -1252,8 +1180,8 @@ function CrisisBanner({
         onClick={onReset}
         className="mt-5 text-xs uppercase tracking-wider text-muted hover:text-foreground"
       >
-      Empezar de nuevo cuando estés
-    </button>
+        Empezar de nuevo cuando estés
+      </button>
     </div>
   );
 }

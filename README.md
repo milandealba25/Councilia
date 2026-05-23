@@ -38,32 +38,6 @@ CI (`.github/workflows/test.yml`): `npm ci`, lint, typecheck, tests y build con 
 
 ---
 
-## Deploy en Vercel
-
-El repo incluye `vercel.json` para usar el preset de Next.js con `npm ci` y `npm run build`. También fija Node.js 20 desde `package.json`, igual que CI.
-
-1. Importa el repo en Vercel como proyecto Next.js.
-2. Usa estos settings si Vercel no los autocompleta:
-   - Install Command: `npm ci`
-   - Build Command: `npm run build`
-   - Output Directory: dejar vacío / default de Next.js
-3. En `Settings -> Environment Variables`, define al menos:
-   - `GEMINI_API_KEY`
-   - `NEXT_PUBLIC_APP_URL` con la URL pública de producción, por ejemplo `https://councilia.app`
-4. Define también estas si activas auth/perfiles con Supabase:
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-5. Opcionales:
-   - `ELEVENLABS_API_KEY`
-   - `GEMINI_MODEL`
-   - `GEMINI_THINKING_BUDGET`
-   - `LOG_LEVEL`
-
-Para builds de CI sin secretos se puede usar `SKIP_ENV_VALIDATION=1`, pero no lo actives en producción real porque ocultaría errores de configuración.
-
----
-
 ## Documentación del producto
 
 - Visión, scope, agentes, flujo, stack, operaciones, roadmap, principios y legales: carpeta [`docs/`](./docs/).

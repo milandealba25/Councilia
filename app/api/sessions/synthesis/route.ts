@@ -23,7 +23,6 @@ import { emit as emitEvent } from "@/lib/observability/events";
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
 
 export async function POST(req: Request) {
   const requestId = crypto.randomUUID();
@@ -52,7 +51,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { userContext, transcript, conversationMemory } = parsed;
+  const { userContext, transcript } = parsed;
   let llm;
   try {
     llm = getLlm();
@@ -76,10 +75,6 @@ export async function POST(req: Request) {
     "",
     renderIntentCalibrationBlock(userContext),
     "",
-    conversationMemory
-      ? `Memoria breve de conversaciones previas:\n${conversationMemory}`
-      : "",
-    conversationMemory ? "" : "",
     "Transcripción de la deliberación:",
     ...transcript.map((t) => `[${t.role}] ${t.text.trim()}`),
     "",
