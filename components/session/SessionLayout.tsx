@@ -55,6 +55,7 @@ export function SessionLayout() {
 
   const handleChatCreated = useCallback((id: string) => {
     setChatId(id);
+    setActiveChatId(id);
   }, []);
 
   return (

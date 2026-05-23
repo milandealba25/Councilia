@@ -63,6 +63,11 @@ export function LoginForm() {
   }, [requestedEmail, requestedMode]);
 
   useEffect(() => {
+    router.prefetch("/session");
+    router.prefetch("/onboarding");
+  }, [router]);
+
+  useEffect(() => {
     async function routeActiveSession() {
       const destination = await resolvePostAuthRedirect(next);
       if (destination !== "/login") {

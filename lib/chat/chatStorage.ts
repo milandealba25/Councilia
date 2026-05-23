@@ -44,16 +44,52 @@ function readAll(): ChatSession[] {
 
 function writeAll(sessions: ChatSession[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sortSessions(sessions)));
   window.dispatchEvent(new Event(CHAT_CHANGE_EVENT));
 }
 
 function upsertSession(session: ChatSession): void {
   const all = readAll();
   const idx = all.findIndex((s) => s.id === session.id);
-  if (idx === -1) all.push(session);
-  else all[idx] = session;
+  const next = idx === -1 ? session : mergeSession(all[idx], session);
+  if (idx === -1) all.push(next);
+  else all[idx] = next;
   writeAll(all);
+}
+
+function sortSessions(sessions: ChatSession[]): ChatSession[] {
+  return [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+function mergeSession(local: ChatSession, incoming: ChatSession): ChatSession {
+  const turns =
+    local.turns.length > incoming.turns.length ? local.turns : incoming.turns;
+  return {
+    ...local,
+    ...incoming,
+    turns,
+    title:
+      incoming.title === "Nuevo chat" && local.title !== "Nuevo chat"
+        ? local.title
+        : incoming.title,
+    updatedAt: Math.max(local.updatedAt, incoming.updatedAt),
+    summary: incoming.summary || local.summary,
+    keyFacts:
+      Array.isArray(incoming.keyFacts) && incoming.keyFacts.length > 0
+        ? incoming.keyFacts
+        : local.keyFacts,
+  };
+}
+
+function mergeServerSessions(incoming: ChatSession[]): ChatSession[] {
+  const local = readAll();
+  const byId = new Map<string, ChatSession>();
+  for (const session of local) byId.set(session.id, session);
+  for (const session of incoming) {
+    const existing = byId.get(session.id);
+    byId.set(session.id, existing ? mergeSession(existing, session) : session);
+  }
+  return sortSessions(Array.from(byId.values()));
 }
 
 function authHeaders(): Record<string, string> | null {
@@ -70,7 +106,7 @@ export function chatChangeEventName(): string {
 }
 
 export function getChatSessions(): ChatSession[] {
-  return readAll().sort((a, b) => b.updatedAt - a.updatedAt);
+  return sortSessions(readAll());
 }
 
 export function getChatSession(id: string): ChatSession | null {
@@ -86,9 +122,10 @@ export async function refreshChatSessionsFromServer(): Promise<ChatSession[]> {
     | { sessions?: ChatSession[] }
     | null;
   if (!Array.isArray(data?.sessions)) return getChatSessions();
-  writeAll(data.sessions);
+  const merged = mergeServerSessions(data.sessions);
+  writeAll(merged);
   const activeId = getActiveChatId();
-  if (activeId && !data.sessions.some((s) => s.id === activeId)) {
+  if (activeId && !merged.some((s) => s.id === activeId)) {
     clearActiveChatId();
   }
   return getChatSessions();
@@ -104,9 +141,7 @@ export function createChatSession(): ChatSession {
     summary: "",
     keyFacts: [],
   };
-  const all = readAll();
-  all.push(session);
-  writeAll(all);
+  upsertSession(session);
   setActiveChatId(session.id);
   return session;
 }
@@ -117,11 +152,16 @@ export async function createPersistentChatSession(): Promise<ChatSession> {
   const response = await fetch("/api/chats", {
     method: "POST",
     headers,
-  });
-  if (!response.ok) {
-    throw new Error("No pudimos crear el chat.");
+  }).catch(() => null);
+  if (!response) return createChatSession();
+  if (response.status === 409) {
+    throw new Error("survey_required");
   }
-  const data = (await response.json()) as { session: ChatSession };
+  if (!response.ok) return createChatSession();
+  const data = (await response.json().catch(() => null)) as
+    | { session?: ChatSession }
+    | null;
+  if (!data?.session) return createChatSession();
   upsertSession(data.session);
   setActiveChatId(data.session.id);
   return data.session;

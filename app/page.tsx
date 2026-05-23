@@ -21,6 +21,12 @@ export default function Home() {
   const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
+    router.prefetch("/login?next=/session");
+    router.prefetch("/session");
+    router.prefetch("/onboarding");
+  }, [router]);
+
+  useEffect(() => {
     async function routeActiveSession() {
       const session = loadAuthSession();
       if (!session) {

@@ -533,6 +533,16 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
     setAutoPlayPaused(false);
   }, []);
 
+  const expandComposer = useCallback(() => {
+    setComposerExpanded(true);
+    window.requestAnimationFrame(() => {
+      document.getElementById("session-composer")?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+  }, []);
+
   function releaseAgentRevealGate(id: AgentId) {
     const g = agentRevealGateRef.current;
     if (!g || !g.pending.has(id)) return;
@@ -563,8 +573,10 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
           activeChatIdRef.current = session.id;
           setActiveChatId(session.id);
           onChatCreated?.(session.id);
-        } catch {
-          router.replace("/onboarding" as never);
+        } catch (err) {
+          if ((err as Error).message === "survey_required") {
+            router.replace("/onboarding" as never);
+          }
         }
       }
       void createChat();
@@ -900,6 +912,34 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
         </p>
       )}
 
+      {state.phase === "wait" && !composerExpanded && (
+        <div
+          className="rounded-council border border-border bg-surface/85 p-4 shadow-soft backdrop-blur"
+          style={{ animation: "soft-rise 300ms ease-out both" }}
+        >
+          <p className="text-xs font-medium uppercase tracking-wider text-muted">
+            Tu turno
+          </p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Button onClick={expandComposer}>Continuar el chat</Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                dispatch({ type: "user_input", value: "" });
+                expandComposer();
+              }}
+            >
+              Decirles otra cosa
+            </Button>
+            {canRequestSynthesis && (
+              <Button variant="secondary" onClick={handleSynthesis}>
+                Pedir que cierren contigo
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
       {state.pastTurns.map((turn, turnIdx) => (
         <div key={turnIdx} className="flex flex-col gap-6 border-b border-border/30 pb-8">
           <div className="rounded-council border border-border bg-elevated/40 px-4 py-3 text-sm leading-relaxed text-foreground/85 opacity-80">
@@ -1046,41 +1086,9 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
 
       {showComposer && (
         <>
-          {state.phase === "wait" && !composerExpanded ? (
-            <div
-              className="flex flex-col gap-3"
-              style={{ animation: "soft-rise 400ms ease-out both" }}
-            >
-              <p className="text-xs font-medium uppercase tracking-wider text-muted">
-                ¿Qué quieres hacer?
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  onClick={() => setComposerExpanded(true)}
-                >
-                  Continúa sobre el tema
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setComposerExpanded(true);
-                    dispatch({ type: "user_input", value: "" });
-                  }}
-                >
-                  Decirles otra cosa
-                </Button>
-                {canRequestSynthesis && (
-                  <Button
-                    variant="secondary"
-                    onClick={handleSynthesis}
-                  >
-                    Pedir que cierren contigo
-                  </Button>
-                )}
-              </div>
-            </div>
-          ) : (
+          {state.phase === "wait" && !composerExpanded ? null : (
             <form
+              id="session-composer"
               onSubmit={handleSubmit}
               className="flex flex-col gap-3"
               style={
