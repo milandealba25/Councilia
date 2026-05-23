@@ -11,12 +11,13 @@ import {
 import { loadAuthSession } from "@/lib/auth/client";
 import {
   fetchSurveyStatus,
-  loadEntryEmail,
-  markSurveyPending,
-  saveEntryEmail,
   syncPendingSurvey,
 } from "@/lib/auth/flow";
-import { saveUserContext } from "@/lib/survey/storage";
+import {
+  loadUserContextDraft,
+  saveUserContext,
+  saveUserContextDraft,
+} from "@/lib/survey/storage";
 import { Button } from "@/components/ui/Button";
 
 type Answers = Partial<Omit<UserContext, "surveyVersion">>;
@@ -52,17 +53,20 @@ export function SurveyForm() {
   const progress = Math.round((answered / total) * 100);
 
   function setAnswer<K extends keyof Answers>(key: K, value: Answers[K]) {
-    setAnswers((prev) => ({ ...prev, [key]: value }));
+    setAnswers((prev) => {
+      const next = { ...prev, [key]: value };
+      saveUserContextDraft(next);
+      return next;
+    });
   }
 
   useEffect(() => {
-    const email = new URLSearchParams(window.location.search).get("email");
-    if (email) saveEntryEmail(email);
+    setAnswers(loadUserContextDraft());
 
     async function guardCompletedSurvey() {
       const session = loadAuthSession();
       if (!session) {
-        setCheckingStatus(false);
+        router.replace("/login?mode=register&next=/onboarding" as never);
         return;
       }
       const status = await fetchSurveyStatus(session);
@@ -96,12 +100,7 @@ export function SurveyForm() {
     saveUserContext(parsed.data);
     const session = loadAuthSession();
     if (!session) {
-      markSurveyPending();
-      const email = loadEntryEmail();
-      const suffix = email ? `&email=${encodeURIComponent(email)}` : "";
-      router.push(
-        `/login?mode=register&next=/session&reason=survey${suffix}` as never,
-      );
+      router.push("/login?mode=register&next=/onboarding" as never);
       return;
     }
     const synced = await syncPendingSurvey(session, { force: true });

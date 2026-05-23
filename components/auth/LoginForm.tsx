@@ -61,6 +61,17 @@ export function LoginForm() {
     if (requestedEmail) setEmail(requestedEmail);
   }, [requestedEmail, requestedMode]);
 
+  useEffect(() => {
+    async function routeActiveSession() {
+      const destination = await resolvePostAuthRedirect(next);
+      if (destination !== "/login") {
+        router.replace(destination as never);
+      }
+    }
+
+    void routeActiveSession();
+  }, [next, router]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!formValid || submitting) return;

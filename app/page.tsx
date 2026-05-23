@@ -11,14 +11,12 @@ import { ExampleSection } from "@/components/landing/ExampleSection";
 import { PrinciplesSection } from "@/components/landing/PrinciplesSection";
 import { CTASection } from "@/components/landing/CTASection";
 import { Footer } from "@/components/landing/Footer";
-import { AccountCheckOverlay } from "@/components/landing/AccountCheckOverlay";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { loadAuthSession } from "@/lib/auth/client";
 import { resolvePostAuthRedirect } from "@/lib/auth/flow";
 
 export default function Home() {
   const router = useRouter();
-  const [overlayOpen, setOverlayOpen] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
@@ -35,29 +33,31 @@ export default function Home() {
     void routeActiveSession();
   }, [router]);
 
+  function goToAccess() {
+    router.push("/login?next=/session" as never);
+  }
+
   return (
     <div
       className="relative isolate min-h-dvh overflow-x-hidden"
       aria-busy={checkingSession}
     >
       <AuroraBackground />
-      <Header onStart={() => setOverlayOpen(true)} />
+      <Header fixed onStart={goToAccess} />
       <main className="relative z-10">
-        <Hero onStart={() => setOverlayOpen(true)} />
+        <div className="pt-16">
+          <Hero onStart={goToAccess} />
+        </div>
         <UseCasesSection />
         <CouncilSection />
         <FlowSection />
         <ExampleSection />
         <PrinciplesSection />
-        <CTASection onStart={() => setOverlayOpen(true)} />
+        <CTASection onStart={goToAccess} />
       </main>
       <div className="relative z-10">
         <Footer />
       </div>
-      <AccountCheckOverlay
-        open={overlayOpen}
-        onClose={() => setOverlayOpen(false)}
-      />
     </div>
   );
 }
