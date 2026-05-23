@@ -37,6 +37,7 @@ import {
   setActiveChatId,
   getChatSession,
   savePersistentChatTurn,
+  type ChatSession,
   type ChatTurn,
 } from "@/lib/chat/chatStorage";
 
@@ -101,11 +102,13 @@ interface State {
   configError: ConfigErrorState | null;
   loading: boolean;
   pastTurns: CompletedTurn[];
+  summary: string;
 }
 
 type Action =
   | { type: "ctx_loaded"; ctx: UserContext }
-  | { type: "hydrate_chat"; turns: ChatTurn[] }
+  | { type: "hydrate_chat"; session: ChatSession }
+  | { type: "memory_updated"; summary: string }
   | { type: "user_input"; value: string }
   | { type: "submit_user"; message: string }
   | { type: "initial_event"; event: InitialEvent }
@@ -135,6 +138,7 @@ const INITIAL_STATE: State = {
   configError: null,
   loading: false,
   pastTurns: [],
+  summary: "",
 };
 
 function reducer(state: State, action: Action): State {
@@ -146,9 +150,13 @@ function reducer(state: State, action: Action): State {
       return {
         ...INITIAL_STATE,
         ctx: state.ctx,
-        phase: action.turns.length > 0 ? "wait" : "idle",
-        pastTurns: action.turns.map(chatTurnToCompletedTurn),
+        phase: action.session.turns.length > 0 ? "wait" : "idle",
+        pastTurns: action.session.turns.map(chatTurnToCompletedTurn),
+        summary: action.session.summary?.trim() ?? "",
       };
+
+    case "memory_updated":
+      return { ...state, summary: action.summary.trim() };
 
     case "user_input":
       return { ...state, userInput: action.value };
@@ -506,7 +514,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   const [speakingAgent, setSpeakingAgent] = useState<AgentId | null>(null);
   const [spokenAgents, setSpokenAgents] = useState<Set<AgentId>>(new Set());
   const [autoPlayPaused, setAutoPlayPaused] = useState(false);
-  const [composerExpanded, setComposerExpanded] = useState(false);
   const [voiceEnabled] = useState(() => {
     if (typeof window === "undefined") return true;
     return localStorage.getItem("councilia.voiceEnabled") !== "false";
@@ -533,16 +540,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
     setAutoPlayPaused(false);
   }, []);
 
-  const expandComposer = useCallback(() => {
-    setComposerExpanded(true);
-    window.requestAnimationFrame(() => {
-      document.getElementById("session-composer")?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    });
-  }, []);
-
   function releaseAgentRevealGate(id: AgentId) {
     const g = agentRevealGateRef.current;
     if (!g || !g.pending.has(id)) return;
@@ -557,7 +554,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
     activeChatIdRef.current = chatId;
     const storedChat = chatId ? getChatSession(chatId) : null;
     if (storedChat) {
-      dispatch({ type: "hydrate_chat", turns: storedChat.turns });
+      dispatch({ type: "hydrate_chat", session: storedChat });
     }
   }, [chatId]);
 
@@ -644,7 +641,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
     setSpeakingAgent(null);
     setSpokenAgents(new Set());
     setAutoPlayPaused(false);
-    setComposerExpanded(false);
     if (agentRevealGateRef.current) {
       const stuck = agentRevealGateRef.current;
       agentRevealGateRef.current = null;
@@ -768,7 +764,25 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
         .filter((id) => collected[id].trim().length > 0)
         .map((id) => ({ agent: id, text: collected[id].trim() }));
 
+      const persistTurn = async (replica: ChatTurn["replica"]) => {
+        if (!activeChatIdRef.current) return;
+        const turn: ChatTurn = {
+          userMessage: message,
+          agents: {
+            marco: collected.marco.trim(),
+            elena: collected.elena.trim(),
+            rafael: collected.rafael.trim(),
+          },
+          replica,
+        };
+        const updated = await savePersistentChatTurn(activeChatIdRef.current, turn);
+        if (updated?.summary) {
+          dispatch({ type: "memory_updated", summary: updated.summary });
+        }
+      };
+
       if (postures.length < 2) {
+        await persistTurn(null);
         dispatch({ type: "replica_done" });
         return;
       }
@@ -800,25 +814,17 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
         }
       }
 
-      if (activeChatIdRef.current) {
-        const turn: ChatTurn = {
-          userMessage: message,
-          agents: {
-            marco: collected.marco.trim(),
-            elena: collected.elena.trim(),
-            rafael: collected.rafael.trim(),
-          },
-          replica:
-            replicaSpeaker && replicaText.trim().length > 0
-              ? {
-                  speaker: replicaSpeaker,
-                  respondingTo: postures.find((p) => p.agent !== replicaSpeaker)?.agent ?? "marco",
-                  text: replicaText.trim(),
-                }
-              : null,
-        };
-        await savePersistentChatTurn(activeChatIdRef.current, turn);
-      }
+      await persistTurn(
+        replicaSpeaker && replicaText.trim().length > 0
+          ? {
+              speaker: replicaSpeaker,
+              respondingTo:
+                postures.find((p) => p.agent !== replicaSpeaker)?.agent ??
+                "marco",
+              text: replicaText.trim(),
+            }
+          : null,
+      );
 
       dispatch({ type: "replica_done" });
     } catch (err) {
@@ -912,32 +918,13 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
         </p>
       )}
 
-      {state.phase === "wait" && !composerExpanded && (
-        <div
-          className="rounded-council border border-border bg-surface/85 p-4 shadow-soft backdrop-blur"
-          style={{ animation: "soft-rise 300ms ease-out both" }}
-        >
-          <p className="text-xs font-medium uppercase tracking-wider text-muted">
-            Tu turno
+      {state.summary.trim() && (
+        <section className="rounded-council border border-border bg-surface/80 px-4 py-3 text-sm leading-relaxed text-foreground/85">
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted">
+            Resumen guardado
           </p>
-          <div className="mt-3 flex flex-wrap gap-3">
-            <Button onClick={expandComposer}>Continuar el chat</Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                dispatch({ type: "user_input", value: "" });
-                expandComposer();
-              }}
-            >
-              Decirles otra cosa
-            </Button>
-            {canRequestSynthesis && (
-              <Button variant="secondary" onClick={handleSynthesis}>
-                Pedir que cierren contigo
-              </Button>
-            )}
-          </div>
-        </div>
+          {state.summary}
+        </section>
       )}
 
       {state.pastTurns.map((turn, turnIdx) => (
@@ -1085,18 +1072,16 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       )}
 
       {showComposer && (
-        <>
-          {state.phase === "wait" && !composerExpanded ? null : (
-            <form
-              id="session-composer"
-              onSubmit={handleSubmit}
-              className="flex flex-col gap-3"
-              style={
-                state.phase === "wait"
-                  ? { animation: "soft-rise 300ms ease-out both" }
-                  : undefined
-              }
-            >
+        <form
+          id="session-composer"
+          onSubmit={handleSubmit}
+          className="flex flex-col gap-3"
+          style={
+            state.phase === "wait"
+              ? { animation: "soft-rise 300ms ease-out both" }
+              : undefined
+          }
+        >
               <label
                 htmlFor="user-input"
                 className="text-xs font-medium uppercase tracking-wider text-muted"
@@ -1121,15 +1106,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
               <div className="flex items-center justify-between text-xs text-muted">
                 <span>{state.userInput.length} / 4000</span>
                 <div className="flex items-center gap-2">
-                  {state.phase === "wait" && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => setComposerExpanded(false)}
-                    >
-                      ← Atrás
-                    </Button>
-                  )}
                   {canRequestSynthesis && (
                     <Button
                       type="button"
@@ -1144,9 +1120,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
                   </Button>
                 </div>
               </div>
-            </form>
-          )}
-        </>
+        </form>
       )}
     </div>
   );

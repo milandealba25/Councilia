@@ -17,6 +17,7 @@ import {
 export function SessionLayout() {
   const [chatId, setChatId] = useState<string | null>(() => getActiveChatId());
   const [consoleKey, setConsoleKey] = useState(0);
+  const [chatsHydrated, setChatsHydrated] = useState(false);
 
   useEffect(() => {
     async function hydrateChats() {
@@ -25,6 +26,7 @@ export function SessionLayout() {
       if (active) {
         setChatId(active);
         setConsoleKey((k) => k + 1);
+        setChatsHydrated(true);
         return;
       }
       if (sessions[0]) {
@@ -32,6 +34,7 @@ export function SessionLayout() {
         setChatId(sessions[0].id);
         setConsoleKey((k) => k + 1);
       }
+      setChatsHydrated(true);
     }
 
     void hydrateChats();
@@ -113,11 +116,15 @@ export function SessionLayout() {
             </p>
           </header>
 
-          <SessionConsole
-            key={consoleKey}
-            chatId={chatId}
-            onChatCreated={handleChatCreated}
-          />
+          {chatsHydrated ? (
+            <SessionConsole
+              key={consoleKey}
+              chatId={chatId}
+              onChatCreated={handleChatCreated}
+            />
+          ) : (
+            <p className="text-sm text-muted">Cargando tus chats...</p>
+          )}
         </Container>
       </main>
     </div>
