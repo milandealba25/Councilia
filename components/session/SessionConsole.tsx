@@ -901,7 +901,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
     state.phase === "idle" || state.phase === "wait" || state.phase === "fase2";
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-[34px]">
       <PhaseIndicator phase={state.phase} />
 
       {state.configError && (

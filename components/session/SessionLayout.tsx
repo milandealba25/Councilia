@@ -71,24 +71,15 @@ export function SessionLayout() {
 
       <main className="flex-1 py-12">
         <Container className="max-w-5xl">
-          <div className="flex items-center justify-between">
+          <div className="relative flex items-center justify-between">
             <Link
               href="/"
               className="text-xs uppercase tracking-wider text-muted hover:text-foreground"
             >
               ← Inicio
             </Link>
-            <Link
-              href="/account"
-              className="text-xs uppercase tracking-wider text-muted hover:text-foreground"
-            >
-              Cuenta
-            </Link>
-          </div>
-
-          <header className="mt-8 mb-10">
             <div
-              className="mb-5 flex items-center gap-3"
+              className="absolute left-1/2 flex -translate-x-1/2 items-center gap-3"
               aria-label="Tu council"
             >
               {AGENT_IDS.map((id, i) => (
@@ -98,10 +89,19 @@ export function SessionLayout() {
                     animation: `soft-rise 700ms ease-out ${i * 140}ms both`,
                   }}
                 >
-                  <AgentFace agent={id} size={52} mood="listening" />
+                  <AgentFace agent={id} size={47} mood="listening" />
                 </span>
               ))}
             </div>
+            <Link
+              href="/account"
+              className="text-xs uppercase tracking-wider text-muted hover:text-foreground"
+            >
+              Cuenta
+            </Link>
+          </div>
+
+          <header className="mt-8 mb-[34px]">
             <p className="text-xs font-medium uppercase tracking-widest text-accent">
               Tu council está aquí
             </p>
