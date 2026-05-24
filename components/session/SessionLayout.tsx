@@ -24,6 +24,7 @@ export function SessionLayout() {
   const [consoleKey, setConsoleKey] = useState(0);
   const [chatsHydrated, setChatsHydrated] = useState(false);
   const [creatingChat, setCreatingChat] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     async function hydrateChats() {
@@ -125,6 +126,33 @@ export function SessionLayout() {
     void chooseReplacement();
   }, [chatId, router]);
 
+  const handleDeleteChats = useCallback((ids: string[]) => {
+    if (!chatId || !ids.includes(chatId)) return;
+    const deletingIds = new Set(ids);
+    async function chooseReplacement() {
+      const next = getChatSessions().find(
+        (session) => !deletingIds.has(session.id),
+      );
+      if (next) {
+        setActiveChatId(next.id);
+        setChatId(next.id);
+        setConsoleKey((k) => k + 1);
+        return;
+      }
+      try {
+        const session = await createPersistentChatSession();
+        setActiveChatId(session.id);
+        setChatId(session.id);
+        setConsoleKey((k) => k + 1);
+      } catch (err) {
+        if ((err as Error).message === "survey_required") {
+          router.replace("/onboarding" as never);
+        }
+      }
+    }
+    void chooseReplacement();
+  }, [chatId, router]);
+
   return (
     <div className="flex min-h-dvh">
       <ChatSidebar
@@ -132,7 +160,9 @@ export function SessionLayout() {
         onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
         onDeleteChat={handleDeleteChat}
+        onDeleteChats={handleDeleteChats}
         newChatPending={creatingChat}
+        onCollapsedChange={setSidebarCollapsed}
       />
 
       <main className="flex-1 py-12">
@@ -186,6 +216,7 @@ export function SessionLayout() {
             <SessionConsole
               key={consoleKey}
               chatId={chatId}
+              sidebarCollapsed={sidebarCollapsed}
             />
           ) : (
             <p className="text-sm text-muted">Cargando tus chats...</p>

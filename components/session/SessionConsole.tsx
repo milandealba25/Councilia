@@ -343,14 +343,20 @@ function chatTurnToCompletedTurn(turn: ChatTurn): CompletedTurn {
 
 interface SessionConsoleProps {
   chatId: string | null;
+  sidebarCollapsed?: boolean;
 }
 
-export function SessionConsole({ chatId }: SessionConsoleProps) {
+export function SessionConsole({
+  chatId,
+  sidebarCollapsed = false,
+}: SessionConsoleProps) {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
   const activeChatIdRef = useRef<string | null>(chatId);
+  const responseSectionRef = useRef<HTMLElement | null>(null);
+  const shouldScrollToCouncilRef = useRef(false);
 
   useEffect(() => {
     activeChatIdRef.current = chatId;
@@ -398,7 +404,23 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
     [],
   );
 
-  // (Auto-scroll desactivado: el usuario controla el scroll manualmente.)
+  useEffect(() => {
+    if (
+      !shouldScrollToCouncilRef.current ||
+      state.phase !== "fase1" ||
+      !state.lastUserMessage
+    ) {
+      return;
+    }
+    shouldScrollToCouncilRef.current = false;
+    window.requestAnimationFrame(() => {
+      const target = responseSectionRef.current;
+      if (!target) return;
+      const offset = Math.min(56, Math.max(12, window.innerHeight * 0.04));
+      const top = target.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    });
+  }, [state.phase, state.lastUserMessage]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -422,6 +444,7 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
       ? savePersistentChatTurn(submissionChatId, draftTurn).catch(() => null)
       : Promise.resolve(null);
 
+    shouldScrollToCouncilRef.current = true;
     dispatch({ type: "submit_user", message });
 
     try {
@@ -501,6 +524,10 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
     (state.phase === "idle" || state.phase === "wait");
 
   const showComposer = state.phase !== "fase4";
+  const composerClassName = [
+    "fixed bottom-4 left-3 right-3 z-20 mx-auto flex w-auto max-w-5xl flex-col gap-2 rounded-council border border-border-strong/70 bg-surface/90 p-3 shadow-council-lg backdrop-blur transition-[left,right,max-width] duration-300 ease-in-out",
+    sidebarCollapsed ? "md:left-4 md:right-4" : "md:left-[calc(256px+1rem)] md:right-4",
+  ].join(" ");
 
   return (
     <div className="flex flex-col gap-[34px] pb-32">
@@ -575,6 +602,7 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
 
       {state.lastUserMessage && (
         <section
+          ref={responseSectionRef}
           aria-label="Respuestas del council"
           className="flex scroll-mt-8 flex-col gap-5"
           style={{ animation: "soft-rise 500ms ease-out both" }}
@@ -661,35 +689,30 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
         <form
           id="session-composer"
           onSubmit={handleSubmit}
-          className="fixed bottom-4 left-[calc(256px+(100vw-256px)/2)] z-20 flex w-[min(64rem,calc(100vw-288px))] -translate-x-1/2 flex-col gap-2 rounded-council border border-border-strong/70 bg-surface/90 p-3 shadow-council-lg backdrop-blur"
-          style={
-            state.phase === "wait"
-              ? { animation: "soft-rise 300ms ease-out both" }
-              : undefined
-          }
+          className={composerClassName}
         >
-              <textarea
-                id="user-input"
-                aria-label="Mensaje para el council"
-                value={state.userInput}
-                onChange={(e) =>
-                  dispatch({ type: "user_input", value: e.target.value })
-                }
-                maxLength={4000}
-                rows={2}
-                disabled={state.phase === "fase4"}
-                placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
-                className="max-h-32 resize-none rounded-council border border-border-strong/70 bg-elevated/80 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
-                autoFocus={state.phase === "wait"}
-              />
-              <div className="flex items-center justify-between text-xs text-muted">
-                <span>{state.userInput.length} / 4000</span>
-                <div className="flex items-center gap-2">
-                  <Button type="submit" disabled={!canSubmit}>
-                    {state.loading ? "Escuchando…" : "Enviar"}
-                  </Button>
-                </div>
-              </div>
+          <textarea
+            id="user-input"
+            aria-label="Mensaje para el council"
+            value={state.userInput}
+            onChange={(e) =>
+              dispatch({ type: "user_input", value: e.target.value })
+            }
+            maxLength={4000}
+            rows={2}
+            disabled={state.phase === "fase4"}
+            placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
+            className="max-h-32 resize-none rounded-council border border-border-strong/70 bg-elevated/80 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
+            autoFocus={state.phase === "wait"}
+          />
+          <div className="flex items-center justify-between text-xs text-muted">
+            <span>{state.userInput.length} / 4000</span>
+            <div className="flex items-center gap-2">
+              <Button type="submit" disabled={!canSubmit}>
+                {state.loading ? "Espera…" : "Enviar"}
+              </Button>
+            </div>
+          </div>
         </form>
       )}
     </div>
