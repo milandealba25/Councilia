@@ -27,7 +27,9 @@ export function SessionLayout() {
 
   useEffect(() => {
     async function hydrateChats() {
-      const sessions = await refreshChatSessionsFromServer();
+      const sessions = await refreshChatSessionsFromServer().catch(() =>
+        getChatSessions(),
+      );
       const active = getActiveChatId();
       if (active) {
         setChatId(active);
@@ -86,7 +88,9 @@ export function SessionLayout() {
   const handleSelectChat = useCallback((id: string) => {
     if (id === chatId) return;
     async function select() {
-      const sessions = await refreshChatSessionsFromServer();
+      const sessions = await refreshChatSessionsFromServer().catch(() =>
+        getChatSessions(),
+      );
       const session =
         sessions.find((item) => item.id === id) ?? getChatSession(id);
       if (!session) return;

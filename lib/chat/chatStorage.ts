@@ -170,8 +170,8 @@ export function getChatSession(id: string): ChatSession | null {
 export async function refreshChatSessionsFromServer(): Promise<ChatSession[]> {
   const headers = authHeaders();
   if (!headers) return getChatSessions();
-  const response = await fetch("/api/chats", { headers });
-  if (!response.ok) return getChatSessions();
+  const response = await fetch("/api/chats", { headers }).catch(() => null);
+  if (!response?.ok) return getChatSessions();
   const data = (await response.json().catch(() => null)) as
     | { sessions?: ChatSession[] }
     | null;
@@ -258,8 +258,8 @@ export async function savePersistentChatTurn(
     method: "POST",
     headers,
     body: JSON.stringify({ turn }),
-  });
-  if (!response.ok) return getChatSession(chatId);
+  }).catch(() => null);
+  if (!response?.ok) return getChatSession(chatId);
   const data = (await response.json().catch(() => null)) as
     | { session?: ChatSession }
     | null;
@@ -290,8 +290,8 @@ export async function renamePersistentChatSession(
     method: "PATCH",
     headers,
     body: JSON.stringify({ title }),
-  });
-  if (!response.ok) return;
+  }).catch(() => null);
+  if (!response?.ok) return;
   const data = (await response.json().catch(() => null)) as
     | { session?: ChatSession }
     | null;

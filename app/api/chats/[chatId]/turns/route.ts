@@ -43,7 +43,8 @@ export async function POST(
       );
     }
     return NextResponse.json({ session });
-  } catch {
+  } catch (err) {
+    console.error("[chats.turns] save failed", err);
     return NextResponse.json(
       { error: "No pudimos guardar el turno." },
       { status: 502 },

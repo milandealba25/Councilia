@@ -34,10 +34,22 @@ export function ChatSidebar({
   const [renameValue, setRenameValue] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const submittedRenameIdRef = useRef<string | null>(null);
+  const cancelledRenameRef = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
     setSessions(getChatSessions());
-    void refreshChatSessionsFromServer().then(setSessions);
+    void refreshChatSessionsFromServer()
+      .then((nextSessions) => {
+        if (!cancelled) setSessions(nextSessions);
+      })
+      .catch(() => {
+        if (!cancelled) setSessions(getChatSessions());
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [activeChatId]);
 
   useEffect(() => {
@@ -76,6 +88,8 @@ export function ChatSidebar({
 
   function handleRenameStart(id: string) {
     const session = sessions.find((s) => s.id === id);
+    submittedRenameIdRef.current = null;
+    cancelledRenameRef.current = false;
     setRenameValue(session?.title ?? "");
     setRenamingId(id);
     setMenuOpenId(null);
@@ -83,9 +97,15 @@ export function ChatSidebar({
 
   async function handleRenameSubmit() {
     if (!renamingId) return;
-    await renamePersistentChatSession(renamingId, renameValue);
-    setSessions(getChatSessions());
+    const id = renamingId;
+    if (cancelledRenameRef.current || submittedRenameIdRef.current === id) {
+      return;
+    }
+    submittedRenameIdRef.current = id;
+    const title = renameValue;
     setRenamingId(null);
+    await renamePersistentChatSession(id, title).catch(() => undefined);
+    setSessions(getChatSessions());
   }
 
   function handleDeleteRequest(id: string) {
@@ -203,8 +223,15 @@ export function ChatSidebar({
                       onChange={(e) => setRenameValue(e.target.value)}
                       onBlur={() => void handleRenameSubmit()}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") void handleRenameSubmit();
-                        if (e.key === "Escape") setRenamingId(null);
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void handleRenameSubmit();
+                        }
+                        if (e.key === "Escape") {
+                          e.preventDefault();
+                          cancelledRenameRef.current = true;
+                          setRenamingId(null);
+                        }
                       }}
                       onClick={(e) => e.stopPropagation()}
                       className="w-full rounded border border-accent/40 bg-background px-1.5 py-0.5 text-sm font-medium text-foreground outline-none focus:border-accent"

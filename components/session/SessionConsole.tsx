@@ -179,13 +179,21 @@ function reducer(state: State, action: Action): State {
     case "initial_event":
       return applyInitialEvent(state, action.event);
 
-    case "phase1_done":
+    case "phase1_done": {
+      const completedAgents = { ...state.agents };
+      for (const id of AGENT_IDS) {
+        if (completedAgents[id].state === "streaming") {
+          completedAgents[id] = { ...completedAgents[id], state: "complete" };
+        }
+      }
       return {
         ...state,
+        agents: completedAgents,
         phase: "wait",
         loading: false,
         replicaPending: false,
       };
+    }
 
     case "replica_done":
       return {
@@ -292,21 +300,6 @@ function applyInitialEvent(state: State, ev: InitialEvent): State {
   return state;
 }
 
-function delay(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    if (signal?.aborted) return resolve();
-    const t = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    function onAbort() {
-      clearTimeout(t);
-      resolve();
-    }
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
 function markAllError(
   agents: Record<AgentId, AgentSlot>,
   error: string,
@@ -348,9 +341,6 @@ function chatTurnToCompletedTurn(turn: ChatTurn): CompletedTurn {
   };
 }
 
-const POST_AGENT_REVEAL_MS = 0;
-
-
 interface SessionConsoleProps {
   chatId: string | null;
 }
@@ -361,20 +351,6 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
   const activeChatIdRef = useRef<string | null>(chatId);
-  const agentRevealGateRef = useRef<{
-    pending: Set<AgentId>;
-    resolve: () => void;
-  } | null>(null);
-
-  function releaseAgentRevealGate(id: AgentId) {
-    const g = agentRevealGateRef.current;
-    if (!g || !g.pending.has(id)) return;
-    g.pending.delete(id);
-    if (g.pending.size === 0) {
-      agentRevealGateRef.current = null;
-      g.resolve();
-    }
-  }
 
   useEffect(() => {
     activeChatIdRef.current = chatId;
@@ -432,11 +408,6 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-    if (agentRevealGateRef.current) {
-      const stuck = agentRevealGateRef.current;
-      agentRevealGateRef.current = null;
-      stuck.resolve();
-    }
 
     const submissionChatId = activeChatIdRef.current;
     const turnId = createChatTurnId();
@@ -455,8 +426,6 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
 
     try {
       const collected: Record<AgentId, string> = { marco: "", elena: "", rafael: "" };
-      let attenuatedIds: AgentId[] = [];
-      const errored = new Set<AgentId>();
       let crisis = false;
       for await (const ev of streamInitial({
         userContext: state.ctx,
@@ -465,51 +434,12 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
         signal: ctrl.signal,
       })) {
         dispatch({ type: "initial_event", event: ev });
-        if (ev.type === "meta") attenuatedIds = ev.attenuated;
         if (ev.type === "delta") collected[ev.agent] += ev.text;
-        if (ev.type === "error") errored.add(ev.agent);
         if (ev.type === "crisis") crisis = true;
       }
       if (crisis) return;
 
-      const agentsNeedReveal = AGENT_IDS.filter(
-        (id) =>
-          !attenuatedIds.includes(id) &&
-          !errored.has(id) &&
-          collected[id].trim().length > 0,
-      );
-
-      const anyPostureText = AGENT_IDS.some(
-        (id) => collected[id].trim().length > 0,
-      );
-
-      const abortRevealWait = () => {
-        const g = agentRevealGateRef.current;
-        if (g) {
-          agentRevealGateRef.current = null;
-          g.resolve();
-        }
-      };
-      ctrl.signal.addEventListener("abort", abortRevealWait);
-
-      try {
-        if (agentsNeedReveal.length > 0) {
-          await new Promise<void>((resolve) => {
-            agentRevealGateRef.current = {
-              pending: new Set(agentsNeedReveal),
-              resolve,
-            };
-          });
-        }
-        if (ctrl.signal.aborted) return;
-        if (anyPostureText) {
-          await delay(POST_AGENT_REVEAL_MS, ctrl.signal);
-        }
-        if (ctrl.signal.aborted) return;
-      } finally {
-        ctrl.signal.removeEventListener("abort", abortRevealWait);
-        agentRevealGateRef.current = null;
-      }
+      if (ctrl.signal.aborted) return;
 
       const completedTurn: ChatTurn = {
         turnId,
@@ -670,7 +600,6 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
                   text={slot.text || undefined}
                   attenuated={state.attenuated.includes(id)}
                   errorMessage={headline}
-                  onRevealComplete={() => releaseAgentRevealGate(id)}
                   isUserTyping={
                     state.userInput.length > 0 &&
                     (state.phase === "idle" || state.phase === "wait")

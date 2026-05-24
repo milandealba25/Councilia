@@ -263,34 +263,56 @@ function conversationToDto(
 }
 
 function messagesToTurns(messages: MessageRestRow[]): ChatTurnPayload[] {
-  const withTurnIds = messages.filter((m) => typeof m.content_json?.turn_id === "string");
-  if (withTurnIds.length > 0) {
-    const groups = new Map<string, MessageRestRow[]>();
-    for (const message of withTurnIds) {
-      const turnId = String(message.content_json?.turn_id);
-      const group = groups.get(turnId) ?? [];
-      group.push(message);
-      groups.set(turnId, group);
+  const groupedTurns: Array<{ createdAt: string; turn: ChatTurnPayload }> = [];
+  const byTurnId = new Map<string, MessageRestRow[]>();
+  let legacyGroup: MessageRestRow[] = [];
+
+  function pushLegacyGroup() {
+    if (legacyGroup.length === 0) return;
+    const turn = messagesGroupToTurn(legacyGroup);
+    if (turn) {
+      groupedTurns.push({
+        createdAt: legacyGroup[0]?.created_at ?? "",
+        turn,
+      });
     }
-    return Array.from(groups.values())
-      .sort((a, b) => a[0].created_at.localeCompare(b[0].created_at))
-      .map(messagesGroupToTurn)
-      .filter(Boolean) as ChatTurnPayload[];
+    legacyGroup = [];
   }
 
-  const turns: ChatTurnPayload[] = [];
-  let current: MessageRestRow[] = [];
   for (const message of messages) {
-    if (message.role === "user" && current.length > 0) {
-      const turn = messagesGroupToTurn(current);
-      if (turn) turns.push(turn);
-      current = [];
+    const turnId =
+      typeof message.content_json?.turn_id === "string"
+        ? String(message.content_json.turn_id)
+        : null;
+    if (turnId) {
+      pushLegacyGroup();
+      const group = byTurnId.get(turnId) ?? [];
+      group.push(message);
+      byTurnId.set(turnId, group);
+      continue;
     }
-    current.push(message);
+
+    if (message.role === "user" && legacyGroup.length > 0) {
+      pushLegacyGroup();
+    }
+    legacyGroup.push(message);
   }
-  const last = messagesGroupToTurn(current);
-  if (last) turns.push(last);
-  return turns;
+  pushLegacyGroup();
+
+  for (const group of byTurnId.values()) {
+    const turn = messagesGroupToTurn(group);
+    if (turn) {
+      const userCreatedAt =
+        group.find((message) => message.role === "user")?.created_at ??
+        group[0]?.created_at ??
+        "";
+      groupedTurns.push({ createdAt: userCreatedAt, turn });
+    }
+  }
+
+  return groupedTurns
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .map((item) => item.turn);
 }
 
 function messagesGroupToTurn(messages: MessageRestRow[]): ChatTurnPayload | null {
