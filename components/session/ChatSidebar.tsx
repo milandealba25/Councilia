@@ -15,9 +15,17 @@ interface Props {
   activeChatId: string | null;
   onSelectChat: (id: string) => void;
   onNewChat: () => void;
+  onDeleteChat?: (id: string) => void;
+  newChatPending?: boolean;
 }
 
-export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
+export function ChatSidebar({
+  activeChatId,
+  onSelectChat,
+  onNewChat,
+  onDeleteChat,
+  newChatPending = false,
+}: Props) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
@@ -87,9 +95,11 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
 
   async function handleConfirmDelete() {
     if (!confirmDeleteId) return;
-    await deletePersistentChatSession(confirmDeleteId);
-    setSessions(getChatSessions());
+    const id = confirmDeleteId;
     setConfirmDeleteId(null);
+    onDeleteChat?.(id);
+    await deletePersistentChatSession(id);
+    setSessions(getChatSessions());
   }
 
   const handleExport = useCallback((id: string) => {
@@ -278,10 +288,12 @@ export function ChatSidebar({ activeChatId, onSelectChat, onNewChat }: Props) {
           <button
             type="button"
             onClick={onNewChat}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-accent/40 px-3 py-2 text-xs font-medium uppercase tracking-wider text-accent transition hover:border-accent hover:bg-accent/5"
+            disabled={newChatPending}
+            aria-busy={newChatPending}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-accent/40 px-3 py-2 text-xs font-medium uppercase tracking-wider text-accent transition hover:border-accent hover:bg-accent/5 disabled:cursor-wait disabled:opacity-60"
           >
             <PlusIcon />
-            Nuevo chat
+            {newChatPending ? "Creando..." : "Nuevo chat"}
           </button>
         </div>
       </aside>

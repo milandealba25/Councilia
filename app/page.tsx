@@ -28,6 +28,13 @@ export default function Home() {
 
   useEffect(() => {
     async function routeActiveSession() {
+      const openedFromSession =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("from") === "session";
+      if (openedFromSession) {
+        setCheckingSession(false);
+        return;
+      }
       const session = loadAuthSession();
       if (!session) {
         setCheckingSession(false);

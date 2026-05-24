@@ -4,6 +4,7 @@ import type { AgentId } from "@/lib/agents/ids";
 import { loadAuthSession } from "@/lib/auth/client";
 
 export interface ChatTurn {
+  turnId?: string;
   userMessage: string;
   agents: Record<string, string>;
   replica: {
@@ -29,6 +30,13 @@ const CHAT_CHANGE_EVENT = "councilia:chats-change";
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function createChatTurnId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return generateId();
 }
 
 function readAll(): ChatSession[] {
@@ -62,8 +70,7 @@ function sortSessions(sessions: ChatSession[]): ChatSession[] {
 }
 
 function mergeSession(local: ChatSession, incoming: ChatSession): ChatSession {
-  const turns =
-    local.turns.length > incoming.turns.length ? local.turns : incoming.turns;
+  const turns = mergeTurns(local.turns, incoming.turns);
   return {
     ...local,
     ...incoming,
@@ -79,6 +86,53 @@ function mergeSession(local: ChatSession, incoming: ChatSession): ChatSession {
         ? incoming.keyFacts
         : local.keyFacts,
   };
+}
+
+function mergeTurns(localTurns: ChatTurn[], incomingTurns: ChatTurn[]): ChatTurn[] {
+  const byKey = new Map<string, ChatTurn>();
+  const order: string[] = [];
+
+  function keyFor(turn: ChatTurn, index: number, source: "local" | "incoming") {
+    return turn.turnId ?? `${source}:${index}`;
+  }
+
+  function setTurn(key: string, turn: ChatTurn) {
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, turn);
+      order.push(key);
+      return;
+    }
+    byKey.set(key, pickMoreCompleteTurn(existing, turn));
+  }
+
+  localTurns.forEach((turn, index) => setTurn(keyFor(turn, index, "local"), turn));
+  incomingTurns.forEach((turn, index) => {
+    if (!turn.turnId) {
+      const local = localTurns[index];
+      if (local && !local.turnId) {
+        const key = keyFor(local, index, "local");
+        byKey.set(key, pickMoreCompleteTurn(byKey.get(key) ?? local, turn));
+        return;
+      }
+    }
+    setTurn(keyFor(turn, index, "incoming"), turn);
+  });
+
+  return order.map((key) => byKey.get(key)).filter(Boolean) as ChatTurn[];
+}
+
+function pickMoreCompleteTurn(a: ChatTurn, b: ChatTurn): ChatTurn {
+  return turnCompleteness(b) >= turnCompleteness(a) ? b : a;
+}
+
+function turnCompleteness(turn: ChatTurn): number {
+  let score = turn.userMessage.trim().length > 0 ? 1 : 0;
+  for (const text of Object.values(turn.agents ?? {})) {
+    if (text.trim()) score += 1;
+  }
+  if (turn.replica?.text.trim()) score += 1;
+  return score;
 }
 
 function mergeServerSessions(incoming: ChatSession[]): ChatSession[] {
@@ -171,7 +225,17 @@ export function saveChatTurn(chatId: string, turn: ChatTurn): void {
   const all = readAll();
   const idx = all.findIndex((s) => s.id === chatId);
   if (idx === -1) return;
-  all[idx].turns.push(turn);
+  const existingTurnIdx = turn.turnId
+    ? all[idx].turns.findIndex((item) => item.turnId === turn.turnId)
+    : -1;
+  if (existingTurnIdx >= 0) {
+    all[idx].turns[existingTurnIdx] = pickMoreCompleteTurn(
+      all[idx].turns[existingTurnIdx],
+      turn,
+    );
+  } else {
+    all[idx].turns.push(turn);
+  }
   all[idx].updatedAt = Date.now();
   if (all[idx].turns.length === 1) {
     all[idx].title =

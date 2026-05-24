@@ -12,6 +12,7 @@ import { LlmError } from "@/orchestrator/llm";
 const agentIdSchema = z.enum(AGENT_IDS);
 
 export const chatTurnPayloadSchema = z.object({
+  turnId: z.string().trim().min(1).max(80).optional(),
   userMessage: z.string().trim().min(1).max(4000),
   agents: z.object({
     marco: z.string().default(""),
@@ -183,36 +184,56 @@ export async function appendTurnToUserChat(
   );
   if (!conversation) return null;
 
-  const turnId = crypto.randomUUID();
-  const rows = buildMessageRows(chatId, turnId, turn);
-  const messagesUrl = new URL("/rest/v1/messages", supabaseUrl);
-  const messageResponse = await fetch(messagesUrl, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(rows),
-  });
-  if (!messageResponse.ok) {
-    throw new Error(`append_turn_failed_${messageResponse.status}`);
+  const turnId = turn.turnId ?? crypto.randomUUID();
+  const turnWithId: ChatTurnPayload = { ...turn, turnId };
+  const existingTurnMessages = turn.turnId
+    ? await fetchMessagesForTurn(supabaseUrl, headers, chatId, turnId)
+    : [];
+  if (turn.turnId) {
+    await deleteResponseMessagesForTurn(supabaseUrl, headers, chatId, turnId);
   }
 
-  const memory = await summarizeTurn(conversation, turn);
+  const rows = buildMessageRows(chatId, turnId, turnWithId, {
+    includeUser: !existingTurnMessages.some((message) => message.role === "user"),
+  });
+  if (rows.length > 0) {
+    const messagesUrl = new URL("/rest/v1/messages", supabaseUrl);
+    const messageResponse = await fetch(messagesUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(rows),
+    });
+    if (!messageResponse.ok) {
+      throw new Error(`append_turn_failed_${messageResponse.status}`);
+    }
+  }
+
+  const hasCouncilResponse =
+    AGENT_IDS.some((agent) => turnWithId.agents[agent]?.trim()) ||
+    !!turnWithId.replica;
+  const memory = hasCouncilResponse
+    ? await summarizeTurn(conversation, turnWithId)
+    : null;
   const title =
     !conversation.title || conversation.title === "Nuevo chat"
-      ? inferTitle(turn.userMessage)
+      ? inferTitle(turnWithId.userMessage)
       : conversation.title;
   const updateUrl = new URL("/rest/v1/conversations", supabaseUrl);
   updateUrl.searchParams.set("id", `eq.${chatId}`);
   updateUrl.searchParams.set("user_id", `eq.${auth.user.id}`);
+  const updatePayload: Record<string, unknown> = {
+    title,
+    updated_at: new Date().toISOString(),
+  };
+  if (memory) {
+    updatePayload.summary = memory.summary;
+    updatePayload.key_facts = memory.keyFacts;
+    updatePayload.last_summarized_at = new Date().toISOString();
+  }
   const updateResponse = await fetch(updateUrl, {
     method: "PATCH",
     headers: { ...headers, prefer: "return=representation" },
-    body: JSON.stringify({
-      title,
-      summary: memory.summary,
-      key_facts: memory.keyFacts,
-      last_summarized_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }),
+    body: JSON.stringify(updatePayload),
   });
 
   const updatedRows = updateResponse.ok
@@ -275,6 +296,8 @@ function messagesToTurns(messages: MessageRestRow[]): ChatTurnPayload[] {
 function messagesGroupToTurn(messages: MessageRestRow[]): ChatTurnPayload | null {
   const user = messages.find((m) => m.role === "user");
   if (!user) return null;
+  const turnId = messages.find((m) => typeof m.content_json?.turn_id === "string")
+    ?.content_json?.turn_id as string | undefined;
   const agents: Record<AgentId, string> = {
     marco: "",
     elena: "",
@@ -289,6 +312,7 @@ function messagesGroupToTurn(messages: MessageRestRow[]): ChatTurnPayload | null
     (m) => m.role === "agent" && m.phase === "replica" && m.agent_id,
   );
   return {
+    turnId,
     userMessage: user.content,
     agents,
     replica:
@@ -306,16 +330,18 @@ function buildMessageRows(
   chatId: string,
   turnId: string,
   turn: ChatTurnPayload,
+  options: { includeUser?: boolean } = {},
 ): Array<Record<string, unknown>> {
   const base = { conversation_id: chatId, content_json: { turn_id: turnId } };
-  const rows: Array<Record<string, unknown>> = [
-    {
+  const rows: Array<Record<string, unknown>> = [];
+  if (options.includeUser ?? true) {
+    rows.push({
       ...base,
       role: "user",
       phase: "user_input",
       content: turn.userMessage,
-    },
-  ];
+    });
+  }
   for (const agent of AGENT_IDS) {
     const content = turn.agents[agent]?.trim();
     if (!content) continue;
@@ -338,6 +364,46 @@ function buildMessageRows(
     });
   }
   return rows;
+}
+
+async function fetchMessagesForTurn(
+  supabaseUrl: string,
+  headers: Record<string, string>,
+  chatId: string,
+  turnId: string,
+): Promise<MessageRestRow[]> {
+  const url = new URL("/rest/v1/messages", supabaseUrl);
+  url.searchParams.set(
+    "select",
+    "id,conversation_id,agent_id,role,phase,content,content_json,replies_to_agent_id,created_at",
+  );
+  url.searchParams.set("conversation_id", `eq.${chatId}`);
+  url.searchParams.set("content_json->>turn_id", `eq.${turnId}`);
+  url.searchParams.set("order", "created_at.asc");
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    throw new Error(`fetch_turn_messages_failed_${response.status}`);
+  }
+  return response.json();
+}
+
+async function deleteResponseMessagesForTurn(
+  supabaseUrl: string,
+  headers: Record<string, string>,
+  chatId: string,
+  turnId: string,
+): Promise<void> {
+  const url = new URL("/rest/v1/messages", supabaseUrl);
+  url.searchParams.set("conversation_id", `eq.${chatId}`);
+  url.searchParams.set("content_json->>turn_id", `eq.${turnId}`);
+  url.searchParams.set("role", "eq.agent");
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers,
+  });
+  if (!response.ok) {
+    throw new Error(`delete_turn_responses_failed_${response.status}`);
+  }
 }
 
 async function fetchConversations(

@@ -1,5 +1,4 @@
 import { AgentFace } from "@/components/agents/AgentFace";
-import { SpeakButton } from "@/components/agents/SpeakButton";
 import { StreamingAgentText } from "@/components/agents/StreamingAgentText";
 import { AGENT_LABELS, type AgentId } from "@/lib/agents/ids";
 
@@ -10,14 +9,6 @@ interface Props {
   respondingTo: AgentId;
   text: string;
   state: State;
-  /** Fuerza deshabilitar el SpeakButton. */
-  speakButtonDisabled?: boolean;
-  /** Detiene todo audio activo antes de iniciar reproducción manual. */
-  onBeforePlay?: () => void;
-  isAutoPlaying?: boolean;
-  autoPlayPaused?: boolean;
-  onPauseAutoPlay?: () => void;
-  onResumeAutoPlay?: () => void;
 }
 
 const STATE_DOT: Record<State, string> = {
@@ -32,22 +23,7 @@ const STATE_LABEL: Record<State, string> = {
   skipped: "Sin contradicción",
 };
 
-/**
- * D5 · Card de réplica. Etiquetada con "X responde a Y" y flecha visual.
- * Tipográficamente distinta de las cards de fase 1: una sola card ancha.
- */
-export function ReplicaCard({
-  speaker,
-  respondingTo,
-  text,
-  state,
-  speakButtonDisabled = false,
-  onBeforePlay,
-  isAutoPlaying = false,
-  autoPlayPaused = false,
-  onPauseAutoPlay,
-  onResumeAutoPlay,
-}: Props) {
+export function ReplicaCard({ speaker, respondingTo, text, state }: Props) {
   return (
     <article className="relative flex flex-col items-center gap-4 rounded-council border border-accent/40 bg-elevated p-6 text-center shadow-council">
       <span
@@ -76,7 +52,9 @@ export function ReplicaCard({
         </div>
 
         <div className="flex w-full items-center justify-center gap-2 text-[11px] uppercase tracking-wider text-muted md:ml-0 md:w-auto">
-          <span className={`inline-block size-1.5 shrink-0 rounded-full ${STATE_DOT[state]}`} />
+          <span
+            className={`inline-block size-1.5 shrink-0 rounded-full ${STATE_DOT[state]}`}
+          />
           {STATE_LABEL[state] ? (
             <span>{STATE_LABEL[state]}</span>
           ) : state === "complete" ? (
@@ -85,7 +63,7 @@ export function ReplicaCard({
         </div>
       </header>
 
-      <div className="w-full max-w-prose min-h-[4rem] text-left text-sm leading-relaxed text-foreground/90">
+      <div className="min-h-[4rem] w-full max-w-prose text-left text-sm leading-relaxed text-foreground/90">
         {state === "skipped" ? (
           <p className="italic text-muted">
             Esta vez no se contradijeron en serio. La conversación sigue sin
@@ -111,24 +89,6 @@ export function ReplicaCard({
           </p>
         )}
       </div>
-
-      {state === "complete" && text && (
-        <footer className="flex w-full max-w-prose flex-col items-center gap-3 border-t border-border/40 pt-3 sm:flex-row sm:justify-between">
-          <span className="text-[10px] uppercase tracking-wider text-subtle">
-            Escucha la pregunta de {AGENT_LABELS[speaker]}
-          </span>
-          <SpeakButton
-            agent={speaker}
-            text={text}
-            forceDisabled={speakButtonDisabled}
-            onBeforePlay={onBeforePlay}
-            isAutoPlaying={isAutoPlaying}
-            autoPlayPaused={autoPlayPaused}
-            onPauseAutoPlay={onPauseAutoPlay}
-            onResumeAutoPlay={onResumeAutoPlay}
-          />
-        </footer>
-      )}
     </article>
   );
 }

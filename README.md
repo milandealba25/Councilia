@@ -55,7 +55,6 @@ El repo incluye `vercel.json` para usar el preset de Next.js con `npm ci` y `npm
    - `SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
 5. Opcionales:
-   - `ELEVENLABS_API_KEY`
    - `GEMINI_MODEL`
    - `GEMINI_THINKING_BUDGET`
    - `LOG_LEVEL`

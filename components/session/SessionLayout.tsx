@@ -2,22 +2,28 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Container } from "@/components/ui/Container";
 import { SessionConsole } from "./SessionConsole";
 import { ChatSidebar } from "./ChatSidebar";
 import { AgentFace } from "@/components/agents/AgentFace";
 import { AGENT_IDS } from "@/lib/agents/ids";
+import { loadAuthSession } from "@/lib/auth/client";
 import {
   createPersistentChatSession,
   getActiveChatId,
+  getChatSession,
+  getChatSessions,
   refreshChatSessionsFromServer,
   setActiveChatId,
 } from "@/lib/chat/chatStorage";
 
 export function SessionLayout() {
+  const router = useRouter();
   const [chatId, setChatId] = useState<string | null>(() => getActiveChatId());
   const [consoleKey, setConsoleKey] = useState(0);
   const [chatsHydrated, setChatsHydrated] = useState(false);
+  const [creatingChat, setCreatingChat] = useState(false);
 
   useEffect(() => {
     async function hydrateChats() {
@@ -33,33 +39,87 @@ export function SessionLayout() {
         setActiveChatId(sessions[0].id);
         setChatId(sessions[0].id);
         setConsoleKey((k) => k + 1);
+        setChatsHydrated(true);
+        return;
+      }
+      const guestMode =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("guest") === "1";
+      if (loadAuthSession() || guestMode) {
+        try {
+          const session = await createPersistentChatSession();
+          setChatId(session.id);
+          setActiveChatId(session.id);
+          setConsoleKey((k) => k + 1);
+        } catch (err) {
+          if ((err as Error).message === "survey_required") {
+            router.replace("/onboarding" as never);
+          }
+        }
       }
       setChatsHydrated(true);
     }
 
     void hydrateChats();
-  }, []);
+  }, [router]);
 
   const handleNewChat = useCallback(() => {
+    if (creatingChat) return;
     async function create() {
-      const session = await createPersistentChatSession();
-      setChatId(session.id);
-      setActiveChatId(session.id);
-      setConsoleKey((k) => k + 1);
+      setCreatingChat(true);
+      try {
+        const session = await createPersistentChatSession();
+        setChatId(session.id);
+        setActiveChatId(session.id);
+        setConsoleKey((k) => k + 1);
+      } catch (err) {
+        if ((err as Error).message === "survey_required") {
+          router.replace("/onboarding" as never);
+        }
+      } finally {
+        setCreatingChat(false);
+      }
     }
     void create();
-  }, []);
+  }, [creatingChat, router]);
 
   const handleSelectChat = useCallback((id: string) => {
-    setChatId(id);
-    setActiveChatId(id);
-    setConsoleKey((k) => k + 1);
-  }, []);
+    if (id === chatId) return;
+    async function select() {
+      const sessions = await refreshChatSessionsFromServer();
+      const session =
+        sessions.find((item) => item.id === id) ?? getChatSession(id);
+      if (!session) return;
+      setActiveChatId(id);
+      setChatId(id);
+      setConsoleKey((k) => k + 1);
+    }
+    void select();
+  }, [chatId]);
 
-  const handleChatCreated = useCallback((id: string) => {
-    setChatId(id);
-    setActiveChatId(id);
-  }, []);
+  const handleDeleteChat = useCallback((id: string) => {
+    if (id !== chatId) return;
+    async function chooseReplacement() {
+      const next = getChatSessions().find((session) => session.id !== id);
+      if (next) {
+        setActiveChatId(next.id);
+        setChatId(next.id);
+        setConsoleKey((k) => k + 1);
+        return;
+      }
+      try {
+        const session = await createPersistentChatSession();
+        setActiveChatId(session.id);
+        setChatId(session.id);
+        setConsoleKey((k) => k + 1);
+      } catch (err) {
+        if ((err as Error).message === "survey_required") {
+          router.replace("/onboarding" as never);
+        }
+      }
+    }
+    void chooseReplacement();
+  }, [chatId, router]);
 
   return (
     <div className="flex min-h-dvh">
@@ -67,13 +127,15 @@ export function SessionLayout() {
         activeChatId={chatId}
         onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
+        onDeleteChat={handleDeleteChat}
+        newChatPending={creatingChat}
       />
 
       <main className="flex-1 py-12">
         <Container className="max-w-5xl">
           <div className="relative flex items-center justify-between">
             <Link
-              href="/"
+              href="/?from=session"
               className="text-xs uppercase tracking-wider text-muted hover:text-foreground"
             >
               ← Inicio
@@ -120,7 +182,6 @@ export function SessionLayout() {
             <SessionConsole
               key={consoleKey}
               chatId={chatId}
-              onChatCreated={handleChatCreated}
             />
           ) : (
             <p className="text-sm text-muted">Cargando tus chats...</p>
