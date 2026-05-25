@@ -6,34 +6,40 @@ import { AvatarUploader } from "@/components/auth/AvatarUploader";
 import { Button, LinkButton } from "@/components/ui/Button";
 import {
   clearAuthSession,
-  loadAuthSession,
+  getValidAuthSession,
   type AuthSession,
 } from "@/lib/auth/client";
+import { fetchSurveyStatus } from "@/lib/auth/flow";
 import { loadUserContext } from "@/lib/survey/storage";
-
-const VOICE_KEY = "councilia.voiceEnabled";
 
 export function AccountPanel() {
   const router = useRouter();
   const [session, setSession] = useState<AuthSession | null>(null);
   const [hasSurvey, setHasSurvey] = useState(false);
-  const [voiceOn, setVoiceOn] = useState(true);
 
   useEffect(() => {
-    setSession(loadAuthSession());
-    setHasSurvey(!!loadUserContext());
-    setVoiceOn(localStorage.getItem(VOICE_KEY) !== "false");
+    let active = true;
+
+    async function loadAccount() {
+      const current = await getValidAuthSession();
+      if (!active) return;
+      setSession(current);
+      setHasSurvey(!!loadUserContext());
+      if (current) {
+        const status = await fetchSurveyStatus(current);
+        if (active && status?.completed) setHasSurvey(true);
+      }
+    }
+
+    void loadAccount();
+    return () => {
+      active = false;
+    };
   }, []);
 
   function handleLogout() {
     clearAuthSession();
     router.push("/" as never);
-  }
-
-  function handleToggleVoice() {
-    const next = !voiceOn;
-    setVoiceOn(next);
-    localStorage.setItem(VOICE_KEY, String(next));
   }
 
   if (!session) {
@@ -62,45 +68,13 @@ export function AccountPanel() {
               {session.user.name}
             </p>
           )}
-          <p className="mt-3 leading-relaxed text-muted">{session.user.email}</p>
+          <p className="mt-3 leading-relaxed text-muted">
+            {session.user.email}
+          </p>
         </div>
       </div>
 
       <AvatarUploader session={session} onSessionChange={setSession} />
-
-      {/* Preferencias */}
-      <div className="rounded-lg border border-border bg-elevated/40 px-4 py-3">
-        <p className="text-[11px] font-medium uppercase tracking-widest text-muted">
-          Preferencias
-        </p>
-        <div className="mt-3 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              Voz de los agentes
-            </p>
-            <p className="text-xs text-muted">
-              {voiceOn
-                ? "Los agentes hablan después de escribir."
-                : "Los agentes solo escriben, sin audio."}
-            </p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={voiceOn}
-            onClick={handleToggleVoice}
-            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${
-              voiceOn ? "bg-accent" : "bg-border"
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block size-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                voiceOn ? "translate-x-5" : "translate-x-0"
-              }`}
-            />
-          </button>
-        </div>
-      </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
         {hasSurvey ? (

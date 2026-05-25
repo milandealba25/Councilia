@@ -29,6 +29,7 @@ export function AvatarUploader({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
+  const [uploadAttempted, setUploadAttempted] = useState(false);
 
   const initials = getInitials(session.user.name ?? session.user.email);
   const isLoading = status === "loading";
@@ -40,6 +41,7 @@ export function AvatarUploader({
     setError(null);
     setMessage(null);
     setImageFailed(false);
+    setUploadAttempted(true);
 
     if (!ACCEPTED_TYPES.includes(file.type)) {
       setError("Usa una imagen JPG, PNG o WebP.");
@@ -115,9 +117,11 @@ export function AvatarUploader({
             className="h-full w-full object-cover"
             onError={() => {
               setImageFailed(true);
-              setError(
-                "La foto se guardó, pero el navegador no puede leer la URL pública. Revisa que el bucket user-avatars sea público.",
-              );
+              if (uploadAttempted) {
+                setError(
+                  "La foto se guardó, pero el navegador no puede leer la URL pública. Revisa que el bucket user-avatars sea público.",
+                );
+              }
             }}
             referrerPolicy="no-referrer"
           />

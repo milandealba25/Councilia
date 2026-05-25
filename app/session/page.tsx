@@ -1,7 +1,11 @@
 import { SessionLayout } from "@/components/session/SessionLayout";
 
 export const metadata = {
-  title: "Tu council · COUNCILia",
+  title: "Tu council",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function SessionPage() {

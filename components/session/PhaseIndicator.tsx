@@ -4,8 +4,7 @@ const PHASES: ReadonlyArray<{ id: Phase; label: string }> = [
   { id: "idle", label: "Llegas" },
   { id: "fase1", label: "Te escuchan" },
   { id: "fase2", label: "Una pregunta dura" },
-  { id: "wait", label: "Tu turno" },
-  { id: "fase4", label: "Se cierra" },
+  { id: "wait", label: "Discusión sana" },
 ];
 
 interface Props {
@@ -17,7 +16,8 @@ interface Props {
  * No es un wizard — el usuario no controla la fase. Sólo informa.
  */
 export function PhaseIndicator({ phase }: Props) {
-  const activeIdx = PHASES.findIndex((p) => p.id === phase);
+  const visiblePhase = phase === "fase4" ? "wait" : phase;
+  const activeIdx = PHASES.findIndex((p) => p.id === visiblePhase);
   return (
     <ol className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wider text-muted">
       {PHASES.map((p, i) => {

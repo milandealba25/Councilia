@@ -1,5 +1,4 @@
 import { AgentFace } from "./AgentFace";
-import { SpeakButton } from "./SpeakButton";
 import { StreamingAgentText } from "./StreamingAgentText";
 import {
   AGENT_DOMINANT_QUESTION,
@@ -14,33 +13,15 @@ interface AgentCardProps {
   state?: State;
   text?: string;
   className?: string;
-  /** Se dispara cuando el texto terminó de revelarse (mecanografía al día). Solo en turnos con texto. */
   onRevealComplete?: () => void;
-  /** Si el usuario está escribiendo en el textarea, los rostros “escuchan”. */
   isUserTyping?: boolean;
-  /**
-   * El agente fue atenuado por la encuesta (doc 04, §8): no participa en
-   * fase 1 pero sí en la síntesis. La tarjeta lo comunica explícitamente
-   * para no parecer "perdida" o "esperando".
-   */
   attenuated?: boolean;
-  /** Mensaje de error que viene del servidor (cuando `state === "error"`). */
   errorMessage?: string;
-  /** Fuerza deshabilitar el SpeakButton (turno secuencial aún no llegó). */
-  speakButtonDisabled?: boolean;
-  /** Detiene todo audio activo antes de iniciar reproducción manual. */
-  onBeforePlay?: () => void;
-  /** El auto-playback secuencial está reproduciendo ESTE agente. */
-  isAutoPlaying?: boolean;
-  /** El auto-playback está en pausa. */
-  autoPlayPaused?: boolean;
-  onPauseAutoPlay?: () => void;
-  onResumeAutoPlay?: () => void;
 }
 
 const STATE_LABEL: Record<State, string> = {
   idle: "Te escucha",
-  streaming: "Está pensando…",
+  streaming: "Está pensando...",
   complete: "",
   error: "Algo se cortó",
 };
@@ -67,12 +48,6 @@ export function AgentCard({
   isUserTyping = false,
   attenuated = false,
   errorMessage,
-  speakButtonDisabled = false,
-  onBeforePlay,
-  isAutoPlaying = false,
-  autoPlayPaused = false,
-  onPauseAutoPlay,
-  onResumeAutoPlay,
 }: AgentCardProps) {
   const mood =
     state === "streaming"
@@ -88,12 +63,10 @@ export function AgentCard({
   const isTyping = state === "streaming" && !text;
   const isError = state === "error";
 
-  const statusLabel = attenuated && state === "idle"
-    ? "En voz baja hoy"
-    : STATE_LABEL[state];
-  const statusDot = attenuated && state === "idle"
-    ? "bg-tension/60"
-    : STATE_DOT[state];
+  const statusLabel =
+    attenuated && state === "idle" ? "En voz baja hoy" : STATE_LABEL[state];
+  const statusDot =
+    attenuated && state === "idle" ? "bg-tension/60" : STATE_DOT[state];
 
   return (
     <article
@@ -132,7 +105,7 @@ export function AgentCard({
         {AGENT_DOMINANT_QUESTION[agent]}
       </p>
 
-      <div className="mt-1 w-full max-w-prose flex-1 min-h-[4.5rem] text-left text-sm leading-relaxed text-foreground/90 break-words">
+      <div className="mt-1 min-h-[4.5rem] w-full max-w-prose flex-1 break-words text-left text-sm leading-relaxed text-foreground/90">
         {isTyping ? (
           <span
             className="typing-dots inline-flex"
@@ -160,29 +133,11 @@ export function AgentCard({
             {attenuated
               ? "Hoy escucha en voz baja. Vas a oírlo en la síntesis final, no en este turno."
               : isUserTyping
-                ? "Te está escuchando…"
+                ? "Te está escuchando..."
                 : "Aquí va a aparecer lo que te diga, en cuanto empiece a hablar."}
           </span>
         )}
       </div>
-
-      {state === "complete" && text && (
-        <footer className="flex w-full max-w-prose flex-col items-center gap-3 border-t border-border/40 pt-3 sm:flex-row sm:justify-between">
-          <span className="text-[10px] uppercase tracking-wider text-subtle">
-            Escúchalo en su voz
-          </span>
-          <SpeakButton
-            agent={agent}
-            text={text}
-            forceDisabled={speakButtonDisabled}
-            onBeforePlay={onBeforePlay}
-            isAutoPlaying={isAutoPlaying}
-            autoPlayPaused={autoPlayPaused}
-            onPauseAutoPlay={onPauseAutoPlay}
-            onResumeAutoPlay={onResumeAutoPlay}
-          />
-        </footer>
-      )}
     </article>
   );
 }

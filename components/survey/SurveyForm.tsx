@@ -8,18 +8,26 @@ import {
   userContextSchema,
   type UserContext,
 } from "@/lib/survey/survey.v1";
-import { loadAuthSession } from "@/lib/auth/client";
-import { saveUserContext } from "@/lib/survey/storage";
+import { getValidAuthSession } from "@/lib/auth/client";
+import {
+  fetchSurveyStatus,
+  syncPendingSurvey,
+} from "@/lib/auth/flow";
+import {
+  loadUserContextDraft,
+  saveUserContext,
+  saveUserContextDraft,
+} from "@/lib/survey/storage";
 import { Button } from "@/components/ui/Button";
 
 type Answers = Partial<Omit<UserContext, "surveyVersion">>;
 
 const QUESTION_INTROS: Record<string, string> = {
-  decisionType: "Para empezar…",
-  urgency: "· Y DIME…",
-  needFromCouncil: "· ALGO IMPORTANTE…",
-  fearedLoss: "· UNA ÚLTIMA COSA…",
-  ageRange: "· TU RANGO DE EDAD…",
+  decisionType: "Para empezar...",
+  urgency: "· Y DIME...",
+  needFromCouncil: "· ALGO IMPORTANTE...",
+  fearedLoss: "· UNA ÚLTIMA COSA...",
+  ageRange: "· TU RANGO DE EDAD...",
 };
 
 const QUESTION_ACKS: Record<string, string> = {
@@ -35,6 +43,7 @@ export function SurveyForm() {
   const [answers, setAnswers] = useState<Answers>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(true);
 
   const total = surveyV1Questions.length;
   const answered = surveyV1Questions.filter(
@@ -44,10 +53,34 @@ export function SurveyForm() {
   const progress = Math.round((answered / total) * 100);
 
   function setAnswer<K extends keyof Answers>(key: K, value: Answers[K]) {
-    setAnswers((prev) => ({ ...prev, [key]: value }));
+    setAnswers((prev) => {
+      const next = { ...prev, [key]: value };
+      saveUserContextDraft(next);
+      return next;
+    });
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  useEffect(() => {
+    setAnswers(loadUserContextDraft());
+
+    async function guardCompletedSurvey() {
+      const session = await getValidAuthSession();
+      if (!session) {
+        router.replace("/login?mode=register&next=/onboarding" as never);
+        return;
+      }
+      const status = await fetchSurveyStatus(session);
+      if (status?.completed) {
+        router.replace("/session" as never);
+        return;
+      }
+      setCheckingStatus(false);
+    }
+
+    void guardCompletedSurvey();
+  }, [router]);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isComplete || submitting) return;
     setSubmitting(true);
@@ -65,11 +98,22 @@ export function SurveyForm() {
     }
 
     saveUserContext(parsed.data);
-    if (!loadAuthSession()) {
-      router.push("/login?next=/session&reason=survey" as never);
+    const session = await getValidAuthSession();
+    if (!session) {
+      router.push("/login?mode=register&next=/onboarding" as never);
+      return;
+    }
+    const synced = await syncPendingSurvey(session, { force: true });
+    if (!synced) {
+      setError("No pudimos guardar la encuesta en tu cuenta. Intenta de nuevo.");
+      setSubmitting(false);
       return;
     }
     router.push("/session" as never);
+  }
+
+  if (checkingStatus) {
+    return <p className="text-sm text-muted">Revisando tus respuestas...</p>;
   }
 
   return (
@@ -126,7 +170,7 @@ export function SurveyForm() {
                 return (
                   <label
                     key={opt.value}
-                    className={`group relative flex cursor-pointer items-center gap-3 rounded-council border bg-elevated/60 px-4 py-3 text-sm transition-all duration-200 ${
+                    className={`group relative flex cursor-pointer items-center gap-3 rounded-council border bg-elevated/60 px-4 py-3 text-sm transition-all duration-200 focus-within:outline-none focus-within:ring-2 focus-within:ring-accent/45 focus-within:ring-offset-2 focus-within:ring-offset-background ${
                       isSelected
                         ? "border-accent bg-accent-soft/40 text-foreground shadow-council"
                         : "border-border text-muted hover:-translate-y-px hover:border-accent/60 hover:bg-surface-soft/60 hover:text-foreground"
@@ -176,12 +220,12 @@ export function SurveyForm() {
 
       <div className="flex flex-col gap-3 border-t border-border/60 pt-6 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-md text-xs leading-relaxed text-muted">
-          Solo guardamos esto mientras dura tu sesión. Puedes borrarlo cuando
-          quieras.
+          Guardaremos estas respuestas para que el council mantenga contexto
+          entre chats.
         </p>
         <Button type="submit" disabled={!isComplete || submitting}>
           {submitting
-            ? "Reuniéndolos…"
+            ? "Reuniéndolos..."
             : isComplete
               ? "Sentarme con ellos"
               : `Faltan ${total - answered}`}

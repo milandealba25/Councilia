@@ -2,7 +2,7 @@ import { LegalLayout } from "@/components/legal/LegalLayout";
 import { renderDocMarkdown } from "@/lib/markdown";
 
 export const metadata = {
-  title: "Sobre el producto · COUNCILia",
+  title: "Sobre el producto",
   description:
     "Visión, principios y diferenciador defendible de COUNCILia.",
 };

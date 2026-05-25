@@ -36,6 +36,9 @@ export interface ConversationRow {
   councilId: string;
   userId: string;
   title: string | null;
+  summary?: string;
+  keyFacts?: unknown[];
+  surveySnapshot?: UserContext | Record<string, unknown> | null;
   status: ConversationStatus;
   createdAt: string;
   updatedAt: string;

@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/landing/Header";
 import { Hero } from "@/components/landing/Hero";
 import { UseCasesSection } from "@/components/landing/UseCasesSection";
@@ -7,24 +11,67 @@ import { ExampleSection } from "@/components/landing/ExampleSection";
 import { PrinciplesSection } from "@/components/landing/PrinciplesSection";
 import { CTASection } from "@/components/landing/CTASection";
 import { Footer } from "@/components/landing/Footer";
+import { SectionDotsNav } from "@/components/landing/SectionDotsNav";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
+import { getValidAuthSession } from "@/lib/auth/client";
+import { resolvePostAuthRedirect } from "@/lib/auth/flow";
 
 export default function Home() {
+  const router = useRouter();
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    router.prefetch("/login?next=/session");
+    router.prefetch("/session");
+    router.prefetch("/onboarding");
+  }, [router]);
+
+  useEffect(() => {
+    async function routeActiveSession() {
+      const openedFromSession =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("from") === "session";
+      if (openedFromSession) {
+        setCheckingSession(false);
+        return;
+      }
+      const session = await getValidAuthSession();
+      if (!session) {
+        setCheckingSession(false);
+        return;
+      }
+      const destination = await resolvePostAuthRedirect("/session");
+      router.replace(destination as never);
+    }
+
+    void routeActiveSession();
+  }, [router]);
+
+  function goToAccess() {
+    router.push("/login?next=/session" as never);
+  }
+
   return (
-    <div className="relative isolate min-h-dvh overflow-x-hidden">
+    <div
+      className="relative isolate min-h-dvh overflow-x-hidden"
+      aria-busy={checkingSession}
+    >
       <AuroraBackground />
-      <Header />
+      <Header fixed onStart={goToAccess} />
+      <SectionDotsNav />
       <main className="relative z-10">
-        <Hero />
+        <div className="pt-16">
+          <Hero onStart={goToAccess} />
+        </div>
         <UseCasesSection />
         <CouncilSection />
         <FlowSection />
         <ExampleSection />
         <PrinciplesSection />
-        <CTASection />
+        <CTASection onStart={goToAccess} />
       </main>
       <div className="relative z-10">
-        <Footer />
+        <Footer onStart={goToAccess} />
       </div>
     </div>
   );

@@ -4,7 +4,11 @@ import { AuthCallback } from "@/components/auth/AuthCallback";
 import { Container } from "@/components/ui/Container";
 
 export const metadata = {
-  title: "Confirmando login · COUNCILia",
+  title: "Confirmando login",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function AuthCallbackPage() {
@@ -32,4 +36,3 @@ export default function AuthCallbackPage() {
     </main>
   );
 }
-

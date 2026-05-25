@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { AgentFace } from "@/components/agents/AgentFace";
 import { TypewriterText } from "@/components/landing/TypewriterText";
 import {
@@ -20,7 +19,7 @@ function quoted(whisper: string) {
   return `\u201C${whisper}\u201D`;
 }
 
-export function CouncilHeroPanel() {
+export function CouncilHeroPanel({ onStart }: { onStart: () => void }) {
   return (
     <div className="relative mx-auto hidden h-full w-full max-w-md lg:block">
       <div
@@ -83,12 +82,13 @@ export function CouncilHeroPanel() {
           <span className="inline-flex size-7 items-center justify-center rounded-full bg-surface ring-1 ring-border-strong/70 text-[11px] text-foreground-soft">
             Tú
           </span>
-          <Link
-            href="/onboarding"
+          <button
+            type="button"
+            onClick={onStart}
             className="flex-1 text-left text-sm text-foreground-soft transition-colors hover:text-accent-strong"
           >
             Cuéntales lo que te tiene así…
-          </Link>
+          </button>
         </div>
       </div>
     </div>

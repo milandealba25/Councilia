@@ -3,41 +3,54 @@ import { Suspense } from "react";
 import { AgentFace } from "@/components/agents/AgentFace";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { Container } from "@/components/ui/Container";
-import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { AGENT_IDS } from "@/lib/agents/ids";
 
 export const metadata = {
-  title: "Login · COUNCILia",
+  title: "Iniciar sesión",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function LoginPage() {
   return (
-    <main className="relative isolate grid min-h-dvh place-items-center overflow-hidden px-4 py-10">
-      <AuroraBackground />
+    <main className="relative isolate grid min-h-dvh items-start justify-items-center overflow-hidden px-4 py-[clamp(0.75rem,2.5vh,2rem)]">
       <Container className="relative z-10 w-full max-w-xl">
-        <Link
-          href="/"
-          className="text-xs uppercase tracking-wider text-muted hover:text-foreground"
-        >
-          ← Inicio
-        </Link>
+        <div className="relative flex min-h-[clamp(2rem,5vh,2.5rem)] items-center justify-center">
+          <Link
+            href="/"
+            className="absolute left-0 text-xs uppercase tracking-wider text-muted hover:text-foreground"
+          >
+            ← Inicio
+          </Link>
 
-        <div className="mt-8 grid gap-7">
+          <div className="flex items-center justify-center gap-2.5" aria-hidden>
+            {AGENT_IDS.map((id, i) => (
+              <span
+                key={id}
+                style={{
+                  animation: `soft-rise 650ms ease-out ${i * 110}ms both`,
+                }}
+              >
+                <AgentFace agent={id} size={40} mood="listening" />
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-[clamp(0.65rem,1.8vh,1.25rem)] grid gap-[clamp(0.75rem,1.8vh,1.25rem)]">
           <header className="text-center">
             <p className="text-xs font-medium uppercase tracking-widest text-accent">
               Acceso
             </p>
-            <h1 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+            <h1 className="mx-auto mt-2 max-w-lg text-balance text-[clamp(1.55rem,3.6vmin,1.9rem)] font-semibold leading-[1.14] tracking-tight text-foreground">
               Entra para que el council recuerde lo importante.
             </h1>
-            <p className="mx-auto mt-4 max-w-lg leading-relaxed text-muted">
-              Usa tu correo y contraseña, o entra con Google si prefieres
-              resolverlo en un toque.
-            </p>
           </header>
 
           <section
-            className="rounded-council-lg border border-border/70 bg-surface/70 p-5 shadow-council md:p-6"
+            className="rounded-[clamp(1rem,2.8vmin,1.5rem)] border border-border/70 bg-surface/76 p-[clamp(0.9rem,2vmin,1.25rem)] shadow-council"
             style={{ animation: "soft-rise 600ms ease-out 120ms both" }}
           >
             <Suspense
@@ -48,22 +61,6 @@ export default function LoginPage() {
               <LoginForm />
             </Suspense>
           </section>
-
-          <div
-            className="flex items-center justify-center gap-4 pt-1"
-            aria-hidden
-          >
-            {AGENT_IDS.map((id, i) => (
-              <span
-                key={id}
-                style={{
-                  animation: `soft-rise 700ms ease-out ${220 + i * 140}ms both`,
-                }}
-              >
-                <AgentFace agent={id} size={58} mood="listening" />
-              </span>
-            ))}
-          </div>
         </div>
       </Container>
     </main>

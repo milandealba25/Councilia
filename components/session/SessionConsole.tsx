@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { loadUserContext, saveUserContext } from "@/lib/survey/storage";
+import { getValidAuthSession } from "@/lib/auth/client";
 import { SURVEY_VERSION, type UserContext } from "@/lib/survey/survey.v1";
 import { AGENT_IDS, type AgentId } from "@/lib/agents/ids";
 import { AgentCard } from "@/components/agents/AgentCard";
@@ -11,12 +12,8 @@ import { ReplicaCard } from "./ReplicaCard";
 import { SynthesisCard } from "./SynthesisCard";
 import { PhaseIndicator, type Phase } from "./PhaseIndicator";
 import {
-  requestSynthesis,
   streamInitial,
-  streamReplica,
-  SynthesisRequestError,
   type InitialEvent,
-  type ReplicaEvent,
 } from "@/lib/api/client";
 import type { Synthesis } from "@/orchestrator/synthesis";
 import {
@@ -24,18 +21,12 @@ import {
   type LlmErrorCode,
 } from "@/orchestrator/llm";
 import {
-  startVoiceContextPlayback,
-  stopAllVoicePlayback,
-  pauseVoicePlayback,
-  resumeVoicePlayback,
-  unlockVoicePlayback,
-} from "@/lib/voice/audioContextPlayer";
-import {
-  createChatSession,
-  saveChatTurn,
-  getActiveChatId,
-  setActiveChatId,
+  buildConversationMemory,
+  createChatTurnId,
   getChatSession,
+  saveChatTurn,
+  savePersistentChatTurn,
+  type ChatSession,
   type ChatTurn,
 } from "@/lib/chat/chatStorage";
 
@@ -100,18 +91,18 @@ interface State {
   configError: ConfigErrorState | null;
   loading: boolean;
   pastTurns: CompletedTurn[];
+  summary: string;
 }
 
 type Action =
   | { type: "ctx_loaded"; ctx: UserContext }
+  | { type: "hydrate_chat"; session: ChatSession }
+  | { type: "memory_updated"; summary: string }
   | { type: "user_input"; value: string }
   | { type: "submit_user"; message: string }
   | { type: "initial_event"; event: InitialEvent }
   | { type: "phase1_done" }
-  | { type: "replica_announce" }
-  | { type: "replica_event"; event: ReplicaEvent }
   | { type: "replica_done" }
-  | { type: "request_synthesis_start" }
   | { type: "synthesis_done"; synthesis: Synthesis }
   | { type: "synthesis_error"; message: string; code?: LlmErrorCode }
   | { type: "fatal"; message: string }
@@ -133,12 +124,25 @@ const INITIAL_STATE: State = {
   configError: null,
   loading: false,
   pastTurns: [],
+  summary: "",
 };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "ctx_loaded":
       return { ...state, ctx: action.ctx };
+
+    case "hydrate_chat":
+      return {
+        ...INITIAL_STATE,
+        ctx: state.ctx,
+        phase: action.session.turns.length > 0 ? "wait" : "idle",
+        pastTurns: action.session.turns.map(chatTurnToCompletedTurn),
+        summary: action.session.summary?.trim() ?? "",
+      };
+
+    case "memory_updated":
+      return { ...state, summary: action.summary.trim() };
 
     case "user_input":
       return { ...state, userInput: action.value };
@@ -175,14 +179,21 @@ function reducer(state: State, action: Action): State {
     case "initial_event":
       return applyInitialEvent(state, action.event);
 
-    case "phase1_done":
-      return { ...state, phase: "fase2", replicaPending: true };
-
-    case "replica_announce":
-      return { ...state, replicaPending: true };
-
-    case "replica_event":
-      return applyReplicaEvent(state, action.event);
+    case "phase1_done": {
+      const completedAgents = { ...state.agents };
+      for (const id of AGENT_IDS) {
+        if (completedAgents[id].state === "streaming") {
+          completedAgents[id] = { ...completedAgents[id], state: "complete" };
+        }
+      }
+      return {
+        ...state,
+        agents: completedAgents,
+        phase: "wait",
+        loading: false,
+        replicaPending: false,
+      };
+    }
 
     case "replica_done":
       return {
@@ -195,9 +206,6 @@ function reducer(state: State, action: Action): State {
             ? { ...state.replica, state: "complete" }
             : state.replica,
       };
-
-    case "request_synthesis_start":
-      return { ...state, loading: true, phase: "fase4", error: null };
 
     case "synthesis_done":
       return {
@@ -292,58 +300,6 @@ function applyInitialEvent(state: State, ev: InitialEvent): State {
   return state;
 }
 
-function applyReplicaEvent(state: State, ev: ReplicaEvent): State {
-  if (ev.type === "skipped") {
-    return { ...state, replica: "skipped", replicaPending: false };
-  }
-  if (ev.type === "plan") {
-    return {
-      ...state,
-      replicaPending: false,
-      replica: {
-        speaker: ev.speaker,
-        respondingTo: ev.respondingTo,
-        text: "",
-        tensionScore: ev.tensionScore,
-        state: "streaming",
-      },
-    };
-  }
-  if (ev.type === "delta" && state.replica && state.replica !== "skipped") {
-    return {
-      ...state,
-      replica: { ...state.replica, text: state.replica.text + ev.text },
-    };
-  }
-  if (ev.type === "config_error") {
-    return {
-      ...state,
-      configError: { code: ev.code, message: ev.message },
-      replica: state.replica && state.replica !== "skipped"
-        ? { ...state.replica, state: "complete" }
-        : state.replica,
-      loading: false,
-      phase: "wait",
-    };
-  }
-  return state;
-}
-
-function delay(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    if (signal?.aborted) return resolve();
-    const t = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    function onAbort() {
-      clearTimeout(t);
-      resolve();
-    }
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
 function markAllError(
   agents: Record<AgentId, AgentSlot>,
   error: string,
@@ -357,447 +313,198 @@ function markAllError(
   }
   return next;
 }
-
-/**
- * Pausa breve tras mostrar "Alguien toma la palabra" y antes de pedir la réplica
- * al servidor (placeholder + tiempo de lectura del aviso).
- */
-const PHASE_TRANSITION_MS = 800;
-
-/**
- * Tras terminar la mecanografía de todas las posturas visibles, arrancamos
- * voz casi inmediato para mantener sensación de conversación viva.
- */
-const POST_AGENT_REVEAL_MS = 0;
-
-async function playAudioBlob(
-  blob: Blob,
-  signal?: AbortSignal,
-): Promise<void> {
-  const handle = await startVoiceContextPlayback(blob, signal);
-  await handle.done;
-}
-
-async function playWithWebSpeechFallback(
-  text: string,
-  signal?: AbortSignal,
-): Promise<void> {
-  if (
-    typeof window === "undefined" ||
-    typeof window.speechSynthesis === "undefined" ||
-    typeof window.SpeechSynthesisUtterance === "undefined"
-  ) {
-    return;
-  }
-  return new Promise((resolve) => {
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = "es-MX";
-    utter.rate = 0.95;
-    utter.pitch = 1;
-
-    function cleanup() {
-      utter.onend = null;
-      utter.onerror = null;
-      signal?.removeEventListener("abort", onAbort);
-    }
-
-    function onAbort() {
-      window.speechSynthesis.cancel();
-      cleanup();
-      resolve();
-    }
-
-    utter.onend = () => {
-      cleanup();
-      resolve();
-    };
-    utter.onerror = () => {
-      cleanup();
-      resolve();
-    };
-    signal?.addEventListener("abort", onAbort, { once: true });
-    window.speechSynthesis.speak(utter);
-  });
-}
-
-async function playAgentVoice(
-  agent: AgentId,
-  text: string,
-  signal?: AbortSignal,
-): Promise<void> {
-  let blob: Blob | null = null;
-  try {
-    const res = await fetch("/api/voice/tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agent, text }),
-      signal,
-    });
-    if (!res.ok) throw new Error(`tts_http_${res.status}`);
-    blob = await res.blob();
-    if (blob.size === 0) throw new Error("tts_empty_audio");
-  } catch {
-    await playWithWebSpeechFallback(text, signal);
-    return;
-  }
-
-  try {
-    await playAudioBlob(blob, signal);
-  } catch {
-    // Si Eleven respondió OK pero autoplay fue bloqueado por navegador,
-    // caemos a voz local para evitar silencio total.
-    await playWithWebSpeechFallback(text, signal);
-  }
+function chatTurnToCompletedTurn(turn: ChatTurn): CompletedTurn {
+  return {
+    userMessage: turn.userMessage,
+    agents: {
+      marco: {
+        state: turn.agents.marco ? "complete" : "idle",
+        text: turn.agents.marco ?? "",
+      },
+      elena: {
+        state: turn.agents.elena ? "complete" : "idle",
+        text: turn.agents.elena ?? "",
+      },
+      rafael: {
+        state: turn.agents.rafael ? "complete" : "idle",
+        text: turn.agents.rafael ?? "",
+      },
+    },
+    attenuated: [],
+    replica: turn.replica
+      ? {
+          ...turn.replica,
+          tensionScore: 0,
+          state: "complete",
+        }
+      : null,
+  };
 }
 
 interface SessionConsoleProps {
   chatId: string | null;
-  onChatCreated?: (id: string) => void;
+  sidebarCollapsed?: boolean;
 }
 
-export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
+export function SessionConsole({
+  chatId,
+  sidebarCollapsed = false,
+}: SessionConsoleProps) {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
-  const playbackAbortRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
   const activeChatIdRef = useRef<string | null>(chatId);
-  const agentRevealGateRef = useRef<{
-    pending: Set<AgentId>;
-    resolve: () => void;
-  } | null>(null);
-
-  const [speakingAgent, setSpeakingAgent] = useState<AgentId | null>(null);
-  const [spokenAgents, setSpokenAgents] = useState<Set<AgentId>>(new Set());
-  const [autoPlayPaused, setAutoPlayPaused] = useState(false);
-  const [composerExpanded, setComposerExpanded] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return localStorage.getItem("councilia.voiceEnabled") !== "false";
-  });
-
-  const stopAllAudio = useCallback(() => {
-    playbackAbortRef.current?.abort();
-    playbackAbortRef.current = null;
-    stopAllVoicePlayback();
-    if (typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined") {
-      window.speechSynthesis.cancel();
-    }
-    setSpeakingAgent(null);
-    setAutoPlayPaused(false);
-  }, []);
-
-  const pausePlayback = useCallback(() => {
-    pauseVoicePlayback();
-    setAutoPlayPaused(true);
-  }, []);
-
-  const resumePlayback = useCallback(() => {
-    resumeVoicePlayback();
-    setAutoPlayPaused(false);
-  }, []);
-
-  const toggleVoice = useCallback((on: boolean) => {
-    setVoiceEnabled(on);
-    localStorage.setItem("councilia.voiceEnabled", String(on));
-    if (!on) stopAllAudio();
-  }, [stopAllAudio]);
-
-  function releaseAgentRevealGate(id: AgentId) {
-    const g = agentRevealGateRef.current;
-    if (!g || !g.pending.has(id)) return;
-    g.pending.delete(id);
-    if (g.pending.size === 0) {
-      agentRevealGateRef.current = null;
-      g.resolve();
-    }
-  }
+  const responseSectionRef = useRef<HTMLElement | null>(null);
+  const shouldScrollToCouncilRef = useRef(false);
 
   useEffect(() => {
     activeChatIdRef.current = chatId;
+    const storedChat = chatId ? getChatSession(chatId) : null;
+    if (storedChat) {
+      dispatch({ type: "hydrate_chat", session: storedChat });
+    }
   }, [chatId]);
 
   useEffect(() => {
-    if (!activeChatIdRef.current) {
-      const session = createChatSession();
-      activeChatIdRef.current = session.id;
-      onChatCreated?.(session.id);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const guestMode =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("guest") === "1";
 
-  useEffect(() => {
-    const stored = loadUserContext();
-    if (!stored) {
-      const guestMode =
-        typeof window !== "undefined" &&
-        new URLSearchParams(window.location.search).get("guest") === "1";
-      if (guestMode) {
-        const guestContext: UserContext = {
-          surveyVersion: SURVEY_VERSION,
-          decisionType: "vida",
-          ageRange: "prefer_not_say",
-          urgency: "explorando",
-          needFromCouncil: "estructurar",
-          fearedLoss: "arrepentirme",
-        };
-        saveUserContext(guestContext);
-        dispatch({ type: "ctx_loaded", ctx: guestContext });
+    async function guardSession() {
+      if (!(await getValidAuthSession()) && !guestMode) {
+        router.replace("/");
         return;
       }
-      router.replace("/onboarding");
-      return;
+
+      const stored = loadUserContext();
+      if (!stored) {
+        if (guestMode) {
+          const guestContext: UserContext = {
+            surveyVersion: SURVEY_VERSION,
+            decisionType: "vida",
+            ageRange: "prefer_not_say",
+            urgency: "explorando",
+            needFromCouncil: "estructurar",
+            fearedLoss: "arrepentirme",
+          };
+          saveUserContext(guestContext);
+          dispatch({ type: "ctx_loaded", ctx: guestContext });
+          return;
+        }
+        router.replace("/onboarding");
+        return;
+      }
+      dispatch({ type: "ctx_loaded", ctx: stored });
     }
-    dispatch({ type: "ctx_loaded", ctx: stored });
+
+    void guardSession();
   }, [router]);
 
   useEffect(
     () => () => {
+      mountedRef.current = false;
       abortRef.current?.abort();
-      playbackAbortRef.current?.abort();
-      if (
-        typeof window !== "undefined" &&
-        typeof window.speechSynthesis !== "undefined"
-      ) {
-        window.speechSynthesis.cancel();
-      }
     },
     [],
   );
 
-  // (Auto-scroll desactivado: el usuario controla el scroll manualmente.)
+  useEffect(() => {
+    if (
+      !shouldScrollToCouncilRef.current ||
+      state.phase !== "fase1" ||
+      !state.lastUserMessage
+    ) {
+      return;
+    }
+    shouldScrollToCouncilRef.current = false;
+    window.requestAnimationFrame(() => {
+      const target = responseSectionRef.current;
+      if (!target) return;
+      const offset = Math.min(56, Math.max(12, window.innerHeight * 0.04));
+      const top = target.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    });
+  }, [state.phase, state.lastUserMessage]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!state.ctx || state.loading) return;
     const message = state.userInput.trim();
     if (!message) return;
-    // Esta interacción del usuario desbloquea reproducción para auto-voz posterior.
-    void unlockVoicePlayback();
-
     abortRef.current?.abort();
-    stopAllAudio();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-    setSpeakingAgent(null);
-    setSpokenAgents(new Set());
-    setAutoPlayPaused(false);
-    setComposerExpanded(false);
-    if (agentRevealGateRef.current) {
-      const stuck = agentRevealGateRef.current;
-      agentRevealGateRef.current = null;
-      stuck.resolve();
-    }
 
+    const submissionChatId = activeChatIdRef.current;
+    const turnId = createChatTurnId();
+    const conversationMemory = buildConversationMemory(submissionChatId);
+    const draftTurn: ChatTurn = {
+      turnId,
+      userMessage: message,
+      agents: { marco: "", elena: "", rafael: "" },
+      replica: null,
+    };
+    const draftSave = submissionChatId
+      ? savePersistentChatTurn(submissionChatId, draftTurn).catch(() => null)
+      : Promise.resolve(null);
+
+    shouldScrollToCouncilRef.current = true;
     dispatch({ type: "submit_user", message });
 
     try {
       const collected: Record<AgentId, string> = { marco: "", elena: "", rafael: "" };
-      let attenuatedIds: AgentId[] = [];
-      const errored = new Set<AgentId>();
       let crisis = false;
       for await (const ev of streamInitial({
         userContext: state.ctx,
         userMessage: message,
+        conversationMemory,
         signal: ctrl.signal,
       })) {
         dispatch({ type: "initial_event", event: ev });
-        if (ev.type === "meta") attenuatedIds = ev.attenuated;
         if (ev.type === "delta") collected[ev.agent] += ev.text;
-        if (ev.type === "error") errored.add(ev.agent);
         if (ev.type === "crisis") crisis = true;
       }
       if (crisis) return;
 
-      const agentsNeedReveal = AGENT_IDS.filter(
-        (id) =>
-          !attenuatedIds.includes(id) &&
-          !errored.has(id) &&
-          collected[id].trim().length > 0,
-      );
+      if (ctrl.signal.aborted) return;
 
-      const anyPostureText = AGENT_IDS.some(
-        (id) => collected[id].trim().length > 0,
-      );
-
-      const abortRevealWait = () => {
-        const g = agentRevealGateRef.current;
-        if (g) {
-          agentRevealGateRef.current = null;
-          g.resolve();
-        }
+      const completedTurn: ChatTurn = {
+        turnId,
+        userMessage: message,
+        agents: {
+          marco: collected.marco.trim(),
+          elena: collected.elena.trim(),
+          rafael: collected.rafael.trim(),
+        },
+        replica: null,
       };
-      ctrl.signal.addEventListener("abort", abortRevealWait);
 
-      try {
-        if (agentsNeedReveal.length > 0) {
-          await new Promise<void>((resolve) => {
-            agentRevealGateRef.current = {
-              pending: new Set(agentsNeedReveal),
-              resolve,
-            };
-          });
-        }
-        if (ctrl.signal.aborted) return;
-        if (anyPostureText) {
-          await delay(POST_AGENT_REVEAL_MS, ctrl.signal);
-        }
-        if (ctrl.signal.aborted) return;
-      } finally {
-        ctrl.signal.removeEventListener("abort", abortRevealWait);
-        agentRevealGateRef.current = null;
-      }
-
-      if (voiceEnabled) {
-        const phase1VoiceQueue = AGENT_IDS
-          .map((id) => ({ agent: id, text: collected[id].trim() }))
-          .filter((item) => item.text.length > 0);
-        if (phase1VoiceQueue.length > 0) {
-          const playCtrl = new AbortController();
-          playbackAbortRef.current = playCtrl;
-
-          const blobCache = new Map<AgentId, Blob>();
-          const prefetchResults = await Promise.all(
-            phase1VoiceQueue.map(async (item) => {
-              try {
-                const res = await fetch("/api/voice/tts", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ agent: item.agent, text: item.text }),
-                  signal: ctrl.signal,
-                });
-                if (res.ok) {
-                  const blob = await res.blob();
-                  if (blob.size > 0) return { agent: item.agent, blob };
-                }
-              } catch { /* fallback on play */ }
-              return { agent: item.agent, blob: null as Blob | null };
-            }),
-          );
-          for (const { agent, blob } of prefetchResults) {
-            if (blob) blobCache.set(agent, blob);
-          }
-
-          for (const item of phase1VoiceQueue) {
-            if (ctrl.signal.aborted || playCtrl.signal.aborted) break;
-            setSpeakingAgent(item.agent);
-            const cached = blobCache.get(item.agent);
-            if (cached) {
-              try {
-                await playAudioBlob(cached, playCtrl.signal);
-              } catch {
-                await playWithWebSpeechFallback(item.text, playCtrl.signal);
-              }
-            } else {
-              await playAgentVoice(item.agent, item.text, playCtrl.signal);
-            }
-            setSpokenAgents((prev) => new Set(prev).add(item.agent));
-          }
-          setSpeakingAgent(null);
-        }
+      if (submissionChatId) {
+        saveChatTurn(submissionChatId, completedTurn);
       }
 
       dispatch({ type: "phase1_done" });
 
-      const postures = AGENT_IDS
-        .filter((id) => collected[id].trim().length > 0)
-        .map((id) => ({ agent: id, text: collected[id].trim() }));
-
-      if (postures.length < 2) {
-        dispatch({ type: "replica_done" });
-        return;
+      if (submissionChatId) {
+        void (async () => {
+          await draftSave;
+          const updated = await savePersistentChatTurn(
+            submissionChatId,
+            completedTurn,
+          ).catch(() => null);
+          if (
+            updated?.summary &&
+            mountedRef.current &&
+            activeChatIdRef.current === submissionChatId
+          ) {
+            dispatch({ type: "memory_updated", summary: updated.summary });
+          }
+        })();
       }
-
-      await delay(PHASE_TRANSITION_MS, ctrl.signal);
-      if (ctrl.signal.aborted) return;
-
-      let replicaSpeaker: AgentId | null = null;
-      let replicaText = "";
-      for await (const ev of streamReplica({
-        userContext: state.ctx,
-        userMessage: message,
-        postures,
-        signal: ctrl.signal,
-      })) {
-        dispatch({ type: "replica_event", event: ev });
-        if (ev.type === "plan") replicaSpeaker = ev.speaker;
-        if (ev.type === "delta") replicaText += ev.text;
-      }
-
-      if (voiceEnabled && replicaSpeaker && replicaText.trim().length > 0) {
-        const playCtrl = new AbortController();
-        playbackAbortRef.current = playCtrl;
-        if (!ctrl.signal.aborted && !playCtrl.signal.aborted) {
-          setSpeakingAgent(replicaSpeaker);
-          await playAgentVoice(replicaSpeaker, replicaText.trim(), playCtrl.signal);
-          setSpeakingAgent(null);
-        }
-      }
-
-      if (activeChatIdRef.current) {
-        const turn: ChatTurn = {
-          userMessage: message,
-          agents: {
-            marco: collected.marco.trim(),
-            elena: collected.elena.trim(),
-            rafael: collected.rafael.trim(),
-          },
-          replica:
-            replicaSpeaker && replicaText.trim().length > 0
-              ? {
-                  speaker: replicaSpeaker,
-                  respondingTo: postures.find((p) => p.agent !== replicaSpeaker)?.agent ?? "marco",
-                  text: replicaText.trim(),
-                }
-              : null,
-        };
-        saveChatTurn(activeChatIdRef.current, turn);
-      }
-
-      dispatch({ type: "replica_done" });
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       dispatch({ type: "fatal", message: (err as Error).message });
-    }
-  }
-
-  async function handleSynthesis() {
-    if (!state.ctx || !state.lastUserMessage) return;
-    abortRef.current?.abort();
-    playbackAbortRef.current?.abort();
-    playbackAbortRef.current = null;
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-
-    dispatch({ type: "request_synthesis_start" });
-
-    const transcript: Array<{ role: "user" | AgentId; text: string }> = [
-      { role: "user", text: state.lastUserMessage },
-      ...AGENT_IDS.filter((id) => state.agents[id].text.trim().length > 0).map(
-        (id) => ({ role: id, text: state.agents[id].text.trim() }),
-      ),
-    ];
-    if (state.replica && state.replica !== "skipped") {
-      transcript.push({
-        role: state.replica.speaker,
-        text: state.replica.text.trim(),
-      });
-    }
-
-    try {
-      const synthesis = await requestSynthesis({
-        userContext: state.ctx,
-        transcript,
-        signal: ctrl.signal,
-      });
-      dispatch({ type: "synthesis_done", synthesis });
-    } catch (err) {
-      if ((err as Error).name === "AbortError") return;
-      const code =
-        err instanceof SynthesisRequestError ? err.code : undefined;
-      const message =
-        err instanceof SynthesisRequestError && code
-          ? llmErrorHeadline(code)
-          : (err as Error).message;
-      dispatch({ type: "synthesis_error", message, code });
     }
   }
 
@@ -818,15 +525,17 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
 
   const canSubmit =
     state.userInput.trim().length > 0 &&
-    (state.phase === "idle" || state.phase === "wait" || state.phase === "fase2");
+    !state.loading &&
+    (state.phase === "idle" || state.phase === "wait");
 
-  const canRequestSynthesis =
-    state.phase === "wait" && !state.synthesis && !state.loading;
-  const showComposer =
-    state.phase === "idle" || state.phase === "wait" || state.phase === "fase2";
+  const showComposer = state.phase !== "fase4";
+  const composerClassName = [
+    "fixed bottom-4 left-3 right-3 z-20 mx-auto flex w-auto max-w-5xl flex-col gap-2 rounded-council border border-border-strong/70 bg-surface/90 p-3 shadow-council-lg backdrop-blur transition-[left,right,max-width] duration-300 ease-in-out",
+    sidebarCollapsed ? "md:left-4 md:right-4" : "md:left-[calc(256px+1rem)] md:right-4",
+  ].join(" ");
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-[34px] pb-32">
       <PhaseIndicator phase={state.phase} />
 
       {state.configError && (
@@ -843,9 +552,18 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
         </p>
       )}
 
+      {state.summary.trim() && (
+        <section className="rounded-council border border-border bg-surface/80 px-4 py-3 text-sm leading-relaxed text-foreground/85">
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted">
+            Resumen guardado
+          </p>
+          {state.summary}
+        </section>
+      )}
+
       {state.pastTurns.map((turn, turnIdx) => (
         <div key={turnIdx} className="flex flex-col gap-6 border-b border-border/30 pb-8">
-          <div className="rounded-council border border-border bg-elevated/40 px-4 py-3 text-sm leading-relaxed text-foreground/85 opacity-80">
+          <div className="rounded-council border border-border bg-elevated/70 px-4 py-3 text-sm leading-relaxed text-foreground/90 opacity-90 shadow-soft">
             <p className="mb-1 text-[11px] uppercase tracking-wider text-muted">
               Tú dijiste
             </p>
@@ -879,7 +597,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       ))}
 
       {state.lastUserMessage && (
-        <div className="rounded-council border border-border bg-elevated/40 px-4 py-3 text-sm leading-relaxed text-foreground/85">
+        <div className="rounded-council border border-border bg-elevated/75 px-4 py-3 text-sm leading-relaxed text-foreground/90 shadow-soft">
           <p className="mb-1 text-[11px] uppercase tracking-wider text-muted">
             Tú dijiste
           </p>
@@ -889,6 +607,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
 
       {state.lastUserMessage && (
         <section
+          ref={responseSectionRef}
           aria-label="Respuestas del council"
           className="flex scroll-mt-8 flex-col gap-5"
           style={{ animation: "soft-rise 500ms ease-out both" }}
@@ -914,21 +633,10 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
                   text={slot.text || undefined}
                   attenuated={state.attenuated.includes(id)}
                   errorMessage={headline}
-                  onRevealComplete={() => releaseAgentRevealGate(id)}
                   isUserTyping={
                     state.userInput.length > 0 &&
                     (state.phase === "idle" || state.phase === "wait")
                   }
-                  speakButtonDisabled={
-                    speakingAgent !== null &&
-                    speakingAgent !== id &&
-                    !spokenAgents.has(id)
-                  }
-                  onBeforePlay={stopAllAudio}
-                  isAutoPlaying={speakingAgent === id}
-                  autoPlayPaused={autoPlayPaused}
-                  onPauseAutoPlay={pausePlayback}
-                  onResumeAutoPlay={resumePlayback}
                 />
               );
             })}
@@ -961,11 +669,6 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
               respondingTo={state.replica.respondingTo}
               text={state.replica.text}
               state={state.replica.state}
-              onBeforePlay={stopAllAudio}
-              isAutoPlaying={speakingAgent === state.replica.speaker}
-              autoPlayPaused={autoPlayPaused}
-              onPauseAutoPlay={pausePlayback}
-              onResumeAutoPlay={resumePlayback}
             />
           ) : null}
         </section>
@@ -988,100 +691,34 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       )}
 
       {showComposer && (
-        <>
-          {state.phase === "wait" && !composerExpanded ? (
-            <div
-              className="flex flex-col gap-3"
-              style={{ animation: "soft-rise 400ms ease-out both" }}
-            >
-              <p className="text-xs font-medium uppercase tracking-wider text-muted">
-                ¿Qué quieres hacer?
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  onClick={() => setComposerExpanded(true)}
-                >
-                  Continúa sobre el tema
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setComposerExpanded(true);
-                    dispatch({ type: "user_input", value: "" });
-                  }}
-                >
-                  Decirles otra cosa
-                </Button>
-                {canRequestSynthesis && (
-                  <Button
-                    variant="secondary"
-                    onClick={handleSynthesis}
-                  >
-                    Pedir que cierren contigo
-                  </Button>
-                )}
-              </div>
+        <form
+          id="session-composer"
+          onSubmit={handleSubmit}
+          className={composerClassName}
+        >
+          <textarea
+            id="user-input"
+            aria-label="Mensaje para el council"
+            value={state.userInput}
+            onChange={(e) =>
+              dispatch({ type: "user_input", value: e.target.value })
+            }
+            maxLength={4000}
+            rows={2}
+            disabled={state.phase === "fase4"}
+            placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
+            className="max-h-32 resize-none rounded-council border border-border-strong/70 bg-elevated/80 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
+            autoFocus={state.phase === "wait"}
+          />
+          <div className="flex items-center justify-between text-xs text-muted">
+            <span>{state.userInput.length} / 4000</span>
+            <div className="flex items-center gap-2">
+              <Button type="submit" disabled={!canSubmit}>
+                {state.loading ? "Espera…" : "Enviar"}
+              </Button>
             </div>
-          ) : (
-            <form
-              onSubmit={handleSubmit}
-              className="flex flex-col gap-3"
-              style={
-                state.phase === "wait"
-                  ? { animation: "soft-rise 300ms ease-out both" }
-                  : undefined
-              }
-            >
-              <label
-                htmlFor="user-input"
-                className="text-xs font-medium uppercase tracking-wider text-muted"
-              >
-                {state.phase === "wait" || state.phase === "fase2"
-                  ? "Sigue hablando"
-                  : "Cuéntales"}
-              </label>
-              <textarea
-                id="user-input"
-                value={state.userInput}
-                onChange={(e) =>
-                  dispatch({ type: "user_input", value: e.target.value })
-                }
-                maxLength={4000}
-                rows={4}
-                disabled={state.loading || state.phase === "fase4"}
-                placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
-                className="resize-none rounded-council border border-border bg-elevated/60 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
-                autoFocus={state.phase === "wait"}
-              />
-              <div className="flex items-center justify-between text-xs text-muted">
-                <span>{state.userInput.length} / 4000</span>
-                <div className="flex items-center gap-2">
-                  {state.phase === "wait" && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => setComposerExpanded(false)}
-                    >
-                      ← Atrás
-                    </Button>
-                  )}
-                  {canRequestSynthesis && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={handleSynthesis}
-                    >
-                      Pedir que cierren contigo
-                    </Button>
-                  )}
-                  <Button type="submit" disabled={!canSubmit || state.loading}>
-                    {state.loading ? "Escuchando…" : "Enviar"}
-                  </Button>
-                </div>
-              </div>
-            </form>
-          )}
-        </>
+          </div>
+        </form>
       )}
     </div>
   );
@@ -1140,9 +777,9 @@ function ConfigErrorBanner({
   onDismiss: () => void;
 }) {
   const HINTS: Partial<Record<LlmErrorCode, string>> = {
-    auth: "Define una clave válida en OPENAI_API_KEY y reinicia el servidor. En local, edita .env.local y reinicia npm run dev.",
+    auth: "Define una clave válida en GEMINI_API_KEY y reinicia el servidor. En local, edita .env.local y reinicia npm run dev.",
     quota:
-      "El proveedor está limitando llamadas. Espera unos segundos o revisa tu cuota en el dashboard de OpenAI.",
+      "El proveedor está limitando llamadas. Espera unos segundos o revisa la cuota disponible de Gemini.",
     network:
       "La red entre el servidor y el proveedor de IA falló. Reintenta; si persiste, revisa logs del hosting.",
   };
@@ -1198,25 +835,5 @@ function CrisisBanner({
       Empezar de nuevo cuando estés
     </button>
     </div>
-  );
-}
-
-function SpeakerOnIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-    </svg>
-  );
-}
-
-function SpeakerOffIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-      <line x1="23" y1="9" x2="17" y2="15" />
-      <line x1="17" y1="9" x2="23" y2="15" />
-    </svg>
   );
 }

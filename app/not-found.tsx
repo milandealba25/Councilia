@@ -3,7 +3,7 @@ import { Container } from "@/components/ui/Container";
 import { LinkButton } from "@/components/ui/Button";
 
 export const metadata = {
-  title: "404 · COUNCILia",
+  title: "404",
 };
 
 export default function NotFound() {

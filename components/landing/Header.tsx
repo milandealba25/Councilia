@@ -1,8 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
-import { AuthNavButton } from "@/components/auth/AuthNavButton";
 import { Container } from "@/components/ui/Container";
-import { LinkButton } from "@/components/ui/Button";
+import { Button, LinkButton } from "@/components/ui/Button";
 
 const NAV = [
   { href: "#council", label: "Quiénes son" },
@@ -11,9 +12,18 @@ const NAV = [
   { href: "#principios", label: "Lo que cuidamos" },
 ] as const;
 
-export function Header() {
+interface HeaderProps {
+  fixed?: boolean;
+  onStart?: () => void;
+}
+
+export function Header({ fixed = false, onStart }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background shadow-soft">
+    <header
+      className={`${
+        fixed ? "fixed inset-x-0 top-0" : "sticky top-0"
+      } z-50 border-b border-border bg-background shadow-soft`}
+    >
       <Container className="flex h-16 items-center justify-between">
         <Link
           href="/"
@@ -38,15 +48,27 @@ export function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-3">
-          <AuthNavButton />
-          <LinkButton
-            href="/onboarding"
-            variant="primary"
-            className="px-3 sm:px-5"
-          >
-            Sentarme con ellos
-          </LinkButton>
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          {onStart ? (
+            <Button
+              type="button"
+              onClick={onStart}
+              variant="primary"
+              className="shrink-0 px-3 text-xs sm:px-5 sm:text-sm"
+            >
+              <span className="sm:hidden">Empezar</span>
+              <span className="hidden sm:inline">Sentarme con ellos</span>
+            </Button>
+          ) : (
+            <LinkButton
+              href="/login?next=/session"
+              variant="primary"
+              className="shrink-0 px-3 text-xs sm:px-5 sm:text-sm"
+            >
+              <span className="sm:hidden">Empezar</span>
+              <span className="hidden sm:inline">Sentarme con ellos</span>
+            </LinkButton>
+          )}
         </div>
       </Container>
     </header>

@@ -2,7 +2,7 @@ import { LegalLayout } from "@/components/legal/LegalLayout";
 import { renderDocMarkdown } from "@/lib/markdown";
 
 export const metadata = {
-  title: "Privacidad · COUNCILia",
+  title: "Privacidad",
   description:
     "Cómo recolectamos, usamos y protegemos los datos en COUNCILia.",
 };

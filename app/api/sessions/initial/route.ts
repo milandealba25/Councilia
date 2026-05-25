@@ -21,6 +21,7 @@ import { emit as emitEvent } from "@/lib/observability/events";
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 type Event =
   | { agent?: AgentId; type: "delta"; text: string }
@@ -67,7 +68,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { userContext, userMessage } = parsed;
+  const { userContext, userMessage, conversationMemory } = parsed;
   const crisis = detectCrisis(userMessage);
   const active = activeAgents(userContext);
   const attenuated = (["marco", "elena", "rafael"] as const).filter(
@@ -137,6 +138,7 @@ export async function POST(req: Request) {
         for await (const ev of runner.runInitial({
           userContext,
           userMessage,
+          conversationMemory,
           signal: abort.signal,
         })) {
           if (ev.type === "done") {
