@@ -8,7 +8,7 @@ import {
   userContextSchema,
   type UserContext,
 } from "@/lib/survey/survey.v1";
-import { loadAuthSession } from "@/lib/auth/client";
+import { getValidAuthSession } from "@/lib/auth/client";
 import {
   fetchSurveyStatus,
   syncPendingSurvey,
@@ -64,7 +64,7 @@ export function SurveyForm() {
     setAnswers(loadUserContextDraft());
 
     async function guardCompletedSurvey() {
-      const session = loadAuthSession();
+      const session = await getValidAuthSession();
       if (!session) {
         router.replace("/login?mode=register&next=/onboarding" as never);
         return;
@@ -98,7 +98,7 @@ export function SurveyForm() {
     }
 
     saveUserContext(parsed.data);
-    const session = loadAuthSession();
+    const session = await getValidAuthSession();
     if (!session) {
       router.push("/login?mode=register&next=/onboarding" as never);
       return;

@@ -13,7 +13,7 @@ import { CTASection } from "@/components/landing/CTASection";
 import { Footer } from "@/components/landing/Footer";
 import { SectionDotsNav } from "@/components/landing/SectionDotsNav";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
-import { loadAuthSession } from "@/lib/auth/client";
+import { getValidAuthSession } from "@/lib/auth/client";
 import { resolvePostAuthRedirect } from "@/lib/auth/flow";
 
 export default function Home() {
@@ -35,7 +35,7 @@ export default function Home() {
         setCheckingSession(false);
         return;
       }
-      const session = loadAuthSession();
+      const session = await getValidAuthSession();
       if (!session) {
         setCheckingSession(false);
         return;

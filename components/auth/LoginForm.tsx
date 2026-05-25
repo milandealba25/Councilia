@@ -128,10 +128,10 @@ export function LoginForm() {
   }
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-[clamp(0.65rem,1.5vh,1rem)]">
       {reason === "survey" && (
         <div
-          className="rounded-council border border-accent/30 bg-accent-soft/35 px-4 py-3 text-sm leading-relaxed text-foreground-soft"
+          className="rounded-[0.72rem] border border-accent/30 bg-accent-soft/35 px-3.5 py-2.5 text-[0.8rem] leading-relaxed text-foreground-soft"
           style={{ animation: "soft-rise 450ms ease-out both" }}
         >
           Tus respuestas ya quedaron guardadas. Al entrar, las asociamos a tu
@@ -140,7 +140,7 @@ export function LoginForm() {
       )}
 
       <div
-        className="grid grid-cols-2 rounded-council border border-border/70 bg-surface-soft/65 p-1"
+        className="grid grid-cols-2 rounded-[0.72rem] border border-border/70 bg-surface-soft/65 p-0.5"
         role="tablist"
         aria-label="Tipo de acceso"
       >
@@ -153,7 +153,7 @@ export function LoginForm() {
             setError(null);
             setNotice(null);
           }}
-          className={`rounded-[0.55rem] px-4 py-2 text-sm font-medium outline-none transition-all focus-visible:ring-2 focus-visible:ring-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+          className={`rounded-[0.52rem] px-3 py-1.5 text-[clamp(0.76rem,1.45vh,0.82rem)] font-medium outline-none transition-all focus-visible:ring-2 focus-visible:ring-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
             mode === "login"
               ? "bg-surface text-foreground shadow-soft"
               : "text-muted hover:text-foreground"
@@ -170,7 +170,7 @@ export function LoginForm() {
             setError(null);
             setNotice(null);
           }}
-          className={`rounded-[0.55rem] px-4 py-2 text-sm font-medium outline-none transition-all focus-visible:ring-2 focus-visible:ring-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+          className={`rounded-[0.52rem] px-3 py-1.5 text-[clamp(0.76rem,1.45vh,0.82rem)] font-medium outline-none transition-all focus-visible:ring-2 focus-visible:ring-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
             mode === "register"
               ? "bg-surface text-foreground shadow-soft"
               : "text-muted hover:text-foreground"
@@ -180,10 +180,14 @@ export function LoginForm() {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid gap-4" noValidate>
+      <form
+        onSubmit={handleSubmit}
+        className="grid gap-[clamp(0.65rem,1.45vh,0.85rem)]"
+        noValidate
+      >
         {mode === "register" && (
           <label
-            className="grid gap-2 text-sm text-foreground-soft"
+            className="grid gap-1.5 text-[clamp(0.78rem,1.45vh,0.83rem)] text-foreground-soft"
             style={{ animation: "soft-rise 260ms ease-out both" }}
           >
             Nombre
@@ -198,19 +202,19 @@ export function LoginForm() {
               onBlur={() => setName(cleanName)}
               placeholder="Tu nombre"
               autoComplete="name"
-              className="rounded-council border border-border-strong/70 bg-surface/85 px-4 py-3 text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
+              className="rounded-[0.72rem] border border-border-strong/70 bg-surface/85 px-3.5 py-2.5 text-[clamp(0.82rem,1.55vh,0.95rem)] text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
               aria-invalid={name.length > 0 && !nameValid}
               required
             />
             {name.length > 0 && !nameValid && (
-              <span className="text-xs text-error">
+              <span className="text-[0.7rem] text-error">
                 Escribe tu nombre con al menos 2 caracteres.
               </span>
             )}
           </label>
         )}
 
-        <label className="grid gap-2 text-sm text-foreground-soft">
+        <label className="grid gap-1.5 text-[clamp(0.78rem,1.45vh,0.83rem)] text-foreground-soft">
           Correo
           <input
             type="email"
@@ -223,18 +227,18 @@ export function LoginForm() {
             onBlur={() => setEmail(cleanEmail)}
             placeholder="tu@correo.com"
             autoComplete="email"
-            className="rounded-council border border-border-strong/70 bg-surface/85 px-4 py-3 text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
+            className="rounded-[0.72rem] border border-border-strong/70 bg-surface/85 px-3.5 py-2.5 text-[clamp(0.82rem,1.55vh,0.95rem)] text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
             aria-invalid={email.length > 0 && !emailValid}
             required
           />
           {email.length > 0 && !emailValid && (
-            <span className="text-xs text-error">
+            <span className="text-[0.7rem] text-error">
               Escribe un correo válido.
             </span>
           )}
         </label>
 
-        <label className="grid gap-2 text-sm text-foreground-soft">
+        <label className="grid gap-1.5 text-[clamp(0.78rem,1.45vh,0.83rem)] text-foreground-soft">
           Contraseña
           <div className="relative">
             <input
@@ -250,14 +254,14 @@ export function LoginForm() {
               autoComplete={
                 mode === "register" ? "new-password" : "current-password"
               }
-              className="w-full rounded-council border border-border-strong/70 bg-surface/85 py-3 pl-4 pr-12 text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
+              className="w-full rounded-[0.72rem] border border-border-strong/70 bg-surface/85 py-2.5 pl-3.5 pr-10 text-[clamp(0.82rem,1.55vh,0.95rem)] text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
               aria-invalid={password.length > 0 && !passwordValid}
               required
             />
             <button
               type="button"
               onClick={() => setShowPassword((value) => !value)}
-              className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-muted transition hover:bg-accent-soft hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+              className="absolute right-2.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full text-muted transition hover:bg-accent-soft hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
               aria-label={
                 showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
               }
@@ -269,7 +273,7 @@ export function LoginForm() {
         </label>
 
         {mode === "register" && (
-          <ul className="grid gap-1.5 rounded-council border border-border/70 bg-surface-soft/45 px-4 py-3 text-xs text-muted">
+          <ul className="grid gap-1 rounded-[0.72rem] border border-border/70 bg-surface-soft/45 px-3 py-2 text-[0.7rem] text-muted">
             {passwordRules.map((rule) => (
               <li
                 key={rule.id}
@@ -278,7 +282,7 @@ export function LoginForm() {
                 }`}
               >
                 <span
-                  className={`grid size-4 place-items-center rounded-full border text-[10px] ${
+                  className={`grid size-3.5 place-items-center rounded-full border text-[9px] ${
                     rule.valid
                       ? "border-marco bg-marco text-white"
                       : "border-border-strong"
@@ -293,7 +297,11 @@ export function LoginForm() {
           </ul>
         )}
 
-        <Button type="submit" disabled={!formValid || submitting}>
+        <Button
+          type="submit"
+          disabled={!formValid || submitting}
+          className="!rounded-[0.72rem] !px-4 !py-2 !text-[clamp(0.82rem,1.55vh,0.95rem)]"
+        >
           {submitting
             ? mode === "register"
               ? "Creando cuenta..."
@@ -304,7 +312,7 @@ export function LoginForm() {
         </Button>
       </form>
 
-      <div className="flex items-center gap-3 text-xs uppercase tracking-[0.16em] text-subtle">
+      <div className="flex items-center gap-2.5 text-[0.68rem] uppercase tracking-[0.16em] text-subtle">
         <span className="h-px flex-1 bg-border" />
         o
         <span className="h-px flex-1 bg-border" />
@@ -313,7 +321,7 @@ export function LoginForm() {
       <LinkButton
         href={`/api/auth/google?next=${encodeURIComponent(next)}`}
         variant="secondary"
-        className="w-full"
+        className="w-full !rounded-[0.72rem] !px-4 !py-2 !text-[clamp(0.82rem,1.55vh,0.95rem)]"
       >
         <GoogleIcon />
         Entrar con Google
@@ -321,7 +329,7 @@ export function LoginForm() {
 
       {notice && (
         <p
-          className="rounded-council border border-marco/30 bg-marco-soft/70 px-4 py-3 text-sm leading-relaxed text-foreground-soft"
+          className="rounded-[0.72rem] border border-marco/30 bg-marco-soft/70 px-3.5 py-2.5 text-[0.8rem] leading-relaxed text-foreground-soft"
           style={{ animation: "soft-rise 350ms ease-out both" }}
         >
           {notice}
@@ -329,7 +337,7 @@ export function LoginForm() {
       )}
 
       {error && (
-        <p className="rounded-council border border-error/40 bg-error/10 px-4 py-3 text-sm text-error">
+        <p className="rounded-[0.72rem] border border-error/40 bg-error/10 px-3.5 py-2.5 text-[0.8rem] text-error">
           {error}
         </p>
       )}
@@ -342,7 +350,7 @@ function GoogleIcon() {
     <svg
       aria-hidden
       viewBox="0 0 24 24"
-      className="size-5"
+      className="size-4"
       focusable="false"
     >
       <path
@@ -370,7 +378,7 @@ function EyeIcon() {
     <svg
       aria-hidden
       viewBox="0 0 24 24"
-      className="size-5"
+      className="size-4"
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"
@@ -388,7 +396,7 @@ function EyeOffIcon() {
     <svg
       aria-hidden
       viewBox="0 0 24 24"
-      className="size-5"
+      className="size-4"
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"

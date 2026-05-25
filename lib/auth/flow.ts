@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  getValidAuthSession,
   loadAuthSession,
   type AuthSession,
 } from "@/lib/auth/client";
@@ -51,7 +52,7 @@ export async function syncPendingSurvey(
 export async function resolvePostAuthRedirect(
   preferred = "/session",
 ): Promise<string> {
-  const session = loadAuthSession();
+  const session = await getValidAuthSession();
   if (!session) return "/login";
 
   if (await syncPendingSurvey(session)) {

@@ -6,7 +6,7 @@ import { AvatarUploader } from "@/components/auth/AvatarUploader";
 import { Button, LinkButton } from "@/components/ui/Button";
 import {
   clearAuthSession,
-  loadAuthSession,
+  getValidAuthSession,
   type AuthSession,
 } from "@/lib/auth/client";
 import { fetchSurveyStatus } from "@/lib/auth/flow";
@@ -18,14 +18,23 @@ export function AccountPanel() {
   const [hasSurvey, setHasSurvey] = useState(false);
 
   useEffect(() => {
-    const current = loadAuthSession();
-    setSession(current);
-    setHasSurvey(!!loadUserContext());
-    if (current) {
-      void fetchSurveyStatus(current).then((status) => {
-        if (status?.completed) setHasSurvey(true);
-      });
+    let active = true;
+
+    async function loadAccount() {
+      const current = await getValidAuthSession();
+      if (!active) return;
+      setSession(current);
+      setHasSurvey(!!loadUserContext());
+      if (current) {
+        const status = await fetchSurveyStatus(current);
+        if (active && status?.completed) setHasSurvey(true);
+      }
     }
+
+    void loadAccount();
+    return () => {
+      active = false;
+    };
   }, []);
 
   function handleLogout() {

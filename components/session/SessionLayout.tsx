@@ -8,7 +8,7 @@ import { SessionConsole } from "./SessionConsole";
 import { ChatSidebar } from "./ChatSidebar";
 import { AgentFace } from "@/components/agents/AgentFace";
 import { AGENT_IDS } from "@/lib/agents/ids";
-import { loadAuthSession } from "@/lib/auth/client";
+import { getValidAuthSession } from "@/lib/auth/client";
 import {
   createPersistentChatSession,
   getActiveChatId,
@@ -48,7 +48,8 @@ export function SessionLayout() {
       const guestMode =
         typeof window !== "undefined" &&
         new URLSearchParams(window.location.search).get("guest") === "1";
-      if (loadAuthSession() || guestMode) {
+      const authSession = await getValidAuthSession();
+      if (authSession || guestMode) {
         try {
           const session = await createPersistentChatSession();
           setChatId(session.id);

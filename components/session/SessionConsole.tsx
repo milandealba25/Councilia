@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { loadUserContext, saveUserContext } from "@/lib/survey/storage";
-import { loadAuthSession } from "@/lib/auth/client";
+import { getValidAuthSession } from "@/lib/auth/client";
 import { SURVEY_VERSION, type UserContext } from "@/lib/survey/survey.v1";
 import { AGENT_IDS, type AgentId } from "@/lib/agents/ids";
 import { AgentCard } from "@/components/agents/AgentCard";
@@ -370,30 +370,35 @@ export function SessionConsole({
     const guestMode =
       typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).get("guest") === "1";
-    if (!loadAuthSession() && !guestMode) {
-      router.replace("/");
-      return;
-    }
 
-    const stored = loadUserContext();
-    if (!stored) {
-      if (guestMode) {
-        const guestContext: UserContext = {
-          surveyVersion: SURVEY_VERSION,
-          decisionType: "vida",
-          ageRange: "prefer_not_say",
-          urgency: "explorando",
-          needFromCouncil: "estructurar",
-          fearedLoss: "arrepentirme",
-        };
-        saveUserContext(guestContext);
-        dispatch({ type: "ctx_loaded", ctx: guestContext });
+    async function guardSession() {
+      if (!(await getValidAuthSession()) && !guestMode) {
+        router.replace("/");
         return;
       }
-      router.replace("/onboarding");
-      return;
+
+      const stored = loadUserContext();
+      if (!stored) {
+        if (guestMode) {
+          const guestContext: UserContext = {
+            surveyVersion: SURVEY_VERSION,
+            decisionType: "vida",
+            ageRange: "prefer_not_say",
+            urgency: "explorando",
+            needFromCouncil: "estructurar",
+            fearedLoss: "arrepentirme",
+          };
+          saveUserContext(guestContext);
+          dispatch({ type: "ctx_loaded", ctx: guestContext });
+          return;
+        }
+        router.replace("/onboarding");
+        return;
+      }
+      dispatch({ type: "ctx_loaded", ctx: stored });
     }
-    dispatch({ type: "ctx_loaded", ctx: stored });
+
+    void guardSession();
   }, [router]);
 
   useEffect(

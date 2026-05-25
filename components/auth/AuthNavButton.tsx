@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { LinkButton } from "@/components/ui/Button";
 import {
   authChangeEventName,
-  loadAuthSession,
+  getValidAuthSession,
   type AuthSession,
 } from "@/lib/auth/client";
 
@@ -14,15 +14,21 @@ export function AuthNavButton() {
   const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
+    let active = true;
+
     function syncSession() {
-      setSession(loadAuthSession());
-      setImageFailed(false);
+      void getValidAuthSession().then((current) => {
+        if (!active) return;
+        setSession(current);
+        setImageFailed(false);
+      });
     }
 
     syncSession();
     window.addEventListener(authChangeEventName(), syncSession);
     window.addEventListener("storage", syncSession);
     return () => {
+      active = false;
       window.removeEventListener(authChangeEventName(), syncSession);
       window.removeEventListener("storage", syncSession);
     };

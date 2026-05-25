@@ -1,7 +1,7 @@
 "use client";
 
 import type { AgentId } from "@/lib/agents/ids";
-import { loadAuthSession } from "@/lib/auth/client";
+import { getValidAuthSession } from "@/lib/auth/client";
 
 export interface ChatTurn {
   turnId?: string;
@@ -146,8 +146,8 @@ function mergeServerSessions(incoming: ChatSession[]): ChatSession[] {
   return sortSessions(Array.from(byId.values()));
 }
 
-function authHeaders(): Record<string, string> | null {
-  const session = loadAuthSession();
+async function authHeaders(): Promise<Record<string, string> | null> {
+  const session = await getValidAuthSession();
   if (!session) return null;
   return {
     authorization: `Bearer ${session.accessToken}`,
@@ -168,7 +168,7 @@ export function getChatSession(id: string): ChatSession | null {
 }
 
 export async function refreshChatSessionsFromServer(): Promise<ChatSession[]> {
-  const headers = authHeaders();
+  const headers = await authHeaders();
   if (!headers) return getChatSessions();
   const response = await fetch("/api/chats", { headers }).catch(() => null);
   if (!response?.ok) return getChatSessions();
@@ -201,7 +201,7 @@ export function createChatSession(): ChatSession {
 }
 
 export async function createPersistentChatSession(): Promise<ChatSession> {
-  const headers = authHeaders();
+  const headers = await authHeaders();
   if (!headers) return createChatSession();
   const response = await fetch("/api/chats", {
     method: "POST",
@@ -251,7 +251,7 @@ export async function savePersistentChatTurn(
   turn: ChatTurn,
 ): Promise<ChatSession | null> {
   saveChatTurn(chatId, turn);
-  const headers = authHeaders();
+  const headers = await authHeaders();
   if (!headers) return getChatSession(chatId);
 
   const response = await fetch(`/api/chats/${encodeURIComponent(chatId)}/turns`, {
@@ -284,7 +284,7 @@ export async function renamePersistentChatSession(
   title: string,
 ): Promise<void> {
   renameChatSession(id, title);
-  const headers = authHeaders();
+  const headers = await authHeaders();
   if (!headers) return;
   const response = await fetch(`/api/chats/${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -329,7 +329,7 @@ export function deleteChatSession(id: string): void {
 
 export async function deletePersistentChatSession(id: string): Promise<void> {
   deleteChatSession(id);
-  const headers = authHeaders();
+  const headers = await authHeaders();
   if (!headers) return;
   await fetch(`/api/chats/${encodeURIComponent(id)}`, {
     method: "DELETE",
