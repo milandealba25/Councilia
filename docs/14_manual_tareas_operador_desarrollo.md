@@ -26,9 +26,9 @@
    ```bash
    GEMINI_API_KEY=AIza...
    ```
-5. Opcional — modelo explícito:
+5. Opcional — modelos en orden de fallback:
    ```bash
-   GEMINI_MODEL=gemini-flash-latest
+   GEMINI_MODELS=gemini-3.1-flash-lite,gemini-2.5-flash-lite
    ```
 6. Verificación:
    ```bash
@@ -91,12 +91,13 @@ El código incluye repos en memoria y un **factory** listo para enchufar el clie
 
 ## 4. Alta — Vercel (deploy, A8)
 
-1. [Vercel](https://vercel.com) → **Add New → Project** → conecta el repo `Councilia/Councilia`.
+1. [Vercel](https://vercel.com) → **Add New → Project** → conecta el repo `milandealba25/Councilia`.
 2. Framework: Next.js (auto).
 3. **Environment Variables** (Production, Preview y Development):
    - `GEMINI_API_KEY`
-   - `SUPABASE_URL`, `SUPABASE_ANON_KEY`
+   - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
    - `NEXT_PUBLIC_APP_URL` (p. ej. `https://dev.councilia.app` en preview/staging)
+   - Opcionales: `GEMINI_MODELS`, `GEMINI_THINKING_BUDGET`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `LOG_LEVEL`
 4. Primer deploy; revisar logs si falla el build (en CI ya se usa `SKIP_ENV_VALIDATION` donde aplica).
 
 ---
