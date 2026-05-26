@@ -19,7 +19,7 @@ export function PhaseIndicator({ phase }: Props) {
   const visiblePhase = phase === "fase4" ? "wait" : phase;
   const activeIdx = PHASES.findIndex((p) => p.id === visiblePhase);
   return (
-    <ol className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wider text-muted">
+    <ol className="flex flex-wrap items-center justify-center gap-2 text-[11px] uppercase tracking-wider text-muted">
       {PHASES.map((p, i) => {
         const done = i < activeIdx;
         const active = i === activeIdx;

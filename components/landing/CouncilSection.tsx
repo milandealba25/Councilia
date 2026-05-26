@@ -40,6 +40,12 @@ const AGENT_VAR: Record<AgentId, string> = {
   rafael: "var(--rafael)",
 };
 
+const AGENT_SOFT: Record<AgentId, string> = {
+  marco: "var(--marco-soft)",
+  elena: "var(--elena-soft)",
+  rafael: "var(--rafael-soft)",
+};
+
 export function CouncilSection() {
   return (
     <section
@@ -81,12 +87,19 @@ export function CouncilSection() {
 
                 <div className="relative flex justify-center">
                   <div
-                    className="agent-card-face"
+                    className="agent-card-face home-agent-face"
                     style={
-                      { "--agent-color": AGENT_VAR[agent] } as React.CSSProperties
+                      {
+                        "--agent-color": AGENT_VAR[agent],
+                        "--face-delay": `${idx * 0.45}s`,
+                        "--face-tilt": `${idx === 1 ? -1 : idx === 2 ? 1 : 0}deg`,
+                        "--coin-back": AGENT_SOFT[agent],
+                      } as React.CSSProperties
                     }
                   >
-                    <AgentFace agent={agent} size={84} mood="calm" />
+                    <span className="home-agent-face-coin">
+                      <AgentFace agent={agent} size={84} mood="calm" />
+                    </span>
                   </div>
                   <span className="absolute right-0 top-0 text-[10px] uppercase tracking-[0.18em] text-subtle">
                     0{idx + 1}

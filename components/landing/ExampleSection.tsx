@@ -42,6 +42,12 @@ const VARS: Record<AgentId, string> = {
   rafael: "var(--rafael)",
 };
 
+const SOFT_VARS: Record<AgentId, string> = {
+  marco: "var(--marco-soft)",
+  elena: "var(--elena-soft)",
+  rafael: "var(--rafael-soft)",
+};
+
 export function ExampleSection() {
   return (
     <section
@@ -91,7 +97,19 @@ export function ExampleSection() {
                 <Reveal key={agent} delay={120 + idx * 110}>
                   <div className="flex h-full flex-col gap-4 bg-surface p-6">
                     <div className="flex items-center gap-3">
-                      <AgentFace agent={agent} size={48} mood="speaking" />
+                      <span
+                        className="home-agent-face"
+                        style={
+                          {
+                            "--face-delay": `${idx * 0.5}s`,
+                            "--coin-back": SOFT_VARS[agent],
+                          } as React.CSSProperties
+                        }
+                      >
+                        <span className="home-agent-face-coin">
+                          <AgentFace agent={agent} size={48} mood="speaking" />
+                        </span>
+                      </span>
                       <div>
                         <p className="text-sm font-semibold text-foreground">
                           {AGENT_LABELS[agent]}

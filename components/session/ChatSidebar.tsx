@@ -40,6 +40,7 @@ export function ChatSidebar({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [query, setQuery] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const submittedRenameIdRef = useRef<string | null>(null);
@@ -195,6 +196,10 @@ export function ChatSidebar({
     selectedIds.size === 1
       ? "1 seleccionado"
       : `${selectedIds.size} seleccionados`;
+  const filteredSessions = sessions.filter((session) =>
+    session.title.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+  const sidebarWidth = 264;
 
   return (
     <>
@@ -202,75 +207,109 @@ export function ChatSidebar({
       <button
         type="button"
         onClick={() => updateCollapsed(false)}
-        className="fixed left-3 top-3 z-30 flex size-9 items-center justify-center rounded-lg border border-border bg-elevated text-muted shadow-sm transition-all duration-300 hover:border-accent/50 hover:text-foreground"
+        className="fixed left-3 top-3 z-30 flex size-9 items-center justify-center rounded-xl border border-[#d28a65]/28 bg-[#fff6ee]/88 text-[#9a5c43] shadow-[0_14px_34px_rgba(131,76,48,0.14)] backdrop-blur-xl transition-all duration-[520ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#d9784c]/45 hover:bg-white hover:text-[#c85f3d]"
         style={{
           opacity: collapsed ? 1 : 0,
           pointerEvents: collapsed ? "auto" : "none",
-          transform: collapsed ? "translateX(0)" : "translateX(-12px)",
+          transform: collapsed ? "translateX(0) scale(1)" : "translateX(-28px) scale(0.9)",
         }}
         aria-label="Abrir historial"
         title="Abrir historial"
       >
-        <ChevronRightIcon />
+        <PanelIcon />
       </button>
 
       {/* Sidebar */}
       <aside
-        className="sticky top-0 flex h-dvh shrink-0 flex-col border-r border-border bg-elevated/40 transition-all duration-300 ease-in-out"
         style={{
-          width: collapsed ? 0 : 256,
-          minWidth: collapsed ? 0 : 256,
+          width: collapsed ? 0 : sidebarWidth,
+          minWidth: collapsed ? 0 : sidebarWidth,
           opacity: collapsed ? 0 : 1,
-          transform: collapsed ? "translateX(-256px)" : "translateX(0)",
+          transform: collapsed ? `translateX(-${sidebarWidth}px)` : "translateX(0)",
           overflow: "hidden",
         }}
+        className="flex h-[calc(100dvh-1rem)] shrink-0 flex-col rounded-r-[1.35rem] border border-l-0 border-[#d98e68]/20 bg-[#fff4e8]/72 text-[#4b342c] shadow-[16px_0_44px_rgba(139,79,45,0.10)] backdrop-blur-2xl transition-all duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
       >
-        <div className="flex w-64 items-center justify-between border-b border-border px-4 py-3">
-          <span className="text-[11px] font-medium uppercase tracking-widest text-muted">
-            {isSelecting ? selectedLabel : "Tus chats"}
-          </span>
-          {isSelecting ? (
-            <div className="flex items-center gap-1">
+        <div className="w-[264px] border-b border-[#d9784c]/16 px-3 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex min-w-0 items-center gap-1.5">
               <button
                 type="button"
-                onClick={handleBulkDeleteRequest}
-                className="flex size-7 items-center justify-center rounded-md text-muted transition hover:bg-background"
-                style={{ color: "#c0392b" }}
-                aria-label="Borrar chats seleccionados"
-                title="Borrar chats seleccionados"
+                onClick={() => updateCollapsed(true)}
+                className="flex size-8 items-center justify-center rounded-xl text-[#8f5b48] transition hover:bg-[#e2603b]/10 hover:text-[#c85f3d]"
+                aria-label="Cerrar sidebar"
+                title="Cerrar sidebar"
               >
-                <TrashIcon />
+                <PanelIcon />
               </button>
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="flex size-7 items-center justify-center rounded-md text-muted transition hover:bg-background hover:text-foreground"
-                aria-label="Cancelar selección"
-                title="Cancelar selección"
-              >
-                <XIcon />
-              </button>
+              <span className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a6959]">
+                {isSelecting ? selectedLabel : "Conversaciones"}
+              </span>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => updateCollapsed(true)}
-              className="flex size-7 items-center justify-center rounded-md text-muted transition hover:bg-background hover:text-foreground"
-              aria-label="Cerrar sidebar"
-              title="Cerrar sidebar"
-            >
-              <ChevronLeftIcon />
-            </button>
+            {isSelecting ? (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleBulkDeleteRequest}
+                  className="flex size-8 items-center justify-center rounded-xl text-[#b94c31] transition hover:bg-[#e2603b]/10"
+                  aria-label="Borrar chats seleccionados"
+                  title="Borrar chats seleccionados"
+                >
+                  <TrashIcon />
+                </button>
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="flex size-8 items-center justify-center rounded-xl text-[#8f5b48] transition hover:bg-[#e2603b]/10 hover:text-[#c85f3d]"
+                  aria-label="Cancelar selección"
+                  title="Cancelar selección"
+                >
+                  <XIcon />
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          {!isSelecting && (
+            <div className="mt-3 grid gap-1.5">
+              <button
+                type="button"
+                onClick={onNewChat}
+                disabled={newChatPending}
+                aria-busy={newChatPending}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#5b3a31] transition hover:bg-[#e2603b]/10 hover:text-[#c85f3d] disabled:cursor-wait disabled:opacity-70"
+              >
+                <EditIcon />
+                {newChatPending ? "Creando..." : "Nuevo chat"}
+              </button>
+
+              <label className="relative block rounded-xl transition focus-within:bg-[#fffaf4]/70 hover:bg-[#e2603b]/8">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9a6959]">
+                  <SearchIcon />
+                </span>
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Buscar"
+                  className="w-full rounded-xl border border-transparent bg-transparent py-2.5 pl-10 pr-3 text-sm text-[#4b342c] outline-none transition placeholder:text-[#9a6959]/74 focus:border-[#d9784c]/28"
+                />
+              </label>
+            </div>
           )}
         </div>
 
-        <div className="w-64 flex-1 overflow-y-auto px-2 py-2">
+        <div className="w-[264px] flex-1 overflow-y-auto overscroll-contain px-2 py-2">
           {sessions.length === 0 && (
-            <p className="px-2 py-4 text-center text-xs text-muted/70">
+            <p className="px-3 py-4 text-center text-xs text-[#8f6a5b]">
               Aún no tienes chats guardados.
             </p>
           )}
-          {sessions.map((s) => {
+          {sessions.length > 0 && filteredSessions.length === 0 && (
+            <p className="px-3 py-4 text-center text-xs text-[#8f6a5b]">
+              No encontramos chats con ese título.
+            </p>
+          )}
+          {filteredSessions.map((s) => {
             const isActive = s.id === activeChatId;
             const isSelected = selectedIds.has(s.id);
             const isRenaming = renamingId === s.id;
@@ -288,12 +327,12 @@ export function ChatSidebar({
             return (
               <div
                 key={s.id}
-                className={`group relative rounded-lg transition ${
+                className={`group relative rounded-xl transition ${
                   isSelected
-                    ? "bg-accent/15"
+                    ? "bg-[#e2603b]/14"
                     : isActive
-                      ? "bg-accent/10"
-                      : "hover:bg-elevated"
+                      ? "bg-[#d96b45]/18 shadow-[inset_0_0_0_1px_rgba(217,107,69,0.18)]"
+                      : "hover:bg-[#e2603b]/10"
                 }`}
               >
                 {!isRenaming && (
@@ -318,8 +357,8 @@ export function ChatSidebar({
                       className={[
                         "flex size-4 items-center justify-center rounded border transition",
                         isSelected
-                          ? "border-accent bg-accent text-accent-foreground"
-                          : "border-border-strong bg-background/85 text-transparent hover:border-accent",
+                          ? "border-[#d96b45] bg-[#d96b45] text-white"
+                          : "border-[#c58c75]/55 bg-[#fffaf4]/65 text-transparent hover:border-[#d96b45]",
                       ].join(" ")}
                     >
                       <CheckIcon />
@@ -341,8 +380,8 @@ export function ChatSidebar({
                       : "pl-3 pr-16 group-hover:pl-10"
                   } ${
                     isActive
-                      ? "text-foreground"
-                      : "text-muted hover:text-foreground"
+                      ? "text-[#2f1f1a]"
+                      : "text-[#755447] hover:text-[#2f1f1a]"
                   }`}
                 >
                   {isRenaming ? (
@@ -364,14 +403,14 @@ export function ChatSidebar({
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-full rounded border border-accent/40 bg-background px-1.5 py-0.5 text-sm font-medium text-foreground outline-none focus:border-accent"
+                      className="w-full rounded-lg border border-[#d8a492]/55 bg-[#fff7ef] px-2 py-1 text-sm font-medium text-[#2f1914] outline-none focus:border-[#c8754d]"
                     />
                   ) : (
                     <p className="truncate text-sm font-medium leading-snug">
                       {s.title}
                     </p>
                   )}
-                  <p className="text-[10px] text-muted">
+                  <p className="text-[10px] text-[#9a7567]">
                     {dateStr} · {turnLabel}
                   </p>
                 </button>
@@ -384,7 +423,7 @@ export function ChatSidebar({
                       e.stopPropagation();
                       handleRenameStart(s.id);
                     }}
-                    className="absolute right-8 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted/40 opacity-0 transition hover:bg-background hover:text-foreground group-hover:opacity-100"
+                    className="absolute right-8 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#9a7567]/62 opacity-0 transition hover:bg-[#e2603b]/10 hover:text-[#c85f3d] group-hover:opacity-100"
                     aria-label="Editar nombre"
                     title="Editar nombre"
                   >
@@ -396,7 +435,7 @@ export function ChatSidebar({
                   <button
                     type="button"
                     onClick={(e) => handleMenuToggle(e, s.id)}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted/40 opacity-0 transition hover:bg-background hover:text-foreground group-hover:opacity-100"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#9a7567]/62 opacity-0 transition hover:bg-[#e2603b]/10 hover:text-[#c85f3d] group-hover:opacity-100"
                     aria-label="Opciones"
                     title="Opciones"
                   >
@@ -408,13 +447,13 @@ export function ChatSidebar({
                 {menuOpenId === s.id && (
                   <div
                     ref={menuRef}
-                    className="absolute right-1 top-full z-40 mt-1 w-40 overflow-hidden rounded-lg border border-border bg-background shadow-lg"
+                    className="absolute right-1 top-full z-40 mt-1 w-40 overflow-hidden rounded-xl border border-[#ead8c4] bg-[#fffaf2] shadow-lg"
                     style={{ animation: "soft-rise 150ms ease-out both" }}
                   >
                     <button
                       type="button"
                       onClick={() => handleRenameStart(s.id)}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-foreground transition hover:bg-elevated"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#4a2c22] transition hover:bg-[#ffe6da]"
                     >
                       <PencilIcon />
                       Renombrar
@@ -422,7 +461,7 @@ export function ChatSidebar({
                     <button
                       type="button"
                       onClick={() => handleExport(s.id)}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-foreground transition hover:bg-elevated"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#4a2c22] transition hover:bg-[#ffe6da]"
                     >
                       <ExportIcon />
                       Exportar
@@ -430,8 +469,7 @@ export function ChatSidebar({
                     <button
                       type="button"
                       onClick={() => handleDeleteRequest(s.id)}
-                      className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-left text-xs transition hover:bg-elevated"
-                      style={{ color: "#c0392b" }}
+                      className="flex w-full items-center gap-2 border-t border-[#ead8c4] px-3 py-2 text-left text-xs text-[#b43825] transition hover:bg-[#ffe6da]"
                     >
                       <TrashIcon />
                       Borrar
@@ -443,18 +481,6 @@ export function ChatSidebar({
           })}
         </div>
 
-        <div className="w-64 border-t border-border px-3 py-3">
-          <button
-            type="button"
-            onClick={onNewChat}
-            disabled={newChatPending}
-            aria-busy={newChatPending}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-accent/40 px-3 py-2 text-xs font-medium uppercase tracking-wider text-accent transition hover:border-accent hover:bg-accent/5 disabled:cursor-wait disabled:opacity-60"
-          >
-            <PlusIcon />
-            {newChatPending ? "Creando..." : "Nuevo chat"}
-          </button>
-        </div>
       </aside>
 
       {/* Modal de confirmación de borrado */}
@@ -539,27 +565,29 @@ export function ChatSidebar({
 
 /* ─── Íconos ─── */
 
-function ChevronLeftIcon() {
+function PanelIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="15 18 9 12 15 6" />
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <path d="M9 4v16" />
     </svg>
   );
 }
 
-function ChevronRightIcon() {
+function EditIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="9 18 15 12 9 6" />
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   );
 }
 
-function PlusIcon() {
+function SearchIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="11" cy="11" r="7" />
+      <line x1="16.5" y1="16.5" x2="21" y2="21" />
     </svg>
   );
 }

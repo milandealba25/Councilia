@@ -15,6 +15,12 @@ const HERO_WHISPERS: Record<AgentId, string> = {
   rafael: "¿Y si hay algo que aún no te has atrevido a preguntar?",
 };
 
+const AGENT_SOFT: Record<AgentId, string> = {
+  marco: "var(--marco-soft)",
+  elena: "var(--elena-soft)",
+  rafael: "var(--rafael-soft)",
+};
+
 function quoted(whisper: string) {
   return `\u201C${whisper}\u201D`;
 }
@@ -51,7 +57,19 @@ export function CouncilHeroPanel({ onStart }: { onStart: () => void }) {
                 animation: `soft-rise 700ms ease-out ${idx * 160}ms both`,
               }}
             >
-              <AgentFace agent={agent} size={56} mood="listening" />
+              <span
+                className="home-agent-face"
+                style={
+                  {
+                    "--face-delay": `${idx * 0.55}s`,
+                    "--coin-back": AGENT_SOFT[agent],
+                  } as React.CSSProperties
+                }
+              >
+                <span className="home-agent-face-coin">
+                  <AgentFace agent={agent} size={56} mood="listening" />
+                </span>
+              </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-foreground">

@@ -128,7 +128,7 @@ export function LoginForm() {
   }
 
   return (
-    <div className="grid gap-[clamp(0.65rem,1.5vh,1rem)]">
+    <div className="grid gap-[clamp(0.7rem,1.55vh,1.05rem)]">
       {reason === "survey" && (
         <div
           className="rounded-[0.72rem] border border-accent/30 bg-accent-soft/35 px-3.5 py-2.5 text-[0.8rem] leading-relaxed text-foreground-soft"
@@ -182,7 +182,7 @@ export function LoginForm() {
 
       <form
         onSubmit={handleSubmit}
-        className="grid gap-[clamp(0.65rem,1.45vh,0.85rem)]"
+        className="grid gap-[clamp(0.55rem,1.25vh,0.75rem)]"
         noValidate
       >
         {mode === "register" && (
@@ -202,7 +202,7 @@ export function LoginForm() {
               onBlur={() => setName(cleanName)}
               placeholder="Tu nombre"
               autoComplete="name"
-              className="rounded-[0.72rem] border border-border-strong/70 bg-surface/85 px-3.5 py-2.5 text-[clamp(0.82rem,1.55vh,0.95rem)] text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
+              className="rounded-[0.78rem] border border-border-strong/70 bg-surface/85 px-4 py-3 text-[clamp(0.86rem,1.58vh,1rem)] text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
               aria-invalid={name.length > 0 && !nameValid}
               required
             />
@@ -227,7 +227,7 @@ export function LoginForm() {
             onBlur={() => setEmail(cleanEmail)}
             placeholder="tu@correo.com"
             autoComplete="email"
-            className="rounded-[0.72rem] border border-border-strong/70 bg-surface/85 px-3.5 py-2.5 text-[clamp(0.82rem,1.55vh,0.95rem)] text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
+            className="rounded-[0.78rem] border border-border-strong/70 bg-surface/85 px-4 py-3 text-[clamp(0.86rem,1.58vh,1rem)] text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
             aria-invalid={email.length > 0 && !emailValid}
             required
           />
@@ -254,7 +254,7 @@ export function LoginForm() {
               autoComplete={
                 mode === "register" ? "new-password" : "current-password"
               }
-              className="w-full rounded-[0.72rem] border border-border-strong/70 bg-surface/85 py-2.5 pl-3.5 pr-10 text-[clamp(0.82rem,1.55vh,0.95rem)] text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
+              className="w-full rounded-[0.78rem] border border-border-strong/70 bg-surface/85 py-3 pl-4 pr-10 text-[clamp(0.86rem,1.58vh,1rem)] text-foreground shadow-soft outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
               aria-invalid={password.length > 0 && !passwordValid}
               required
             />
@@ -300,7 +300,7 @@ export function LoginForm() {
         <Button
           type="submit"
           disabled={!formValid || submitting}
-          className="!rounded-[0.72rem] !px-4 !py-2 !text-[clamp(0.82rem,1.55vh,0.95rem)]"
+          className="mt-0.5 !rounded-[0.78rem] !px-4 !py-2.5 !text-[clamp(0.86rem,1.58vh,1rem)]"
         >
           {submitting
             ? mode === "register"
@@ -321,7 +321,7 @@ export function LoginForm() {
       <LinkButton
         href={`/api/auth/google?next=${encodeURIComponent(next)}`}
         variant="secondary"
-        className="w-full !rounded-[0.72rem] !px-4 !py-2 !text-[clamp(0.82rem,1.55vh,0.95rem)]"
+        className="w-full !rounded-[0.78rem] !px-4 !py-2.5 !text-[clamp(0.86rem,1.58vh,1rem)]"
       >
         <GoogleIcon />
         Entrar con Google

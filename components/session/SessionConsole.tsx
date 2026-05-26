@@ -529,13 +529,11 @@ export function SessionConsole({
     (state.phase === "idle" || state.phase === "wait");
 
   const showComposer = state.phase !== "fase4";
-  const composerClassName = [
-    "fixed bottom-4 left-3 right-3 z-20 mx-auto flex w-auto max-w-5xl flex-col gap-2 rounded-council border border-border-strong/70 bg-surface/90 p-3 shadow-council-lg backdrop-blur transition-[left,right,max-width] duration-300 ease-in-out",
-    sidebarCollapsed ? "md:left-4 md:right-4" : "md:left-[calc(256px+1rem)] md:right-4",
-  ].join(" ");
+  const composerClassName =
+    "sticky bottom-5 z-20 mx-auto mt-auto flex w-full max-w-4xl flex-col gap-2 overflow-hidden rounded-[1.05rem] border border-[#d9784c]/18 bg-[#fff6ee]/88 p-3 shadow-[0_18px_46px_rgba(116,68,43,0.14)] backdrop-blur-xl transition-[background-color,border-color,box-shadow] duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-[linear-gradient(135deg,rgba(255,246,238,0.98),rgba(255,250,244,0.94),rgba(255,230,218,0.9))] after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:-z-10 after:h-12 after:bg-gradient-to-b after:from-white/45 after:to-transparent";
 
   return (
-    <div className="flex flex-col gap-[34px] pb-32">
+    <div className="flex min-h-[calc(100dvh-12rem)] flex-col gap-[34px] pb-5">
       <PhaseIndicator phase={state.phase} />
 
       {state.configError && (
@@ -707,7 +705,7 @@ export function SessionConsole({
             rows={2}
             disabled={state.phase === "fase4"}
             placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
-            className="max-h-32 resize-none rounded-council border border-border-strong/70 bg-elevated/80 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
+            className="max-h-32 resize-none rounded-council border border-[#d8a47d]/55 bg-[#fffaf4]/76 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-[#d96339] focus:outline-none focus:ring-1 focus:ring-[#d96339]/35 disabled:opacity-60"
             autoFocus={state.phase === "wait"}
           />
           <div className="flex items-center justify-between text-xs text-muted">

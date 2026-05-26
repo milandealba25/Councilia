@@ -15,12 +15,12 @@ export const metadata = {
 
 export default function LoginPage() {
   return (
-    <main className="relative isolate grid min-h-dvh items-start justify-items-center overflow-hidden px-4 py-[clamp(0.75rem,2.5vh,2rem)]">
-      <Container className="relative z-10 w-full max-w-xl">
+    <main className="relative isolate grid min-h-dvh place-items-center overflow-hidden px-4 py-[clamp(1.25rem,4vh,2.75rem)]">
+      <Container className="relative z-10 grid w-full max-w-[40rem] gap-[clamp(0.75rem,1.8vh,1.2rem)]">
         <div className="relative flex min-h-[clamp(2rem,5vh,2.5rem)] items-center justify-center">
           <Link
             href="/"
-            className="absolute left-0 text-xs uppercase tracking-wider text-muted hover:text-foreground"
+            className="absolute -top-1 left-0 text-xs uppercase tracking-wider text-muted transition hover:text-foreground"
           >
             ← Inicio
           </Link>
@@ -39,18 +39,18 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="mt-[clamp(0.65rem,1.8vh,1.25rem)] grid gap-[clamp(0.75rem,1.8vh,1.25rem)]">
+        <div className="grid gap-[clamp(0.75rem,1.8vh,1.25rem)]">
           <header className="text-center">
             <p className="text-xs font-medium uppercase tracking-widest text-accent">
               Acceso
             </p>
-            <h1 className="mx-auto mt-2 max-w-lg text-balance text-[clamp(1.55rem,3.6vmin,1.9rem)] font-semibold leading-[1.14] tracking-tight text-foreground">
+            <h1 className="mx-auto mt-2 max-w-[34rem] text-balance text-[clamp(1.65rem,3.8vmin,2.05rem)] font-semibold leading-[1.12] tracking-tight text-foreground">
               Entra para que el council recuerde lo importante.
             </h1>
           </header>
 
           <section
-            className="rounded-[clamp(1rem,2.8vmin,1.5rem)] border border-border/70 bg-surface/76 p-[clamp(0.9rem,2vmin,1.25rem)] shadow-council"
+            className="rounded-[clamp(1.1rem,2.8vmin,1.5rem)] border border-border/70 bg-surface/76 p-[clamp(1.05rem,2.2vmin,1.45rem)] shadow-council"
             style={{ animation: "soft-rise 600ms ease-out 120ms both" }}
           >
             <Suspense
