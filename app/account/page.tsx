@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { AccountPanel } from "@/components/auth/AccountPanel";
 import { Container } from "@/components/ui/Container";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "Cuenta",
-  robots: {
-    index: false,
-    follow: false,
-  },
-};
+  description: "Ajustes privados de tu cuenta de COUNCILia.",
+  path: "/account",
+  index: false,
+});
 
 export default function AccountPage() {
   return (

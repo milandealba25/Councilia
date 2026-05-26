@@ -1,8 +1,9 @@
 import { Container } from "@/components/ui/Container";
-import { Button, LinkButton } from "@/components/ui/Button";
+import { LinkButton } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
+import { StartAccessButton } from "@/components/landing/StartAccessButton";
 
-export function CTASection({ onStart }: { onStart: () => void }) {
+export function CTASection() {
   return (
     <section id="empezar" className="border-t border-border/70 py-24 md:py-32">
       <Container>
@@ -33,9 +34,9 @@ export function CTASection({ onStart }: { onStart: () => void }) {
                 ajustan el tono, el ritmo y qué cuida cada voz contigo.
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
-                <Button type="button" onClick={onStart} variant="primary">
+                <StartAccessButton>
                   Empezar a hablar
-                </Button>
+                </StartAccessButton>
                 <LinkButton href="#ejemplo" variant="secondary">
                   Ver primero un ejemplo
                 </LinkButton>

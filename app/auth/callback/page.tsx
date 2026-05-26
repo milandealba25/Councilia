@@ -2,14 +2,14 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AuthCallback } from "@/components/auth/AuthCallback";
 import { Container } from "@/components/ui/Container";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "Confirmando login",
-  robots: {
-    index: false,
-    follow: false,
-  },
-};
+  description: "Confirmación privada de acceso a COUNCILia.",
+  path: "/auth/callback",
+  index: false,
+});
 
 export default function AuthCallbackPage() {
   return (

@@ -12,8 +12,13 @@ import { ReplicaCard } from "./ReplicaCard";
 import { SynthesisCard } from "./SynthesisCard";
 import { PhaseIndicator, type Phase } from "./PhaseIndicator";
 import {
+  requestSynthesis,
   streamInitial,
+  streamReplica,
+  SynthesisRequestError,
   type InitialEvent,
+  type ReplicaEvent,
+  type TranscriptTurn,
 } from "@/lib/api/client";
 import type { Synthesis } from "@/orchestrator/synthesis";
 import {
@@ -102,7 +107,10 @@ type Action =
   | { type: "submit_user"; message: string }
   | { type: "initial_event"; event: InitialEvent }
   | { type: "phase1_done" }
+  | { type: "replica_start" }
+  | { type: "replica_event"; event: ReplicaEvent }
   | { type: "replica_done" }
+  | { type: "synthesis_start" }
   | { type: "synthesis_done"; synthesis: Synthesis }
   | { type: "synthesis_error"; message: string; code?: LlmErrorCode }
   | { type: "fatal"; message: string }
@@ -195,6 +203,19 @@ function reducer(state: State, action: Action): State {
       };
     }
 
+    case "replica_start":
+      return {
+        ...state,
+        phase: "fase2",
+        loading: true,
+        replicaPending: true,
+        replica: null,
+        error: null,
+      };
+
+    case "replica_event":
+      return applyReplicaEvent(state, action.event);
+
     case "replica_done":
       return {
         ...state,
@@ -205,6 +226,15 @@ function reducer(state: State, action: Action): State {
           state.replica && state.replica !== "skipped"
             ? { ...state.replica, state: "complete" }
             : state.replica,
+      };
+
+    case "synthesis_start":
+      return {
+        ...state,
+        phase: "fase4",
+        loading: true,
+        error: null,
+        synthesis: null,
       };
 
     case "synthesis_done":
@@ -300,6 +330,63 @@ function applyInitialEvent(state: State, ev: InitialEvent): State {
   return state;
 }
 
+function applyReplicaEvent(state: State, ev: ReplicaEvent): State {
+  if (ev.type === "plan") {
+    return {
+      ...state,
+      replicaPending: false,
+      replica: {
+        speaker: ev.speaker,
+        respondingTo: ev.respondingTo,
+        tensionScore: ev.tensionScore,
+        text: "",
+        state: "streaming",
+      },
+    };
+  }
+  if (ev.type === "delta") {
+    if (!state.replica || state.replica === "skipped") return state;
+    return {
+      ...state,
+      replica: {
+        ...state.replica,
+        text: state.replica.text + ev.text,
+      },
+    };
+  }
+  if (ev.type === "done") {
+    return {
+      ...state,
+      phase: "wait",
+      loading: false,
+      replicaPending: false,
+      replica:
+        state.replica && state.replica !== "skipped"
+          ? { ...state.replica, state: "complete" }
+          : state.replica,
+    };
+  }
+  if (ev.type === "skipped") {
+    return {
+      ...state,
+      phase: "wait",
+      loading: false,
+      replicaPending: false,
+      replica: "skipped",
+    };
+  }
+  if (ev.type === "config_error") {
+    return {
+      ...state,
+      phase: "wait",
+      loading: false,
+      replicaPending: false,
+      configError: { code: ev.code, message: ev.message },
+    };
+  }
+  return state;
+}
+
 function markAllError(
   agents: Record<AgentId, AgentSlot>,
   error: string,
@@ -339,6 +426,37 @@ function chatTurnToCompletedTurn(turn: ChatTurn): CompletedTurn {
         }
       : null,
   };
+}
+
+function completedTurnToTranscript(turn: CompletedTurn): TranscriptTurn[] {
+  const rows: TranscriptTurn[] = [
+    { role: "user", text: turn.userMessage },
+  ];
+  for (const agent of AGENT_IDS) {
+    const text = turn.agents[agent].text.trim();
+    if (text) rows.push({ role: agent, text });
+  }
+  if (turn.replica && turn.replica !== "skipped" && turn.replica.text.trim()) {
+    rows.push({ role: turn.replica.speaker, text: turn.replica.text.trim() });
+  }
+  return rows;
+}
+
+function currentTurnFromState(state: State): CompletedTurn | null {
+  if (!state.lastUserMessage) return null;
+  return {
+    userMessage: state.lastUserMessage,
+    agents: state.agents,
+    attenuated: state.attenuated,
+    replica: state.replica,
+  };
+}
+
+function buildTranscriptFromState(state: State): TranscriptTurn[] {
+  const turns = [...state.pastTurns];
+  const current = currentTurnFromState(state);
+  if (current) turns.push(current);
+  return turns.flatMap(completedTurnToTranscript);
 }
 
 interface SessionConsoleProps {
@@ -469,7 +587,7 @@ export function SessionConsole({
 
       if (ctrl.signal.aborted) return;
 
-      const completedTurn: ChatTurn = {
+      let completedTurn: ChatTurn = {
         turnId,
         userMessage: message,
         agents: {
@@ -480,31 +598,123 @@ export function SessionConsole({
         replica: null,
       };
 
+      const persistCompletedTurn = async (turn: ChatTurn) => {
+        if (!submissionChatId) return;
+        await draftSave;
+        const updated = await savePersistentChatTurn(
+          submissionChatId,
+          turn,
+        ).catch(() => null);
+        if (
+          updated?.summary &&
+          mountedRef.current &&
+          activeChatIdRef.current === submissionChatId
+        ) {
+          dispatch({ type: "memory_updated", summary: updated.summary });
+        }
+      };
+
       if (submissionChatId) {
         saveChatTurn(submissionChatId, completedTurn);
       }
 
       dispatch({ type: "phase1_done" });
 
-      if (submissionChatId) {
-        void (async () => {
-          await draftSave;
-          const updated = await savePersistentChatTurn(
-            submissionChatId,
-            completedTurn,
-          ).catch(() => null);
-          if (
-            updated?.summary &&
-            mountedRef.current &&
-            activeChatIdRef.current === submissionChatId
-          ) {
-            dispatch({ type: "memory_updated", summary: updated.summary });
+      const postures = AGENT_IDS.map((agent) => ({
+        agent,
+        text: completedTurn.agents[agent]?.trim() ?? "",
+      })).filter((posture) => posture.text.length > 0);
+
+      if (postures.length < 2) {
+        void persistCompletedTurn(completedTurn);
+        return;
+      }
+
+      dispatch({ type: "replica_start" });
+      let replica: ChatTurn["replica"] = null;
+      let skippedOrConfigError = false;
+      try {
+        for await (const ev of streamReplica({
+          userContext: state.ctx,
+          userMessage: message,
+          conversationMemory,
+          postures,
+          signal: ctrl.signal,
+        })) {
+          dispatch({ type: "replica_event", event: ev });
+          if (ev.type === "plan") {
+            replica = {
+              speaker: ev.speaker,
+              respondingTo: ev.respondingTo,
+              text: "",
+            };
+          } else if (ev.type === "delta" && replica !== null) {
+            replica = {
+              speaker: replica.speaker,
+              respondingTo: replica.respondingTo,
+              text: replica.text + ev.text,
+            };
+          } else if (ev.type === "skipped" || ev.type === "config_error") {
+            skippedOrConfigError = true;
           }
-        })();
+        }
+        if (ctrl.signal.aborted) return;
+        if (replica !== null && replica.text.trim()) {
+          completedTurn = {
+            ...completedTurn,
+            replica: {
+              speaker: replica.speaker,
+              respondingTo: replica.respondingTo,
+              text: replica.text.trim(),
+            },
+          };
+          if (submissionChatId) saveChatTurn(submissionChatId, completedTurn);
+          dispatch({ type: "replica_done" });
+        } else if (!skippedOrConfigError) {
+          dispatch({ type: "replica_done" });
+        }
+        void persistCompletedTurn(completedTurn);
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+        dispatch({ type: "fatal", message: (err as Error).message });
+        void persistCompletedTurn(completedTurn);
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       dispatch({ type: "fatal", message: (err as Error).message });
+    }
+  }
+
+  async function handleSynthesis() {
+    if (!state.ctx || state.loading) return;
+    const transcript = buildTranscriptFromState(state);
+    if (transcript.length === 0) return;
+
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    dispatch({ type: "synthesis_start" });
+
+    try {
+      const synthesis = await requestSynthesis({
+        userContext: state.ctx,
+        transcript,
+        conversationMemory: buildConversationMemory(activeChatIdRef.current),
+        signal: ctrl.signal,
+      });
+      if (ctrl.signal.aborted) return;
+      dispatch({ type: "synthesis_done", synthesis });
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+      const message =
+        err instanceof Error
+          ? err.message
+          : "No pudimos cerrar la síntesis.";
+      dispatch({
+        type: "synthesis_error",
+        message,
+        code: err instanceof SynthesisRequestError ? err.code : undefined,
+      });
     }
   }
 
@@ -527,6 +737,10 @@ export function SessionConsole({
     state.userInput.trim().length > 0 &&
     !state.loading &&
     (state.phase === "idle" || state.phase === "wait");
+  const canRequestSynthesis =
+    !state.loading &&
+    state.phase === "wait" &&
+    (state.lastUserMessage !== null || state.pastTurns.length > 0);
 
   const showComposer = state.phase !== "fase4";
   const composerClassName = [
@@ -713,6 +927,15 @@ export function SessionConsole({
           <div className="flex items-center justify-between text-xs text-muted">
             <span>{state.userInput.length} / 4000</span>
             <div className="flex items-center gap-2">
+              {canRequestSynthesis && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void handleSynthesis()}
+                >
+                  Cerrar con síntesis
+                </Button>
+              )}
               <Button type="submit" disabled={!canSubmit}>
                 {state.loading ? "Espera…" : "Enviar"}
               </Button>

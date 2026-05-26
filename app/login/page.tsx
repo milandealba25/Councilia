@@ -4,14 +4,14 @@ import { AgentFace } from "@/components/agents/AgentFace";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { Container } from "@/components/ui/Container";
 import { AGENT_IDS } from "@/lib/agents/ids";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "Iniciar sesión",
-  robots: {
-    index: false,
-    follow: false,
-  },
-};
+  description: "Acceso seguro a tu cuenta de COUNCILia.",
+  path: "/login",
+  index: false,
+});
 
 export default function LoginPage() {
   return (

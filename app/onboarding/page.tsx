@@ -3,14 +3,14 @@ import { Container } from "@/components/ui/Container";
 import { SurveyForm } from "@/components/survey/SurveyForm";
 import { AgentFace } from "@/components/agents/AgentFace";
 import { AGENT_IDS } from "@/lib/agents/ids";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "Antes de sentarnos",
-  robots: {
-    index: false,
-    follow: false,
-  },
-};
+  description: "Encuesta breve para personalizar tu council en COUNCILia.",
+  path: "/onboarding",
+  index: false,
+});
 
 export default function OnboardingPage() {
   return (

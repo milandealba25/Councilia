@@ -1,12 +1,12 @@
 import { SessionLayout } from "@/components/session/SessionLayout";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "Tu council",
-  robots: {
-    index: false,
-    follow: false,
-  },
-};
+  description: "Espacio privado de deliberación con Marco, Elena y Rafael.",
+  path: "/session",
+  index: false,
+});
 
 export default function SessionPage() {
   return <SessionLayout />;

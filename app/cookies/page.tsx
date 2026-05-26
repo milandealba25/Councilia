@@ -1,12 +1,14 @@
 import { LegalLayout } from "@/components/legal/LegalLayout";
 import { renderDocMarkdown } from "@/lib/markdown";
 import { CookiePreferencesPanel } from "@/components/cookies/CookiePreferencesPanel";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "Cookies",
   description:
     "Qué cookies usamos, para qué, y cómo gestionar tus preferencias.",
-};
+  path: "/cookies",
+});
 
 export default async function CookiesPage() {
   const { html } = await renderDocMarkdown("13_politica_de_cookies.md");

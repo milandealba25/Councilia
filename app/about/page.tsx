@@ -1,11 +1,13 @@
 import { LegalLayout } from "@/components/legal/LegalLayout";
 import { renderDocMarkdown } from "@/lib/markdown";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "Sobre el producto",
   description:
     "Visión, principios y diferenciador defendible de COUNCILia.",
-};
+  path: "/about",
+});
 
 export default async function AboutPage() {
   const { html } = await renderDocMarkdown("01_vision.md");
