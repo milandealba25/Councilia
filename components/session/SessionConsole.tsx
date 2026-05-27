@@ -463,13 +463,9 @@ function buildTranscriptFromState(state: State): TranscriptTurn[] {
 
 interface SessionConsoleProps {
   chatId: string | null;
-  sidebarCollapsed?: boolean;
 }
 
-export function SessionConsole({
-  chatId,
-  sidebarCollapsed = false,
-}: SessionConsoleProps) {
+export function SessionConsole({ chatId }: SessionConsoleProps) {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);

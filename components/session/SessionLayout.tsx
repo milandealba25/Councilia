@@ -300,7 +300,6 @@ export function SessionLayout() {
             <SessionConsole
               key={consoleKey}
               chatId={chatId}
-              sidebarCollapsed={sidebarCollapsed}
             />
           ) : (
             <p className="text-sm text-muted">Cargando tus chats...</p>
