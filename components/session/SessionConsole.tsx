@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadUserContext, saveUserContext } from "@/lib/survey/storage";
 import { getValidAuthSession } from "@/lib/auth/client";
@@ -34,6 +34,8 @@ import {
   type ChatSession,
   type ChatTurn,
 } from "@/lib/chat/chatStorage";
+
+type DictationStatus = "idle" | "listening" | "processing";
 
 /**
  * Máquina de estados de una sesión (doc 05, §1).
@@ -471,10 +473,17 @@ export function SessionConsole({
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const dictationChunksRef = useRef<Blob[]>([]);
+  const latestInputRef = useRef("");
   const mountedRef = useRef(true);
   const activeChatIdRef = useRef<string | null>(chatId);
   const responseSectionRef = useRef<HTMLElement | null>(null);
   const shouldScrollToCouncilRef = useRef(false);
+  const [dictationStatus, setDictationStatus] =
+    useState<DictationStatus>("idle");
+  const [dictationError, setDictationError] = useState<string | null>(null);
 
   useEffect(() => {
     activeChatIdRef.current = chatId;
@@ -523,9 +532,15 @@ export function SessionConsole({
     () => () => {
       mountedRef.current = false;
       abortRef.current?.abort();
+      mediaRecorderRef.current?.stop();
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     },
     [],
   );
+
+  useEffect(() => {
+    latestInputRef.current = state.userInput;
+  }, [state.userInput]);
 
   useEffect(() => {
     if (
@@ -544,6 +559,161 @@ export function SessionConsole({
       window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
     });
   }, [state.phase, state.lastUserMessage]);
+
+  function appendDictationToInput(text: string) {
+    const spoken = text.replace(/\s+/g, " ").trim();
+    if (!spoken) return;
+    const current = latestInputRef.current;
+    const separator = current.trim().length > 0 && !/\s$/.test(current) ? " " : "";
+    const next = `${current}${separator}${spoken}`.slice(0, 4000);
+    latestInputRef.current = next;
+    dispatch({ type: "user_input", value: next });
+  }
+
+  function cleanupDictation() {
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaRecorderRef.current = null;
+    mediaStreamRef.current = null;
+    dictationChunksRef.current = [];
+    setDictationStatus("idle");
+  }
+
+  function dictationErrorMessage(err: unknown): string {
+    if (err instanceof DOMException) {
+      if (err.name === "NotAllowedError" || err.name === "SecurityError") {
+        return "El navegador bloqueo el microfono para esta pagina.";
+      }
+      if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+        return "No encontramos un microfono disponible.";
+      }
+      if (err.name === "NotReadableError" || err.name === "TrackStartError") {
+        return "El microfono esta siendo usado por otra app o no pudo iniciar.";
+      }
+    }
+    if (err instanceof Error && err.message.trim()) return err.message;
+    return "No pudimos capturar el dictado. Intentalo de nuevo.";
+  }
+
+  function supportedAudioMimeType(): string {
+    const candidates = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/mp4",
+      "audio/ogg;codecs=opus",
+    ];
+    return (
+      candidates.find(
+        (candidate) =>
+          typeof MediaRecorder !== "undefined" &&
+          MediaRecorder.isTypeSupported(candidate),
+      ) ?? ""
+    );
+  }
+
+  async function transcribeAudio(blob: Blob): Promise<string> {
+    const formData = new FormData();
+    const extension = blob.type.includes("mp4")
+      ? "m4a"
+      : blob.type.includes("ogg")
+        ? "ogg"
+        : "webm";
+    formData.append("audio", blob, `dictado.${extension}`);
+
+    const response = await fetch("/api/dictation", {
+      method: "POST",
+      body: formData,
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      text?: string;
+      error?: string;
+      detail?: string;
+    } | null;
+
+    if (!response.ok) {
+      throw new Error(
+        payload?.detail ??
+          payload?.error ??
+          "No pudimos transcribir el audio.",
+      );
+    }
+    return payload?.text?.trim() ?? "";
+  }
+
+  async function startDictation() {
+    if (dictationStatus !== "idle" || state.loading || state.phase === "fase4") {
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setDictationError("Tu navegador no soporta grabacion de audio en esta pagina.");
+      return;
+    }
+
+    setDictationStatus("processing");
+    setDictationError(null);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = supportedAudioMimeType();
+      const recorder = new MediaRecorder(
+        stream,
+        mimeType ? { mimeType } : undefined,
+      );
+
+      dictationChunksRef.current = [];
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) dictationChunksRef.current.push(event.data);
+      };
+
+      recorder.onerror = (event) => {
+        const error = "error" in event ? event.error : undefined;
+        setDictationError(dictationErrorMessage(error));
+        cleanupDictation();
+      };
+
+      recorder.onstop = () => {
+        const chunks = dictationChunksRef.current;
+        const type = recorder.mimeType || mimeType || "audio/webm";
+        const audio = new Blob(chunks, { type });
+        mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+
+        void transcribeAudio(audio)
+          .then((transcript) => {
+            if (!transcript) {
+              setDictationError("No detectamos voz en el audio.");
+              return;
+            }
+            appendDictationToInput(transcript);
+          })
+          .catch((err) => {
+            setDictationError(dictationErrorMessage(err));
+          })
+          .finally(() => {
+            cleanupDictation();
+          });
+      };
+
+      recorder.start();
+      setDictationStatus("listening");
+    } catch (err) {
+      cleanupDictation();
+      setDictationError(dictationErrorMessage(err));
+    }
+  }
+
+  function stopDictation() {
+    if (dictationStatus !== "listening") return;
+    setDictationStatus("processing");
+    try {
+      mediaRecorderRef.current?.stop();
+    } catch (err) {
+      cleanupDictation();
+      setDictationError(dictationErrorMessage(err));
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -741,6 +911,10 @@ export function SessionConsole({
     !state.loading &&
     state.phase === "wait" &&
     (state.lastUserMessage !== null || state.pastTurns.length > 0);
+  const canUseDictation =
+    !state.loading &&
+    state.phase !== "fase4" &&
+    (state.phase === "idle" || state.phase === "wait");
 
   const showComposer = state.phase !== "fase4";
   const composerClassName = [
@@ -924,9 +1098,20 @@ export function SessionConsole({
             className="max-h-32 resize-none rounded-council border border-border-strong/70 bg-elevated/80 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
             autoFocus={state.phase === "wait"}
           />
+          {dictationError && (
+            <p className="text-xs text-error" role="status">
+              {dictationError}
+            </p>
+          )}
           <div className="flex items-center justify-between text-xs text-muted">
             <span>{state.userInput.length} / 4000</span>
             <div className="flex items-center gap-2">
+              <DictationControl
+                status={dictationStatus}
+                disabled={!canUseDictation && dictationStatus === "idle"}
+                onStart={startDictation}
+                onStop={stopDictation}
+              />
               {canRequestSynthesis && (
                 <Button
                   type="button"
@@ -944,6 +1129,139 @@ export function SessionConsole({
         </form>
       )}
     </div>
+  );
+}
+
+function DictationControl({
+  status,
+  disabled,
+  onStart,
+  onStop,
+}: {
+  status: DictationStatus;
+  disabled: boolean;
+  onStart: () => void;
+  onStop: () => void;
+}) {
+  if (status === "listening") {
+    return (
+      <div
+        className="flex h-10 items-center gap-2 rounded-council border border-border-strong/70 bg-surface-soft px-2 shadow-soft"
+        role="status"
+        aria-label="Dictado activo"
+      >
+        <span className="typing-dots text-accent-strong" aria-hidden>
+          <span />
+          <span />
+          <span />
+        </span>
+        <button
+          type="button"
+          onClick={onStop}
+          aria-label="Detener dictado"
+          title="Detener dictado"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-council border border-error/40 bg-error text-white shadow-soft transition hover:-translate-y-px hover:bg-error/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          <StopIcon />
+        </button>
+      </div>
+    );
+  }
+
+  if (status === "processing") {
+    return (
+      <button
+        type="button"
+        disabled
+        aria-label="Procesando dictado"
+        title="Procesando dictado"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-council border border-border-strong/70 bg-surface-soft text-accent-strong shadow-soft disabled:cursor-wait disabled:opacity-80"
+      >
+        <LoadingIcon />
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onStart}
+      disabled={disabled}
+      aria-label="Iniciar dictado"
+      title="Iniciar dictado"
+      className="inline-flex h-10 w-10 items-center justify-center rounded-council border border-border-strong/70 bg-surface/80 text-accent-strong shadow-soft transition hover:-translate-y-px hover:border-accent hover:bg-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <MicrophoneIcon />
+    </button>
+  );
+}
+
+function MicrophoneIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+    >
+      <path
+        d="M12 14.5a3.25 3.25 0 0 0 3.25-3.25v-4.5a3.25 3.25 0 0 0-6.5 0v4.5A3.25 3.25 0 0 0 12 14.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M6.5 10.75a5.5 5.5 0 0 0 11 0M12 16.25v3.25M9.25 19.5h5.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function StopIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+    >
+      <rect
+        x="8"
+        y="8"
+        width="8"
+        height="8"
+        rx="1.5"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function LoadingIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5 animate-spin"
+      fill="none"
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="8"
+        stroke="currentColor"
+        strokeOpacity="0.22"
+        strokeWidth="2.5"
+      />
+      <path
+        d="M20 12a8 8 0 0 0-8-8"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2.5"
+      />
+    </svg>
   );
 }
 
