@@ -130,9 +130,14 @@ El código incluye repos en memoria y un **factory** listo para enchufar el clie
 ### 6.1 Stripe (N1–N5, H2)
 
 1. [Stripe Dashboard](https://dashboard.stripe.com) — empezar en **Test mode**.
-2. Crear productos: Pro mensual y anual (USD y MXN según plan comercial).
-3. Guardar Price IDs para Checkout y webhooks.
-4. Webhook signing secret en `.env` cuando se implemente `I8`.
+2. Productos sandbox ya creados con metadata + marketing features
+   (Plus `prod_Uavokl8w4r9bGy`, Pro `prod_Uavomov1AtpedL`).
+3. Precios sandbox con `lookup_key` (`councilia_plus_monthly_mxn`,
+   `_annual_`, equivalentes para Pro). Ver `docs/15_stripe_setup.md`.
+4. Webhook signing secret: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
+   → guardar `whsec_...` en `.env.local` como `STRIPE_WEBHOOK_SECRET`.
+5. Aplicar migración `supabase/migrations/006_billing.sql` antes de probar.
+6. Activar el **Customer Portal** en Dashboard → Settings → Billing → Customer portal.
 
 ### 6.2 Revisión legal (R1 — bloquea paywall serio, H2)
 

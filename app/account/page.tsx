@@ -13,7 +13,7 @@ export const metadata = {
 export default function AccountPage() {
   return (
     <main className="min-h-dvh py-16">
-      <Container className="max-w-2xl">
+      <Container className="max-w-3xl">
         <Link
           href="/"
           className="text-xs uppercase tracking-wider text-muted hover:text-foreground"

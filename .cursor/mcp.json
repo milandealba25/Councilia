@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "stripe": {
+      "command": "/bin/bash",
+      "args": ["${workspaceFolder}/.cursor/run-stripe-mcp.sh"]
+    }
+  }
+}
