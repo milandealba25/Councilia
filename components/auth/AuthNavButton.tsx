@@ -9,7 +9,15 @@ import {
   type AuthSession,
 } from "@/lib/auth/client";
 
-export function AuthNavButton() {
+interface AuthNavButtonProps {
+  hideWhenSignedOut?: boolean;
+  accountHref?: string;
+}
+
+export function AuthNavButton({
+  hideWhenSignedOut = false,
+  accountHref = "/account",
+}: AuthNavButtonProps) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
 
@@ -35,6 +43,8 @@ export function AuthNavButton() {
   }, []);
 
   if (!session) {
+    if (hideWhenSignedOut) return null;
+
     return (
       <LinkButton
         href="/login"
@@ -49,7 +59,7 @@ export function AuthNavButton() {
 
   return (
     <Link
-      href="/account"
+      href={accountHref}
       aria-label="Abrir cuenta"
       className="inline-flex items-center gap-2 rounded-council border border-border-strong/70 bg-surface/80 px-3 py-2 text-sm font-medium text-foreground backdrop-blur transition-all duration-150 hover:border-accent hover:bg-accent-soft hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >

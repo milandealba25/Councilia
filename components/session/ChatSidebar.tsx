@@ -207,7 +207,7 @@ export function ChatSidebar({
       <button
         type="button"
         onClick={() => updateCollapsed(false)}
-        className="fixed left-3 top-3 z-30 flex size-9 items-center justify-center rounded-xl border border-[#d28a65]/28 bg-[#fff6ee]/88 text-[#9a5c43] shadow-[0_14px_34px_rgba(131,76,48,0.14)] backdrop-blur-xl transition-all duration-[520ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#d9784c]/45 hover:bg-white hover:text-[#c85f3d]"
+        className="fixed left-3 top-3 z-30 flex size-9 items-center justify-center rounded-xl border border-[#dc8152]/55 bg-[#ffead8]/94 text-[#8f431f] shadow-[0_14px_34px_rgba(171,81,34,0.2)] backdrop-blur-xl transition-all duration-[520ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#d86131]/70 hover:bg-[#fff3e8] hover:text-[#c94f28]"
         style={{
           opacity: collapsed ? 1 : 0,
           pointerEvents: collapsed ? "auto" : "none",
@@ -228,21 +228,21 @@ export function ChatSidebar({
           transform: collapsed ? `translateX(-${sidebarWidth}px)` : "translateX(0)",
           overflow: "hidden",
         }}
-        className="flex h-[calc(100dvh-1rem)] shrink-0 flex-col rounded-r-[1.35rem] border border-l-0 border-[#d98e68]/20 bg-[#fff4e8]/72 text-[#4b342c] shadow-[16px_0_44px_rgba(139,79,45,0.10)] backdrop-blur-2xl transition-all duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+        className="flex h-[calc(100dvh-1rem)] shrink-0 flex-col rounded-r-[1.35rem] border border-l-0 border-[#d77d4b]/45 bg-[linear-gradient(180deg,rgba(255,226,201,0.94)_0%,rgba(255,238,222,0.86)_42%,rgba(255,218,188,0.9)_100%)] text-[#432516] shadow-[16px_0_44px_rgba(147,68,28,0.18),inset_-1px_0_0_rgba(199,91,43,0.18),inset_0_1px_0_rgba(255,255,255,0.72)] backdrop-blur-2xl transition-all duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
       >
-        <div className="w-[264px] border-b border-[#d9784c]/16 px-3 py-3">
+        <div className="w-[264px] border-b border-[#c76a3c]/34 bg-[#fff1e6]/42 px-3 py-3 shadow-[0_1px_0_rgba(255,255,255,0.56)]">
           <div className="flex items-center justify-between">
             <div className="flex min-w-0 items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => updateCollapsed(true)}
-                className="flex size-8 items-center justify-center rounded-xl text-[#8f5b48] transition hover:bg-[#e2603b]/10 hover:text-[#c85f3d]"
+                className="flex size-8 items-center justify-center rounded-xl text-[#884521] transition hover:bg-[#dc6f3b]/14 hover:text-[#bd4e27]"
                 aria-label="Cerrar sidebar"
                 title="Cerrar sidebar"
               >
                 <PanelIcon />
               </button>
-              <span className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a6959]">
+              <span className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-[#944c2b]">
                 {isSelecting ? selectedLabel : "Conversaciones"}
               </span>
             </div>
@@ -251,7 +251,7 @@ export function ChatSidebar({
                 <button
                   type="button"
                   onClick={handleBulkDeleteRequest}
-                  className="flex size-8 items-center justify-center rounded-xl text-[#b94c31] transition hover:bg-[#e2603b]/10"
+                  className="flex size-8 items-center justify-center rounded-xl text-[#a9482c] transition hover:bg-[#dc6f3b]/14"
                   aria-label="Borrar chats seleccionados"
                   title="Borrar chats seleccionados"
                 >
@@ -260,7 +260,7 @@ export function ChatSidebar({
                 <button
                   type="button"
                   onClick={clearSelection}
-                  className="flex size-8 items-center justify-center rounded-xl text-[#8f5b48] transition hover:bg-[#e2603b]/10 hover:text-[#c85f3d]"
+                  className="flex size-8 items-center justify-center rounded-xl text-[#884521] transition hover:bg-[#dc6f3b]/14 hover:text-[#bd4e27]"
                   aria-label="Cancelar selección"
                   title="Cancelar selección"
                 >
@@ -277,21 +277,21 @@ export function ChatSidebar({
                 onClick={onNewChat}
                 disabled={newChatPending}
                 aria-busy={newChatPending}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#5b3a31] transition hover:bg-[#e2603b]/10 hover:text-[#c85f3d] disabled:cursor-wait disabled:opacity-70"
+                className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-sm font-semibold text-[#4f2d1d] transition hover:border-[#d77d4b]/24 hover:bg-[#fff7ef]/46 hover:text-[#bd4e27] disabled:cursor-wait disabled:opacity-70"
               >
                 <EditIcon />
                 {newChatPending ? "Creando..." : "Nuevo chat"}
               </button>
 
-              <label className="relative block rounded-xl transition focus-within:bg-[#fffaf4]/70 hover:bg-[#e2603b]/8">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9a6959]">
+              <label className="relative block rounded-xl border border-[#d77d4b]/18 bg-[#fff7ef]/36 shadow-[inset_0_1px_0_rgba(255,255,255,0.56)] transition focus-within:border-[#c65f32]/44 focus-within:bg-[#fff9f4]/68 hover:border-[#d77d4b]/30 hover:bg-[#fff4ea]/58">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#944c2b]">
                   <SearchIcon />
                 </span>
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Buscar"
-                  className="w-full rounded-xl border border-transparent bg-transparent py-2.5 pl-10 pr-3 text-sm text-[#4b342c] outline-none transition placeholder:text-[#9a6959]/74 focus:border-[#d9784c]/28"
+                  className="w-full rounded-xl border border-transparent bg-transparent py-2.5 pl-10 pr-3 text-sm text-[#432516] outline-none transition placeholder:text-[#8c6048]/72"
                 />
               </label>
             </div>
@@ -300,12 +300,12 @@ export function ChatSidebar({
 
         <div className="w-[264px] flex-1 overflow-y-auto overscroll-contain px-2 py-2">
           {sessions.length === 0 && (
-            <p className="px-3 py-4 text-center text-xs text-[#8f6a5b]">
+            <p className="rounded-xl border border-[#d77d4b]/16 bg-[#fff7ef]/34 px-3 py-4 text-center text-xs text-[#7d573f]">
               Aún no tienes chats guardados.
             </p>
           )}
           {sessions.length > 0 && filteredSessions.length === 0 && (
-            <p className="px-3 py-4 text-center text-xs text-[#8f6a5b]">
+            <p className="rounded-xl border border-[#d77d4b]/16 bg-[#fff7ef]/34 px-3 py-4 text-center text-xs text-[#7d573f]">
               No encontramos chats con ese título.
             </p>
           )}
@@ -327,12 +327,12 @@ export function ChatSidebar({
             return (
               <div
                 key={s.id}
-                className={`group relative rounded-xl transition ${
+                className={`group relative rounded-xl border transition ${
                   isSelected
-                    ? "bg-[#e2603b]/14"
+                    ? "border-[#d86131]/42 bg-[#ef8a52]/18"
                     : isActive
-                      ? "bg-[#d96b45]/18 shadow-[inset_0_0_0_1px_rgba(217,107,69,0.18)]"
-                      : "hover:bg-[#e2603b]/10"
+                      ? "border-[#c95b2f]/46 bg-[#ef8a52]/24 shadow-[inset_0_0_0_1px_rgba(201,91,47,0.24),0_8px_20px_rgba(147,68,28,0.09)]"
+                      : "border-transparent hover:border-[#d77d4b]/24 hover:bg-[#fff7ef]/42"
                 }`}
               >
                 {!isRenaming && (
@@ -357,8 +357,8 @@ export function ChatSidebar({
                       className={[
                         "flex size-4 items-center justify-center rounded border transition",
                         isSelected
-                          ? "border-[#d96b45] bg-[#d96b45] text-white"
-                          : "border-[#c58c75]/55 bg-[#fffaf4]/65 text-transparent hover:border-[#d96b45]",
+                          ? "border-[#c95b2f] bg-[#c95b2f] text-white"
+                          : "border-[#c88a63]/70 bg-[#fff7ef]/78 text-transparent hover:border-[#c95b2f]",
                       ].join(" ")}
                     >
                       <CheckIcon />
@@ -380,8 +380,8 @@ export function ChatSidebar({
                       : "pl-3 pr-16 group-hover:pl-10"
                   } ${
                     isActive
-                      ? "text-[#2f1f1a]"
-                      : "text-[#755447] hover:text-[#2f1f1a]"
+                      ? "text-[#27150e]"
+                      : "text-[#684633] hover:text-[#27150e]"
                   }`}
                 >
                   {isRenaming ? (
@@ -403,14 +403,14 @@ export function ChatSidebar({
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-full rounded-lg border border-[#d8a492]/55 bg-[#fff7ef] px-2 py-1 text-sm font-medium text-[#2f1914] outline-none focus:border-[#c8754d]"
+                      className="w-full rounded-lg border border-[#d77d4b]/48 bg-[#fff9f4] px-2 py-1 text-sm font-medium text-[#27150e] outline-none focus:border-[#c95b2f]"
                     />
                   ) : (
                     <p className="truncate text-sm font-medium leading-snug">
                       {s.title}
                     </p>
                   )}
-                  <p className="text-[10px] text-[#9a7567]">
+                  <p className="text-[10px] text-[#8b6048]">
                     {dateStr} · {turnLabel}
                   </p>
                 </button>
@@ -423,7 +423,7 @@ export function ChatSidebar({
                       e.stopPropagation();
                       handleRenameStart(s.id);
                     }}
-                    className="absolute right-8 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#9a7567]/62 opacity-0 transition hover:bg-[#e2603b]/10 hover:text-[#c85f3d] group-hover:opacity-100"
+                    className="absolute right-8 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#8b6048]/72 opacity-0 transition hover:bg-[#dc6f3b]/14 hover:text-[#bd4e27] group-hover:opacity-100"
                     aria-label="Editar nombre"
                     title="Editar nombre"
                   >
@@ -435,7 +435,7 @@ export function ChatSidebar({
                   <button
                     type="button"
                     onClick={(e) => handleMenuToggle(e, s.id)}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#9a7567]/62 opacity-0 transition hover:bg-[#e2603b]/10 hover:text-[#c85f3d] group-hover:opacity-100"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#8b6048]/72 opacity-0 transition hover:bg-[#dc6f3b]/14 hover:text-[#bd4e27] group-hover:opacity-100"
                     aria-label="Opciones"
                     title="Opciones"
                   >
@@ -447,13 +447,13 @@ export function ChatSidebar({
                 {menuOpenId === s.id && (
                   <div
                     ref={menuRef}
-                    className="absolute right-1 top-full z-40 mt-1 w-40 overflow-hidden rounded-xl border border-[#ead8c4] bg-[#fffaf2] shadow-lg"
+                    className="absolute right-1 top-full z-40 mt-1 w-40 overflow-hidden rounded-xl border border-[#d9a17e]/58 bg-[#fff7ef] shadow-[0_14px_28px_rgba(93,48,24,0.16)]"
                     style={{ animation: "soft-rise 150ms ease-out both" }}
                   >
                     <button
                       type="button"
                       onClick={() => handleRenameStart(s.id)}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#4a2c22] transition hover:bg-[#ffe6da]"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#432516] transition hover:bg-[#ffe2ce]"
                     >
                       <PencilIcon />
                       Renombrar
@@ -461,7 +461,7 @@ export function ChatSidebar({
                     <button
                       type="button"
                       onClick={() => handleExport(s.id)}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#4a2c22] transition hover:bg-[#ffe6da]"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#432516] transition hover:bg-[#ffe2ce]"
                     >
                       <ExportIcon />
                       Exportar
@@ -469,7 +469,7 @@ export function ChatSidebar({
                     <button
                       type="button"
                       onClick={() => handleDeleteRequest(s.id)}
-                      className="flex w-full items-center gap-2 border-t border-[#ead8c4] px-3 py-2 text-left text-xs text-[#b43825] transition hover:bg-[#ffe6da]"
+                      className="flex w-full items-center gap-2 border-t border-[#d9a17e]/58 px-3 py-2 text-left text-xs text-[#a73b21] transition hover:bg-[#ffe2ce]"
                     >
                       <TrashIcon />
                       Borrar

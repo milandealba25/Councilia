@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { AuthNavButton } from "@/components/auth/AuthNavButton";
 import { Container } from "@/components/ui/Container";
 import { StartAccessButton } from "@/components/landing/StartAccessButton";
 
@@ -46,6 +47,7 @@ export function Header({ fixed = false }: HeaderProps) {
         </nav>
 
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <AuthNavButton hideWhenSignedOut accountHref="/account?from=home" />
           <StartAccessButton className="shrink-0 px-3 text-xs sm:px-5 sm:text-sm">
             <span className="sm:hidden">Empezar</span>
             <span className="hidden sm:inline">Sentarme con ellos</span>
