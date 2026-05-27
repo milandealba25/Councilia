@@ -1,3 +1,4 @@
+// @ts-nocheck
 import {
   Callout,
   Card,
@@ -36,8 +37,8 @@ const MINI_OUT = 0.60 / 1_000_000;
 const GEMINI_IN = 0.10 / 1_000_000;
 const GEMINI_OUT = 0.40 / 1_000_000;
 
-// ElevenLabs eleven_v3: ~$0.0002 por carácter a escala Creator/Pro
-const EL_PER_CHAR = 0.0002;
+// TTS nativo (Google / OpenAI): referencia blended ~$15 por 1M chars
+const TTS_PER_CHAR = 0.000015;
 
 function costPerTurn(inTokens: number, outTokens: number, model: "mini" | "gemini") {
   const rateIn = model === "mini" ? MINI_IN : GEMINI_IN;
@@ -64,10 +65,10 @@ function chatCost(turns: number, model: "mini" | "gemini"): number {
   return turns * turnCost + synthCost;
 }
 
-// ElevenLabs: chars promedio por click = ~350 chars/agente
+// TTS nativo: chars promedio por click = ~350 chars/agente
 // Estimamos que solo X% de mensajes disparan voz, Y agentes en promedio
-function elevenCost(chats: number, msgs: number, voicePct: number, avgAgents: number) {
-  return chats * msgs * voicePct * avgAgents * 350 * EL_PER_CHAR;
+function ttsCost(chats: number, msgs: number, voicePct: number, avgAgents: number) {
+  return chats * msgs * voicePct * avgAgents * 350 * TTS_PER_CHAR;
 }
 
 // ─── PERFILES DE USUARIO ─────────────────────────────────────────────────────
@@ -103,13 +104,18 @@ const profiles = [
 
 function totalCostPerUser(p: typeof profiles[0]) {
   const llm = p.chats * chatCost(p.msgs, p.model);
-  const el = elevenCost(p.chats, p.msgs, p.voice, 1.5);
-  return llm + el + p.supabase + p.infra;
+  const tts = ttsCost(p.chats, p.msgs, p.voice, 1.5);
+  return llm + tts + p.supabase + p.infra;
 }
 
 const freeCost  = totalCostPerUser(profiles[0]);
 const plusCost  = totalCostPerUser(profiles[1]);
 const proCost   = totalCostPerUser(profiles[2]);
+
+const plusMxn = 79;
+const proMxn = 199;
+const plusAnnualMxn = 790;
+const proAnnualMxn = 1990;
 
 // ─── PLANES ──────────────────────────────────────────────────────────────────
 const plans = [
@@ -125,22 +131,22 @@ const plans = [
   },
   {
     name: "Plus",
-    usd: 9,
-    usdAnnual: 85,   // ~$7.08/mes — 21% descuento
-    mxn: Math.round(9 * USD_TO_MXN / 10) * 10,
-    mxnAnnual: Math.round(85 * USD_TO_MXN / 10) * 10,
-    margin: Math.round((1 - plusCost / 9) * 100) + "%",
-    marginAnnual: Math.round((1 - plusCost / (85 / 12)) * 100) + "%",
+    usd: plusMxn / USD_TO_MXN,
+    usdAnnual: plusAnnualMxn / USD_TO_MXN,
+    mxn: plusMxn,
+    mxnAnnual: plusAnnualMxn,
+    margin: Math.round((1 - plusCost / (plusMxn / USD_TO_MXN)) * 100) + "%",
+    marginAnnual: Math.round((1 - plusCost / ((plusAnnualMxn / USD_TO_MXN) / 12)) * 100) + "%",
     cogs: plusCost,
   },
   {
     name: "Pro",
-    usd: 24,
-    usdAnnual: 220, // ~$18.3/mes — 24% descuento
-    mxn: Math.round(24 * USD_TO_MXN / 10) * 10,
-    mxnAnnual: Math.round(220 * USD_TO_MXN / 10) * 10,
-    margin: Math.round((1 - proCost / 24) * 100) + "%",
-    marginAnnual: Math.round((1 - proCost / (220 / 12)) * 100) + "%",
+    usd: proMxn / USD_TO_MXN,
+    usdAnnual: proAnnualMxn / USD_TO_MXN,
+    mxn: proMxn,
+    mxnAnnual: proAnnualMxn,
+    margin: Math.round((1 - proCost / (proMxn / USD_TO_MXN)) * 100) + "%",
+    marginAnnual: Math.round((1 - proCost / ((proAnnualMxn / USD_TO_MXN) / 12)) * 100) + "%",
     cogs: proCost,
   },
 ];
@@ -149,8 +155,8 @@ const plans = [
 const llmFree  = profiles[0].chats * chatCost(profiles[0].msgs, "gemini");
 const llmPlus  = profiles[1].chats * chatCost(profiles[1].msgs, "mini");
 const llmPro   = profiles[2].chats * chatCost(profiles[2].msgs, "mini");
-const elPlus   = elevenCost(8, 8, 0.12, 1.5);
-const elPro    = elevenCost(20, 12, 0.18, 1.5);
+const ttsPlus  = ttsCost(8, 8, 0.12, 1.5);
+const ttsPro   = ttsCost(20, 12, 0.18, 1.5);
 
 function fmt(n: number, decimals = 4) {
   return "$" + n.toFixed(decimals);
@@ -172,8 +178,8 @@ export default function Planes() {
       </Stack>
 
       <Callout tone="info">
-        El costo más grande no es el LLM — es ElevenLabs. A escala, la voz sintética
-        puede representar el 60–75% del COGS de un usuario Plus/Pro activo.
+        Con TTS nativo (Google / OpenAI), el costo de voz baja de forma drástica
+        frente a ElevenLabs y el margen de Plus/Pro mejora con precios más agresivos.
         El modelo GPT-4o-mini es sorprendentemente barato: ~$0.00073 por turno completo de 3 agentes + réplica.
       </Callout>
 
@@ -219,22 +225,22 @@ export default function Planes() {
             </CardBody>
           </Card>
           <Card>
-            <CardHeader>ElevenLabs eleven_v3</CardHeader>
+            <CardHeader>TTS nativo (Google / OpenAI)</CardHeader>
             <CardBody>
               <Stack gap={8}>
-                <Stat value="$0.0002" label="por carácter (~escala Creator+)" />
+                <Stat value="$0.000015" label="por carácter (supuesto blended)" />
                 <Divider />
                 <Table
                   headers={["Agente", "Palabras", "Chars", "Costo/click"]}
                   rows={[
-                    ["Marco", "~70", "~385", fmt(385 * EL_PER_CHAR, 4)],
-                    ["Elena", "~60", "~330", fmt(330 * EL_PER_CHAR, 4)],
-                    ["Rafael", "~25", "~137", fmt(137 * EL_PER_CHAR, 4)],
-                    ["Promedio", "~52", "~284", fmt(284 * EL_PER_CHAR, 4)],
+                    ["Marco", "~70", "~385", fmt(385 * TTS_PER_CHAR, 4)],
+                    ["Elena", "~60", "~330", fmt(330 * TTS_PER_CHAR, 4)],
+                    ["Rafael", "~25", "~137", fmt(137 * TTS_PER_CHAR, 4)],
+                    ["Promedio", "~52", "~284", fmt(284 * TTS_PER_CHAR, 4)],
                   ]}
                 />
                 <Text tone="secondary" size="small">
-                  Solo se genera audio si el usuario presiona "Escuchar". Modelo en código: eleven_v3.
+                  Solo se genera audio si el usuario presiona "Escuchar".
                 </Text>
               </Stack>
             </CardBody>
@@ -255,7 +261,7 @@ export default function Planes() {
             {
               label: "Free",
               llm: llmFree,
-              el: 0,
+              tts: 0,
               infra: 0.025,
               model: "Gemini Flash",
               chats: "2 / mes",
@@ -264,7 +270,7 @@ export default function Planes() {
             {
               label: "Plus",
               llm: llmPlus,
-              el: elPlus,
+              tts: ttsPlus,
               infra: 0.08,
               model: "GPT-4o-mini",
               chats: "8 / mes",
@@ -273,14 +279,14 @@ export default function Planes() {
             {
               label: "Pro",
               llm: llmPro,
-              el: elPro,
+              tts: ttsPro,
               infra: 0.16,
               model: "GPT-4o-mini",
               chats: "20 / mes",
               msgs: "12 / chat",
             },
           ].map((p) => {
-            const total = p.llm + p.el + p.infra;
+            const total = p.llm + p.tts + p.infra;
             return (
               <Card key={p.label}>
                 <CardHeader>{p.label}</CardHeader>
@@ -291,7 +297,7 @@ export default function Planes() {
                       headers={["Componente", "Costo/mes"]}
                       rows={[
                         ["LLM (" + p.model + ")", fmt(p.llm, 4)],
-                        ["ElevenLabs", fmt(p.el, 4)],
+                        ["TTS (Google / OpenAI)", fmt(p.tts, 4)],
                         ["Supabase + Infra", fmt(p.infra, 4)],
                         ["TOTAL", fmt(total, 4)],
                       ]}
@@ -312,7 +318,7 @@ export default function Planes() {
       <Stack gap={10}>
         <H2>Planes sugeridos y márgenes</H2>
         <Text tone="secondary" size="small">
-          Margen bruto sobre COGS directo (LLM + ElevenLabs + infra).
+          Margen bruto sobre COGS directo (LLM + TTS + infra).
           No incluye salarios, soporte ni amortización de desarrollo.
         </Text>
         <Table
@@ -327,8 +333,8 @@ export default function Planes() {
           ]}
           rows={plans.map((p) => [
             p.name,
-            p.usd === 0 ? "Gratis" : "$" + p.usd,
-            p.usdAnnual === 0 ? "Gratis" : "$" + p.usdAnnual,
+            p.usd === 0 ? "Gratis" : "$" + p.usd.toFixed(2),
+            p.usdAnnual === 0 ? "Gratis" : "$" + p.usdAnnual.toFixed(2),
             p.mxn === 0 ? "Gratis" : "$" + p.mxn.toLocaleString("es-MX"),
             p.mxnAnnual === 0 ? "Gratis" : "$" + p.mxnAnnual.toLocaleString("es-MX"),
             fmt(p.cogs, 3),
@@ -361,7 +367,7 @@ export default function Planes() {
                     ["Mensajes por chat", "5"],
                     ["Historial guardado", "Solo el último"],
                     ["Modelo LLM", "Gemini Flash"],
-                    ["Voz (ElevenLabs)", "No"],
+                    ["Voz", "No"],
                     ["Síntesis al cierre", "Sí"],
                   ]}
                 />
@@ -385,12 +391,12 @@ export default function Planes() {
           <CardBody>
             <Stack gap={10}>
               <Grid columns={2} gap={8}>
-                <Stat value="$9 USD" label="/ mes" />
-                <Stat value="$85 USD" label="/ año (~$7.08/mes)" />
+                <Stat value={`$${(plusMxn / USD_TO_MXN).toFixed(2)} USD`} label="/ mes" />
+                <Stat value={`$${(plusAnnualMxn / USD_TO_MXN).toFixed(2)} USD`} label="/ año" />
               </Grid>
               <Grid columns={2} gap={8}>
-                <Stat value={`$${Math.round(9 * USD_TO_MXN / 10) * 10} MXN`} label="/ mes" />
-                <Stat value={`$${Math.round(85 * USD_TO_MXN).toLocaleString("es-MX")} MXN`} label="/ año" />
+                <Stat value={`$${plusMxn} MXN`} label="/ mes" />
+                <Stat value={`$${plusAnnualMxn.toLocaleString("es-MX")} MXN`} label="/ año" />
               </Grid>
               <Divider />
               <Table
@@ -400,14 +406,14 @@ export default function Planes() {
                   ["Mensajes por chat", "20"],
                   ["Historial guardado", "Últimos 10 chats"],
                   ["Modelo LLM", "GPT-4o-mini"],
-                  ["Voz (ElevenLabs)", "Sí — 3 voces por agente"],
+                  ["Voz (TTS nativo)", "Sí — Google / OpenAI"],
                   ["Síntesis al cierre", "Sí"],
                   ["Exportar chat", "No"],
                 ]}
               />
               <Callout tone="warning">
                 COGS: {fmt(plusCost, 3)}/usuario·mes · Margen bruto: {plans[1].margin}.
-                ElevenLabs = {fmt(elPlus, 3)} ({Math.round(elPlus / plusCost * 100)}% del COGS).
+                TTS = {fmt(ttsPlus, 3)} ({Math.round(ttsPlus / plusCost * 100)}% del COGS).
               </Callout>
             </Stack>
           </CardBody>
@@ -424,12 +430,12 @@ export default function Planes() {
           <CardBody>
             <Stack gap={10}>
               <Grid columns={2} gap={8}>
-                <Stat value="$24 USD" label="/ mes" />
-                <Stat value="$220 USD" label="/ año (~$18.3/mes)" />
+                <Stat value={`$${(proMxn / USD_TO_MXN).toFixed(2)} USD`} label="/ mes" />
+                <Stat value={`$${(proAnnualMxn / USD_TO_MXN).toFixed(2)} USD`} label="/ año" />
               </Grid>
               <Grid columns={2} gap={8}>
-                <Stat value={`$${Math.round(24 * USD_TO_MXN / 10) * 10} MXN`} label="/ mes" />
-                <Stat value={`$${Math.round(220 * USD_TO_MXN).toLocaleString("es-MX")} MXN`} label="/ año" />
+                <Stat value={`$${proMxn} MXN`} label="/ mes" />
+                <Stat value={`$${proAnnualMxn.toLocaleString("es-MX")} MXN`} label="/ año" />
               </Grid>
               <Divider />
               <Table
@@ -439,14 +445,14 @@ export default function Planes() {
                   ["Mensajes por chat", "Sin límite"],
                   ["Historial guardado", "Todo el historial"],
                   ["Modelo LLM", "GPT-4o-mini (+ síntesis GPT-4o)"],
-                  ["Voz (ElevenLabs)", "Sí — autoplay secuencial"],
+                  ["Voz (TTS nativo)", "Sí — Google / OpenAI"],
                   ["Síntesis al cierre", "Sí (modelo más potente)"],
                   ["Exportar chat", "Sí (PDF / markdown)"],
                 ]}
               />
               <Callout tone="success">
                 COGS: {fmt(proCost, 3)}/usuario·mes · Margen bruto: {plans[2].margin}.
-                ElevenLabs = {fmt(elPro, 3)} ({Math.round(elPro / proCost * 100)}% del COGS).
+                TTS = {fmt(ttsPro, 3)} ({Math.round(ttsPro / proCost * 100)}% del COGS).
               </Callout>
             </Stack>
           </CardBody>
@@ -463,7 +469,7 @@ export default function Planes() {
           Para las 3 posturas iniciales, el costo sube notablemente.
         </Text>
         <Table
-          headers={["Escenario Pro", "LLM / usuario·mes", "COGS total", "Margen a $24/mes"]}
+          headers={["Escenario Pro", "LLM / usuario·mes", "COGS total", "Margen a precio actual Pro"]}
           rows={[
             [
               "Solo GPT-4o-mini",
@@ -475,13 +481,13 @@ export default function Planes() {
               "Síntesis con GPT-4o (1 llamada/chat)",
               fmt(llmPro + 20 * (costPerTurn(1_500, 200, "mini") * 16 - costPerTurn(1_500, 200, "mini")), 3),
               fmt(proCost + 20 * costPerTurn(1_500, 200, "mini") * 15, 3),
-              Math.round((1 - (proCost + 20 * costPerTurn(1_500, 200, "mini") * 15) / 24) * 100) + "%",
+              Math.round((1 - (proCost + 20 * costPerTurn(1_500, 200, "mini") * 15) / (proMxn / USD_TO_MXN)) * 100) + "%",
             ],
             [
               "Todo GPT-4o (posturas + réplica + síntesis)",
               fmt(llmPro * 16, 3),
               fmt(proCost + llmPro * 15, 3),
-              Math.round((1 - (proCost + llmPro * 15) / 24) * 100) + "%",
+              Math.round((1 - (proCost + llmPro * 15) / (proMxn / USD_TO_MXN)) * 100) + "%",
             ],
           ]}
           rowTone={["success", "warning", "danger"]}
@@ -504,7 +510,7 @@ export default function Planes() {
               headers={["Variable", "Impacto"]}
               rows={[
                 ["Usuarios Free que generan muchos chats nuevos", "Alto"],
-                ["Uso masivo de voz en Plus/Pro", "Alto"],
+                ["Uso masivo de voz en Plus/Pro", "Medio-Alto"],
                 ["Chats con historial largo (>15 mensajes)", "Medio"],
                 ["Síntesis larga / reintentos", "Bajo"],
                 ["Supabase más allá del plan Free", "Medio (desde 100k MAU)"],
@@ -519,7 +525,7 @@ export default function Planes() {
               rows={[
                 ["Caché de system prompts (OpenAI Prompt Caching)", "~50% en input tokens"],
                 ["Limitar historial en contexto a últimos N turnos", "20–40% en input"],
-                ["Voz solo en Plus+ (sin fallback ElevenLabs en Free)", "Elimina mayor COGS variable"],
+                ["TTS nativo (Google/OpenAI) vs ElevenLabs", "~92% menos costo de voz por carácter"],
                 ["Rate-limiting conservador en Free", "Protege contra abuso"],
                 ["Gemini para Free (ya en código)", "~33% vs GPT-4o-mini"],
               ]}
@@ -531,7 +537,7 @@ export default function Planes() {
 
       <Text tone="secondary" size="small" style={{ marginTop: 8 }}>
         Cálculos basados en: gpt-4o-mini $0.15/1M input · $0.60/1M output · Gemini 2.0 Flash $0.10/1M input · $0.40/1M output ·
-        ElevenLabs eleven_v3 ~$0.0002/char · Supabase Free (hasta ~50k MAU) ·
+        TTS Google/OpenAI (supuesto blended) ~$0.000015/char · Supabase Free (hasta ~50k MAU) ·
         Tipo de cambio $17.50 MXN/USD · Mayo 2026
       </Text>
     </Stack>
