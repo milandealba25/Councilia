@@ -3,8 +3,8 @@ export type Phase = "idle" | "fase1" | "fase2" | "wait" | "fase4";
 const PHASES: ReadonlyArray<{ id: Phase; label: string }> = [
   { id: "idle", label: "Llegas" },
   { id: "fase1", label: "Te escuchan" },
-  { id: "fase2", label: "Una pregunta dura" },
-  { id: "wait", label: "Discusión sana" },
+  { id: "fase2", label: "Preguntas duras" },
+  { id: "wait", label: "Eliges tu propio camino" },
 ];
 
 interface Props {
