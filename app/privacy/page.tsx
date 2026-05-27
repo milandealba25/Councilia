@@ -1,11 +1,13 @@
 import { LegalLayout } from "@/components/legal/LegalLayout";
 import { renderDocMarkdown } from "@/lib/markdown";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "Privacidad",
   description:
     "Cómo recolectamos, usamos y protegemos los datos en COUNCILia.",
-};
+  path: "/privacy",
+});
 
 export default async function PrivacyPage() {
   const { html } = await renderDocMarkdown("12_politica_de_privacidad.md");

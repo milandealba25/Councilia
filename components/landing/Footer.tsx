@@ -1,8 +1,7 @@
-"use client";
-
 import Link from "next/link";
 import Image from "next/image";
 import { Container } from "@/components/ui/Container";
+import { StartAccessInlineButton } from "@/components/landing/StartAccessButton";
 
 const COLUMNS: Array<{
   title: string;
@@ -39,7 +38,7 @@ const COLUMNS: Array<{
   },
 ];
 
-export function Footer({ onStart }: { onStart?: () => void }) {
+export function Footer() {
   return (
     <footer className="border-t border-border/70 bg-surface-soft/40 py-16">
       <Container>
@@ -82,14 +81,12 @@ export function Footer({ onStart }: { onStart?: () => void }) {
               <ul className="mt-4 flex flex-col gap-2 text-sm">
                 {col.links.map((link) => (
                   <li key={`${link.href}-${link.label}`}>
-                    {link.startAction && onStart ? (
-                      <button
-                        type="button"
-                        onClick={onStart}
+                    {link.startAction ? (
+                      <StartAccessInlineButton
                         className="text-left text-foreground-soft transition-colors hover:text-accent-strong"
                       >
                         {link.label}
-                      </button>
+                      </StartAccessInlineButton>
                     ) : (
                       <Link
                         href={link.href}

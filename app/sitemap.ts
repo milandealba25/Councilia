@@ -3,7 +3,7 @@ import { getPublicAppUrl } from "@/lib/appUrl";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = getPublicAppUrl();
-  const updated = new Date().toISOString();
+  const updated = new Date("2026-05-26T00:00:00.000Z");
   const routes = ["", "/about", "/support", "/terms", "/privacy", "/cookies"];
   return routes.map((path) => ({
     url: `${baseUrl}${path}`,

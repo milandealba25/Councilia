@@ -1,0 +1,62 @@
+Councilia optimization ledger
+
+Started: 2026-05-26
+
+Scope
+- Understand repository architecture before changes.
+- Track pending and completed SEO, performance, maintainability, accessibility, and reliability work.
+
+Initial repository map
+- Next.js App Router application in app/.
+- Reusable UI and feature components in components/.
+- Domain logic, auth, API clients, storage, database repositories, security, SSE, and observability in lib/.
+- Agent definitions and orchestration logic in agents/ and orchestrator/.
+- Supabase migrations in supabase/.
+- Project docs and generated PDFs in docs/ and pdfs/.
+- Tests use Vitest across agents, lib, and orchestrator.
+
+Pending audit
+- Review package scripts and dependencies. Completed.
+- Review Next, Tailwind, TypeScript, Vitest, Vercel, and instrumentation config. Completed.
+- Review app routes, API routes, metadata, robots, sitemap, layout, and global styles. Completed.
+- Review component tree for dead code, duplicate logic, accessibility gaps, hydration risks, and expensive client bundles. Completed.
+- Review lib/orchestrator/agents for type safety, fragile logic, API efficiency, and tests. Completed.
+- Run lint, tests, type checks, and production build after changes. Completed.
+
+Findings to implement
+- Home page is marked as a client component, causing mostly static landing sections to enter the client bundle.
+- Root layout and home page both render AuroraBackground, duplicating a fixed decorative layer.
+- Root canonical metadata currently points to "/" and child pages do not define their own canonical URLs.
+- Public pages have useful descriptions but no shared route metadata helper or structured data.
+- Sitemap uses the current timestamp for every request, which can make all pages look freshly modified.
+- Robots configuration should explicitly disallow auth/account/login/private app surfaces while allowing public crawlable pages.
+- SessionConsole has implemented state and API clients for replica/synthesis, but submit flow stops after initial agent responses.
+- @supabase/ssr is unused.
+- @supabase/supabase-js is only referenced by unused client factory helpers.
+- components/agents/AgentAvatar.tsx and components/agents/AgentPortrait.tsx are unused.
+- lib/db/repos/* and lib/db/types.ts are unused by the application; live persistence uses lib/chat/server.ts via Supabase REST.
+
+Implemented changes
+- Created SEO.txt continuity ledger.
+- Converted the homepage from a full client component to server rendering with small client islands for auth redirect, CTA routing, section dots, reveal/typewriter effects.
+- Removed duplicate AuroraBackground from the homepage; the root layout owns the global background.
+- Added reusable SEO metadata helper and per-route canonical metadata for public and private pages.
+- Added JSON-LD structured data for Organization, WebSite, and SoftwareApplication on the homepage.
+- Added a web app manifest backed by the existing brand mark.
+- Stabilized sitemap lastModified and tightened robots rules for private/auth/API surfaces.
+- Wired session replica and synthesis flow that was previously modeled but unreachable from the UI.
+- Removed unused components/agents/AgentAvatar.tsx and components/agents/AgentPortrait.tsx.
+- Removed unused lib/db/repos/* abstraction and lib/db/types.ts; live persistence is handled by lib/chat/server.ts through Supabase REST.
+- Removed unused @supabase/ssr and @supabase/supabase-js dependencies.
+- Preserved unauthenticated CTA routing to /login?next=/session after moving CTA behavior into a client island.
+
+Validation
+- npm.cmd run typecheck: passed.
+- npm.cmd test: passed outside sandbox after sandbox denied Vitest/esbuild config access; 14 test files and 69 tests passed.
+- npm.cmd run lint: passed with no warnings or errors.
+- npm.cmd run build: passed; homepage 5.8 kB route size, 120 kB first-load JS; session 18.3 kB route size, 127 kB first-load JS.
+- Browser smoke check: homepage rendered, h1 visible, JSON-LD present, canonical URL present, CTA navigated to /login?next=/session, and localhost returned HTTP 200.
+
+Remaining recommendations
+- Webpack cache snapshot warnings appear during dev/build on this Windows environment, but builds complete. Investigate separately if incremental build caching becomes slow.
+- For production scale, replace the in-memory session rate limiter with a shared store such as Redis/Vercel KV.

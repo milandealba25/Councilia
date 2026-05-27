@@ -1,7 +1,6 @@
-"use client";
-
 import { AgentFace } from "@/components/agents/AgentFace";
 import { TypewriterText } from "@/components/landing/TypewriterText";
+import { StartAccessInlineButton } from "@/components/landing/StartAccessButton";
 import {
   AGENT_LABELS,
   AGENT_ROLES,
@@ -25,7 +24,7 @@ function quoted(whisper: string) {
   return `\u201C${whisper}\u201D`;
 }
 
-export function CouncilHeroPanel({ onStart }: { onStart: () => void }) {
+export function CouncilHeroPanel() {
   return (
     <div className="relative mx-auto hidden h-full w-full max-w-md lg:block">
       <div
@@ -100,13 +99,11 @@ export function CouncilHeroPanel({ onStart }: { onStart: () => void }) {
           <span className="inline-flex size-7 items-center justify-center rounded-full bg-surface ring-1 ring-border-strong/70 text-[11px] text-foreground-soft">
             Tú
           </span>
-          <button
-            type="button"
-            onClick={onStart}
+          <StartAccessInlineButton
             className="flex-1 text-left text-sm text-foreground-soft transition-colors hover:text-accent-strong"
           >
             Cuéntales lo que te tiene así…
-          </button>
+          </StartAccessInlineButton>
         </div>
       </div>
     </div>

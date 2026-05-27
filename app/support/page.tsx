@@ -1,12 +1,14 @@
 import { Container } from "@/components/ui/Container";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "Soporte",
   description:
     "Preguntas frecuentes sobre paywall, borrado de datos, modo soporte, exportación y privacidad.",
-};
+  path: "/support",
+});
 
 interface FAQ {
   q: string;
