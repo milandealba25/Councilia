@@ -10,17 +10,30 @@ export const metadata = {
   },
 };
 
-export default function AccountPage() {
+interface AccountPageProps {
+  searchParams?: {
+    from?: string;
+  };
+}
+
+const RETURN_LINKS: Record<string, string> = {
+  home: "/?from=account",
+  session: "/session",
+};
+
+export default function AccountPage({ searchParams }: AccountPageProps) {
+  const backHref = RETURN_LINKS[searchParams?.from ?? ""] ?? "/";
+
   return (
-    <main className="min-h-dvh py-16">
-      <Container className="max-w-2xl">
+    <main className="min-h-dvh py-14 md:py-20">
+      <Container className="max-w-5xl">
         <Link
-          href="/"
+          href={backHref}
           className="text-xs uppercase tracking-wider text-muted hover:text-foreground"
         >
-          ← Inicio
+          ← Regresar
         </Link>
-        <div className="mt-10">
+        <div className="mt-8 md:mt-10">
           <AccountPanel />
         </div>
       </Container>

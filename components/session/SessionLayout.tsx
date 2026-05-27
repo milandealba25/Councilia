@@ -274,7 +274,7 @@ export function SessionLayout() {
               ))}
             </div>
             <Link
-              href="/account"
+              href="/account?from=session"
               className="sr-only"
             >
               Cuenta
@@ -325,7 +325,7 @@ function ProfileNavButton({
   const label = session ? "Abrir perfil" : "Iniciar sesión";
   return (
     <Link
-      href={session ? "/account" : "/login?next=/session"}
+      href={session ? "/account?from=session" : "/login?next=/session"}
       aria-label={label}
       title={label}
       className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#d9784c]/24 bg-[#fff4e6]/88 px-2.5 text-xs font-semibold text-[#7a4d3f] shadow-[0_10px_24px_rgba(145,83,50,0.12)] backdrop-blur-md transition hover:border-[#d9784c]/55 hover:bg-white hover:text-[#d96339]"

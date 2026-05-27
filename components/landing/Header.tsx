@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { AuthNavButton } from "@/components/auth/AuthNavButton";
 import { Container } from "@/components/ui/Container";
 import { Button, LinkButton } from "@/components/ui/Button";
 
@@ -49,6 +50,7 @@ export function Header({ fixed = false, onStart }: HeaderProps) {
         </nav>
 
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <AuthNavButton hideWhenSignedOut accountHref="/account?from=home" />
           {onStart ? (
             <Button
               type="button"

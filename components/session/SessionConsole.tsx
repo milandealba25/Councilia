@@ -532,6 +532,26 @@ export function SessionConsole({
   const composerClassName =
     "sticky bottom-5 z-20 mx-auto mt-auto flex w-full max-w-4xl flex-col gap-2 overflow-hidden rounded-[1.05rem] border border-[#d9784c]/18 bg-[#fff6ee]/88 p-3 shadow-[0_18px_46px_rgba(116,68,43,0.14)] backdrop-blur-xl transition-[background-color,border-color,box-shadow] duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-[linear-gradient(135deg,rgba(255,246,238,0.98),rgba(255,250,244,0.94),rgba(255,230,218,0.9))] after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:-z-10 after:h-12 after:bg-gradient-to-b after:from-white/45 after:to-transparent";
 
+  function handleComposerKeyDown(
+    event: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) {
+    if (
+      event.key !== "Enter" ||
+      event.shiftKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.nativeEvent.isComposing
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    if (canSubmit) {
+      event.currentTarget.form?.requestSubmit();
+    }
+  }
+
   return (
     <div className="flex min-h-[calc(100dvh-12rem)] flex-col gap-[34px] pb-5">
       <PhaseIndicator phase={state.phase} />
@@ -701,6 +721,7 @@ export function SessionConsole({
             onChange={(e) =>
               dispatch({ type: "user_input", value: e.target.value })
             }
+            onKeyDown={handleComposerKeyDown}
             maxLength={4000}
             rows={2}
             disabled={state.phase === "fase4"}
