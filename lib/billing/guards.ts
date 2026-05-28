@@ -1,7 +1,11 @@
 import "server-only";
 
 import { getUserEntitlements } from "@/lib/billing/entitlements";
-import { getSupabaseServiceRoleKey, requireSupabaseConfig } from "@/lib/db/supabase";
+import {
+  countActiveChatsForUser,
+  countUserMessagesInConversation,
+  fetchConversationForUser,
+} from "@/lib/billing/queries";
 
 export type GuardResult =
   | {
@@ -21,10 +25,7 @@ export type GuardResult =
 
 export async function canCreateChat(userId: string): Promise<GuardResult> {
   const entitlements = await getUserEntitlements(userId);
-  const used = await countRows("conversations", [
-    ["user_id", userId],
-    ["status", "active"],
-  ]);
+  const used = await countActiveChatsForUser(userId);
   const limit = entitlements.limits.maxActiveChats;
 
   if (limit !== null && used >= limit) {
@@ -51,7 +52,7 @@ export async function canSendMessage(
   conversationId: string,
 ): Promise<GuardResult> {
   const entitlements = await getUserEntitlements(userId);
-  const conversation = await fetchConversationOwnership(userId, conversationId);
+  const conversation = await fetchConversationForUser(userId, conversationId);
 
   if (!conversation) {
     return {
@@ -71,10 +72,7 @@ export async function canSendMessage(
     };
   }
 
-  const used = await countRows("messages", [
-    ["conversation_id", conversationId],
-    ["role", "user"],
-  ]);
+  const used = await countUserMessagesInConversation(conversationId);
   const limit = entitlements.limits.maxMessagesPerChat;
 
   if (limit !== null && used >= limit) {
@@ -124,79 +122,4 @@ function getMessageLimitMessage(plan: string, limit: number): string {
     return `Tu plan Free permite ${limit} mensajes por chat. Actualiza a Plus o Pro para continuar.`;
   }
   return `Llegaste al límite de ${limit} mensajes por chat de tu plan.`;
-}
-
-interface CountResponse {
-  count: number | null;
-}
-
-interface ConversationResponse {
-  id: string;
-  status: string;
-}
-
-function restHeaders(): Record<string, string> {
-  const serviceRole = getSupabaseServiceRoleKey();
-  if (!serviceRole) {
-    throw new Error(
-      "[billing] Falta SUPABASE_SERVICE_ROLE_KEY para validar límites de plan.",
-    );
-  }
-  return {
-    apikey: serviceRole,
-    authorization: `Bearer ${serviceRole}`,
-    "content-type": "application/json",
-  };
-}
-
-function restUrl(table: string): URL {
-  const { url } = requireSupabaseConfig();
-  return new URL(`/rest/v1/${table}`, url);
-}
-
-async function countRows(
-  table: string,
-  filters: Array<[column: string, value: string]>,
-): Promise<number> {
-  const url = restUrl(table);
-  url.searchParams.set("select", "id");
-  for (const [column, value] of filters) {
-    url.searchParams.set(column, `eq.${value}`);
-  }
-
-  const response = await fetch(url, {
-    headers: { ...restHeaders(), prefer: "count=exact", range: "0-0" },
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    throw new Error(`FAILED_TO_COUNT_${table.toUpperCase()}`);
-  }
-
-  const range = response.headers.get("content-range");
-  if (range) {
-    const total = Number.parseInt(range.split("/")[1] ?? "0", 10);
-    if (Number.isFinite(total)) return total;
-  }
-
-  const rows = (await response.json().catch(() => [])) as CountResponse[];
-  return rows.length;
-}
-
-async function fetchConversationOwnership(
-  userId: string,
-  conversationId: string,
-): Promise<ConversationResponse | null> {
-  const url = restUrl("conversations");
-  url.searchParams.set("select", "id,status");
-  url.searchParams.set("id", `eq.${conversationId}`);
-  url.searchParams.set("user_id", `eq.${userId}`);
-  url.searchParams.set("limit", "1");
-
-  const response = await fetch(url, { headers: restHeaders(), cache: "no-store" });
-  if (!response.ok) {
-    throw new Error("FAILED_TO_FETCH_CONVERSATION");
-  }
-
-  const rows = (await response.json().catch(() => [])) as ConversationResponse[];
-  return rows[0] ?? null;
 }

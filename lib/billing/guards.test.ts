@@ -89,20 +89,19 @@ describe("billing/guards", () => {
     expect(result.allowed).toBe(true);
   });
 
-  it("plus con 10 chats => bloqueado", async () => {
+  it("blocks plus user with 10 active chats", async () => {
     const { canCreateChat } = await import("@/lib/billing/guards");
     const { getUserEntitlements } = await import("@/lib/billing/entitlements");
     vi.mocked(getUserEntitlements).mockResolvedValue(mockEntitlements("plus"));
     vi.mocked(fetch).mockResolvedValue(countResponse(10));
 
-    const result = await canCreateChat("user_1");
-    expect(result).toMatchObject({
-      allowed: false,
-      code: "ACTIVE_CHAT_LIMIT_REACHED",
-      plan: "plus",
-      limit: 10,
-      used: 10,
-    });
+    const result = await canCreateChat("user_plus");
+    expect(result.allowed).toBe(false);
+    if (result.allowed) return;
+    expect(result.code).toBe("ACTIVE_CHAT_LIMIT_REACHED");
+    expect(result.plan).toBe("plus");
+    expect(result.used).toBe(10);
+    expect(result.limit).toBe(10);
   });
 
   it("pro con 100 chats => permitido (sin límite)", async () => {

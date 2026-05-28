@@ -3,6 +3,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadUserContext, saveUserContext } from "@/lib/survey/storage";
+import { usePlanLimitModal } from "@/components/billing/PlanLimitProvider";
 import { getValidAuthSession } from "@/lib/auth/client";
 import { SURVEY_VERSION, type UserContext } from "@/lib/survey/survey.v1";
 import { AGENT_IDS, type AgentId } from "@/lib/agents/ids";
@@ -29,7 +30,6 @@ import {
   buildConversationMemory,
   createChatTurnId,
   getChatSession,
-  PlanLimitError,
   saveChatTurn,
   savePersistentChatTurn,
   type ChatSession,
@@ -468,6 +468,7 @@ interface SessionConsoleProps {
 
 export function SessionConsole({ chatId }: SessionConsoleProps) {
   const router = useRouter();
+  const { openPlanLimitModal, handlePlanLimitError } = usePlanLimitModal();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -632,11 +633,27 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
       text?: string;
       error?: string;
       detail?: string;
+      code?: string;
+      message?: string;
+      plan?: string;
     } | null;
+
+    if (response.status === 403 && payload?.code) {
+      openPlanLimitModal({
+        code: payload.code,
+        message:
+          payload.message ??
+          payload.detail ??
+          "La voz no está disponible en tu plan actual.",
+        plan: payload.plan,
+      });
+      throw new Error(payload.message ?? payload.detail ?? "Voz no disponible.");
+    }
 
     if (!response.ok) {
       throw new Error(
         payload?.detail ??
+          payload?.message ??
           payload?.error ??
           "No pudimos transcribir el audio.",
       );
@@ -720,16 +737,6 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
     }
   }
 
-  function notifyPlanLimit(err: unknown): boolean {
-    if (!(err instanceof PlanLimitError)) return false;
-    const usage =
-      Number.isFinite(err.used) && Number.isFinite(err.limit)
-        ? ` (${err.used}/${err.limit})`
-        : "";
-    window.alert(`${err.message}${usage}`);
-    return true;
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!state.ctx || state.loading) return;
@@ -749,14 +756,17 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
       replica: null,
     };
     const draftSave = submissionChatId
-      ? savePersistentChatTurn(submissionChatId, draftTurn).catch((err) => {
-          if (notifyPlanLimit(err)) return null;
-          return null;
-        })
-      : Promise.resolve(null);
+      ? savePersistentChatTurn(submissionChatId, draftTurn)
+      : Promise.resolve({ kind: "saved" as const, session: null });
 
     shouldScrollToCouncilRef.current = true;
     dispatch({ type: "submit_user", message });
+
+    const draftResult = await draftSave;
+    if (draftResult.kind === "plan_limit") {
+      openPlanLimitModal(draftResult.limit);
+      return;
+    }
 
     try {
       const collected: Record<AgentId, string> = { marco: "", elena: "", rafael: "" };
@@ -788,14 +798,15 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
 
       const persistCompletedTurn = async (turn: ChatTurn) => {
         if (!submissionChatId) return;
-        await draftSave;
-        const updated = await savePersistentChatTurn(
+        const saveResult = await savePersistentChatTurn(
           submissionChatId,
           turn,
-        ).catch((err) => {
-          if (notifyPlanLimit(err)) return null;
-          return null;
-        });
+        );
+        if (saveResult.kind === "plan_limit") {
+          openPlanLimitModal(saveResult.limit);
+          return;
+        }
+        const updated = saveResult.session;
         if (
           updated?.summary &&
           mountedRef.current &&

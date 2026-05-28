@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PlanLimitProvider, usePlanLimitModal } from "@/components/billing/PlanLimitProvider";
 import { Container } from "@/components/ui/Container";
 import { SessionConsole } from "./SessionConsole";
 import { ChatSidebar } from "./ChatSidebar";
@@ -16,16 +17,46 @@ import {
 import {
   chatChangeEventName,
   createPersistentChatSession,
+  type CreatePersistentChatResult,
   getActiveChatId,
   getChatSession,
   getChatSessions,
-  PlanLimitError,
   refreshChatSessionsFromServer,
   setActiveChatId,
 } from "@/lib/chat/chatStorage";
 
 export function SessionLayout() {
+  return (
+    <PlanLimitProvider>
+      <SessionLayoutInner />
+    </PlanLimitProvider>
+  );
+}
+
+function applyCreateChatResult(
+  result: CreatePersistentChatResult,
+  onSession: (sessionId: string) => void,
+  openPlanLimitModal: ReturnType<typeof usePlanLimitModal>["openPlanLimitModal"],
+  router: ReturnType<typeof useRouter>,
+): boolean {
+  if (result.kind === "plan_limit") {
+    openPlanLimitModal(result.limit);
+    return true;
+  }
+  if (result.kind === "survey_required") {
+    router.replace("/onboarding" as never);
+    return true;
+  }
+  if (result.kind === "created" || result.kind === "local_fallback") {
+    onSession(result.session.id);
+    return true;
+  }
+  return false;
+}
+
+function SessionLayoutInner() {
   const router = useRouter();
+  const { openPlanLimitModal } = usePlanLimitModal();
   const [chatId, setChatId] = useState<string | null>(() => getActiveChatId());
   const [consoleKey, setConsoleKey] = useState(0);
   const [chatsHydrated, setChatsHydrated] = useState(false);
@@ -34,17 +65,6 @@ export function SessionLayout() {
   const [activeChatTitle, setActiveChatTitle] = useState("Sin chat activo");
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
-
-  const handlePlanLimitError = useCallback((err: unknown) => {
-    if (!(err instanceof PlanLimitError)) return false;
-    const fallback = "Alcanzaste un límite de tu plan actual.";
-    const detail =
-      Number.isFinite(err.limit) && Number.isFinite(err.used)
-        ? ` (${err.used}/${err.limit})`
-        : "";
-    window.alert(`${err.message || fallback}${detail}`);
-    return true;
-  }, []);
 
   useEffect(() => {
     async function hydrateChats() {
@@ -70,23 +90,23 @@ export function SessionLayout() {
         new URLSearchParams(window.location.search).get("guest") === "1";
       const authSession = await getValidAuthSession();
       if (authSession || guestMode) {
-        try {
-          const session = await createPersistentChatSession();
-          setChatId(session.id);
-          setActiveChatId(session.id);
-          setConsoleKey((k) => k + 1);
-        } catch (err) {
-          if (handlePlanLimitError(err)) return;
-          if ((err as Error).message === "survey_required") {
-            router.replace("/onboarding" as never);
-          }
-        }
+        const result = await createPersistentChatSession();
+        applyCreateChatResult(
+          result,
+          (sessionId) => {
+            setChatId(sessionId);
+            setActiveChatId(sessionId);
+            setConsoleKey((k) => k + 1);
+          },
+          openPlanLimitModal,
+          router,
+        );
       }
       setChatsHydrated(true);
     }
 
     void hydrateChats();
-  }, [handlePlanLimitError, router]);
+  }, [openPlanLimitModal, router]);
 
   useEffect(() => {
     function syncActiveTitle() {
@@ -126,21 +146,23 @@ export function SessionLayout() {
     async function create() {
       setCreatingChat(true);
       try {
-        const session = await createPersistentChatSession();
-        setChatId(session.id);
-        setActiveChatId(session.id);
-        setConsoleKey((k) => k + 1);
-      } catch (err) {
-        if (handlePlanLimitError(err)) return;
-        if ((err as Error).message === "survey_required") {
-          router.replace("/onboarding" as never);
-        }
+        const result = await createPersistentChatSession();
+        applyCreateChatResult(
+          result,
+          (sessionId) => {
+            setChatId(sessionId);
+            setActiveChatId(sessionId);
+            setConsoleKey((k) => k + 1);
+          },
+          openPlanLimitModal,
+          router,
+        );
       } finally {
         setCreatingChat(false);
       }
     }
     void create();
-  }, [creatingChat, handlePlanLimitError, router]);
+  }, [creatingChat, openPlanLimitModal, router]);
 
   const handleSelectChat = useCallback((id: string) => {
     if (id === chatId) return;
@@ -168,20 +190,20 @@ export function SessionLayout() {
         setConsoleKey((k) => k + 1);
         return;
       }
-      try {
-        const session = await createPersistentChatSession();
-        setActiveChatId(session.id);
-        setChatId(session.id);
-        setConsoleKey((k) => k + 1);
-      } catch (err) {
-        if (handlePlanLimitError(err)) return;
-        if ((err as Error).message === "survey_required") {
-          router.replace("/onboarding" as never);
-        }
-      }
+      const result = await createPersistentChatSession();
+      applyCreateChatResult(
+        result,
+        (sessionId) => {
+          setActiveChatId(sessionId);
+          setChatId(sessionId);
+          setConsoleKey((k) => k + 1);
+        },
+        openPlanLimitModal,
+        router,
+      );
     }
     void chooseReplacement();
-  }, [chatId, handlePlanLimitError, router]);
+  }, [chatId, openPlanLimitModal, router]);
 
   const handleDeleteChats = useCallback((ids: string[]) => {
     if (!chatId || !ids.includes(chatId)) return;
@@ -196,20 +218,20 @@ export function SessionLayout() {
         setConsoleKey((k) => k + 1);
         return;
       }
-      try {
-        const session = await createPersistentChatSession();
-        setActiveChatId(session.id);
-        setChatId(session.id);
-        setConsoleKey((k) => k + 1);
-      } catch (err) {
-        if (handlePlanLimitError(err)) return;
-        if ((err as Error).message === "survey_required") {
-          router.replace("/onboarding" as never);
-        }
-      }
+      const result = await createPersistentChatSession();
+      applyCreateChatResult(
+        result,
+        (sessionId) => {
+          setActiveChatId(sessionId);
+          setChatId(sessionId);
+          setConsoleKey((k) => k + 1);
+        },
+        openPlanLimitModal,
+        router,
+      );
     }
     void chooseReplacement();
-  }, [chatId, handlePlanLimitError, router]);
+  }, [chatId, openPlanLimitModal, router]);
 
   return (
     <div className="flex h-dvh gap-2 overflow-hidden overscroll-none bg-[linear-gradient(135deg,rgba(255,241,229,0.36),rgba(255,250,244,0.18),rgba(223,235,224,0.20))] p-2 pl-0">
