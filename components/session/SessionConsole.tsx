@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { loadUserContext, saveUserContext } from "@/lib/survey/storage";
 import { getValidAuthSession } from "@/lib/auth/client";
 import { SURVEY_VERSION, type UserContext } from "@/lib/survey/survey.v1";
-import { AGENT_IDS, type AgentId } from "@/lib/agents/ids";
+import { AGENT_IDS, AGENT_LABELS, type AgentId } from "@/lib/agents/ids";
 import { AgentCard } from "@/components/agents/AgentCard";
 import { Button } from "@/components/ui/Button";
 import { ReplicaCard } from "./ReplicaCard";
@@ -37,6 +37,7 @@ import {
 } from "@/lib/chat/chatStorage";
 
 type DictationStatus = "idle" | "listening" | "processing";
+type AudioContextConstructor = typeof AudioContext;
 
 /**
  * Máquina de estados de una sesión (doc 05, §1).
@@ -474,6 +475,13 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const dictationChunksRef = useRef<Blob[]>([]);
+  const cancelDictationRef = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const waveformFrameRef = useRef<number | null>(null);
+  const recordingTimerRef = useRef<number | null>(null);
+  const recordingStartedAtRef = useRef<number | null>(null);
+  const lastWaveformUpdateRef = useRef(0);
   const latestInputRef = useRef("");
   const composerTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const mountedRef = useRef(true);
@@ -484,6 +492,11 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   const [dictationStatus, setDictationStatus] =
     useState<DictationStatus>("idle");
   const [dictationError, setDictationError] = useState<string | null>(null);
+  const [dictationLevels, setDictationLevels] = useState<number[]>(
+    () => Array.from({ length: 96 }, () => 0),
+  );
+  const [dictationElapsed, setDictationElapsed] = useState(0);
+  const [replyTarget, setReplyTarget] = useState<AgentId | null>(null);
 
   useEffect(() => {
     activeChatIdRef.current = chatId;
@@ -537,6 +550,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       mountedRef.current = false;
       abortRef.current?.abort();
       mediaRecorderRef.current?.stop();
+      stopDictationVisualizer();
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     },
     [],
@@ -598,14 +612,98 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   }
 
   function cleanupDictation() {
+    stopDictationVisualizer();
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     mediaRecorderRef.current = null;
     mediaStreamRef.current = null;
     dictationChunksRef.current = [];
+    cancelDictationRef.current = false;
+    setDictationLevels(Array.from({ length: 46 }, () => 0));
+    setDictationElapsed(0);
     setDictationStatus("idle");
   }
 
+  function stopDictationVisualizer() {
+    if (waveformFrameRef.current !== null) {
+      window.cancelAnimationFrame(waveformFrameRef.current);
+      waveformFrameRef.current = null;
+    }
+    if (recordingTimerRef.current !== null) {
+      window.clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    void audioContextRef.current?.close().catch(() => null);
+    audioContextRef.current = null;
+    analyserRef.current = null;
+    recordingStartedAtRef.current = null;
+    lastWaveformUpdateRef.current = 0;
+  }
+
+  function startDictationVisualizer(stream: MediaStream) {
+    stopDictationVisualizer();
+    const AudioContextCtor =
+      window.AudioContext ??
+      (window as Window & { webkitAudioContext?: AudioContextConstructor })
+        .webkitAudioContext;
+    if (!AudioContextCtor) return;
+
+    try {
+      const audioContext = new AudioContextCtor();
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.82;
+      source.connect(analyser);
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+      recordingStartedAtRef.current = Date.now();
+      setDictationLevels(Array.from({ length: 96 }, () => 0));
+      setDictationElapsed(0);
+
+      recordingTimerRef.current = window.setInterval(() => {
+        const startedAt = recordingStartedAtRef.current;
+        if (startedAt) {
+          setDictationElapsed(Math.floor((Date.now() - startedAt) / 1000));
+        }
+      }, 250);
+
+      const samples = new Uint8Array(analyser.fftSize);
+      let lastLevel = 0;
+      const updateWaveform = (now: number) => {
+        const activeAnalyser = analyserRef.current;
+        if (!activeAnalyser) return;
+        activeAnalyser.getByteTimeDomainData(samples);
+        let sum = 0;
+        for (const sample of samples) {
+          const centered = (sample - 128) / 128;
+          sum += centered * centered;
+        }
+        const rms = Math.sqrt(sum / samples.length);
+        const voiceLevel = Math.max(0, Math.min(1, (rms - 0.014) * 9.5));
+        lastLevel = lastLevel * 0.72 + voiceLevel * 0.28;
+        const nextLevel = Math.max(lastLevel, voiceLevel);
+
+        if (now - lastWaveformUpdateRef.current > 70) {
+          lastWaveformUpdateRef.current = now;
+          setDictationLevels((current) => [
+            ...current.slice(1),
+            nextLevel > 0.05 ? nextLevel : 0,
+          ]);
+        }
+
+        waveformFrameRef.current = window.requestAnimationFrame(updateWaveform);
+      };
+
+      waveformFrameRef.current = window.requestAnimationFrame(updateWaveform);
+    } catch {
+      stopDictationVisualizer();
+    }
+  }
+
   function dictationErrorMessage(err: unknown): string {
+    if (err instanceof TypeError && err.message === "Failed to fetch") {
+      return "No pudimos conectar con el servicio de dictado. Revisa que el servidor siga activo y vuelve a intentarlo.";
+    }
     if (err instanceof DOMException) {
       if (err.name === "NotAllowedError" || err.name === "SecurityError") {
         return "El navegador bloqueo el microfono para esta pagina.";
@@ -690,6 +788,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       dictationChunksRef.current = [];
       mediaStreamRef.current = stream;
       mediaRecorderRef.current = recorder;
+      startDictationVisualizer(stream);
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) dictationChunksRef.current.push(event.data);
@@ -702,10 +801,16 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       };
 
       recorder.onstop = () => {
+        const wasCancelled = cancelDictationRef.current;
         const chunks = dictationChunksRef.current;
         const type = recorder.mimeType || mimeType || "audio/webm";
         const audio = new Blob(chunks, { type });
         mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+
+        if (wasCancelled) {
+          cleanupDictation();
+          return;
+        }
 
         void transcribeAudio(audio)
           .then((transcript) => {
@@ -736,6 +841,22 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
     setDictationStatus("processing");
     try {
       mediaRecorderRef.current?.stop();
+    } catch (err) {
+      cleanupDictation();
+      setDictationError(dictationErrorMessage(err));
+    }
+  }
+
+  function cancelDictation() {
+    if (dictationStatus !== "listening") return;
+    cancelDictationRef.current = true;
+    setDictationStatus("processing");
+    try {
+      if (mediaRecorderRef.current?.state === "recording") {
+        mediaRecorderRef.current.stop();
+      } else {
+        cleanupDictation();
+      }
     } catch (err) {
       cleanupDictation();
       setDictationError(dictationErrorMessage(err));
@@ -959,7 +1080,9 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
 
   const showComposer = state.phase !== "fase4";
   const composerClassName =
-    "sticky bottom-5 z-20 mx-auto mt-auto flex w-full max-w-4xl flex-col gap-2 overflow-hidden rounded-[1.05rem] border border-[#d9784c]/18 bg-[#fff6ee]/88 p-3 shadow-[0_18px_46px_rgba(116,68,43,0.14)] backdrop-blur-xl transition-[background-color,border-color,box-shadow] duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-[linear-gradient(135deg,rgba(255,246,238,0.98),rgba(255,250,244,0.94),rgba(255,230,218,0.9))] after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:-z-10 after:h-12 after:bg-gradient-to-b after:from-white/45 after:to-transparent";
+    dictationStatus === "listening"
+      ? "sticky bottom-5 z-20 mx-auto mt-auto flex w-full max-w-5xl flex-col overflow-visible rounded-full border border-[#d9784c]/22 bg-[#fff0e5]/96 p-0 shadow-[0_18px_46px_rgba(116,68,43,0.14)] backdrop-blur-xl transition-[background-color,border-color,box-shadow,max-width] duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+      : "sticky bottom-5 z-20 mx-auto mt-auto flex w-full max-w-4xl flex-col gap-2 overflow-visible rounded-[1.05rem] border border-[#d9784c]/18 bg-[#fff6ee]/88 p-3 shadow-[0_18px_46px_rgba(116,68,43,0.14)] backdrop-blur-xl transition-[background-color,border-color,box-shadow,max-width] duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-[1.05rem] before:bg-[linear-gradient(135deg,rgba(255,246,238,0.98),rgba(255,250,244,0.94),rgba(255,230,218,0.9))] after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:-z-10 after:h-12 after:rounded-t-[1.05rem] after:bg-gradient-to-b after:from-white/45 after:to-transparent";
 
   function handleComposerKeyDown(
     event: React.KeyboardEvent<HTMLTextAreaElement>,
@@ -1143,48 +1266,66 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
           onSubmit={handleSubmit}
           className={composerClassName}
         >
-          <textarea
-            ref={composerTextAreaRef}
-            id="user-input"
-            aria-label="Mensaje para el council"
-            value={state.userInput}
-            onChange={handleUserInputChange}
-            onKeyDown={handleComposerKeyDown}
-            maxLength={4000}
-            rows={3}
-            disabled={state.phase === "fase4"}
-            placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
-            className="resize-none overflow-y-hidden rounded-council border border-[#d8a47d]/55 bg-[#fffaf4]/76 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-[#d96339] focus:outline-none focus:ring-1 focus:ring-[#d96339]/35 disabled:opacity-60"
-            autoFocus={state.phase === "wait"}
-          />
+          {dictationStatus === "listening" ? (
+            <DictationRecordingPanel
+              elapsedSeconds={dictationElapsed}
+              levels={dictationLevels}
+              onCancel={cancelDictation}
+              onConfirm={stopDictation}
+            />
+          ) : (
+            <textarea
+              ref={composerTextAreaRef}
+              id="user-input"
+              aria-label="Mensaje para el council"
+              value={state.userInput}
+              onChange={handleUserInputChange}
+              onKeyDown={handleComposerKeyDown}
+              maxLength={4000}
+              rows={3}
+              disabled={state.phase === "fase4"}
+              placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
+              className="resize-none overflow-y-hidden rounded-council border border-[#d8a47d]/55 bg-[#fffaf4]/76 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-[#d96339] focus:outline-none focus:ring-1 focus:ring-[#d96339]/35 disabled:opacity-60"
+              autoFocus={state.phase === "wait"}
+            />
+          )}
           {dictationError && (
             <p className="text-xs text-error" role="status">
               {dictationError}
             </p>
           )}
-          <div className="flex items-center justify-between text-xs text-muted">
-            <span>{state.userInput.length} / 4000</span>
-            <div className="flex items-center gap-2">
-              <DictationControl
-                status={dictationStatus}
-                disabled={!canUseDictation && dictationStatus === "idle"}
-                onStart={startDictation}
-                onStop={stopDictation}
-              />
-              {canRequestSynthesis && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => void handleSynthesis()}
-                >
-                  Cerrar con síntesis
+          {dictationStatus !== "listening" && (
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <span>{state.userInput.length} / 4000</span>
+                {canRequestSynthesis && (
+                  <AgentReplySelector
+                    value={replyTarget}
+                    onChange={setReplyTarget}
+                  />
+                )}
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <DictationControl
+                  status={dictationStatus}
+                  disabled={!canUseDictation && dictationStatus === "idle"}
+                  onStart={startDictation}
+                />
+                {canRequestSynthesis && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void handleSynthesis()}
+                  >
+                    Concluir
+                  </Button>
+                )}
+                <Button type="submit" disabled={!canSubmit}>
+                  {state.loading ? "Espera…" : "Enviar"}
                 </Button>
-              )}
-              <Button type="submit" disabled={!canSubmit}>
-                {state.loading ? "Espera…" : "Enviar"}
-              </Button>
+              </div>
             </div>
-          </div>
+          )}
         </form>
       )}
     </div>
@@ -1195,38 +1336,11 @@ function DictationControl({
   status,
   disabled,
   onStart,
-  onStop,
 }: {
   status: DictationStatus;
   disabled: boolean;
   onStart: () => void;
-  onStop: () => void;
 }) {
-  if (status === "listening") {
-    return (
-      <div
-        className="flex h-10 items-center gap-2 rounded-council border border-border-strong/70 bg-surface-soft px-2 shadow-soft"
-        role="status"
-        aria-label="Dictado activo"
-      >
-        <span className="typing-dots text-accent-strong" aria-hidden>
-          <span />
-          <span />
-          <span />
-        </span>
-        <button
-          type="button"
-          onClick={onStop}
-          aria-label="Detener dictado"
-          title="Detener dictado"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-council border border-error/40 bg-error text-white shadow-soft transition hover:-translate-y-px hover:bg-error/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          <StopIcon />
-        </button>
-      </div>
-    );
-  }
-
   if (status === "processing") {
     return (
       <button
@@ -1248,10 +1362,163 @@ function DictationControl({
       disabled={disabled}
       aria-label="Iniciar dictado"
       title="Iniciar dictado"
-      className="inline-flex h-10 w-10 items-center justify-center rounded-council border border-border-strong/70 bg-surface/80 text-accent-strong shadow-soft transition hover:-translate-y-px hover:border-accent hover:bg-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex h-10 w-10 items-center justify-center rounded-council border border-[#d96339]/35 bg-[#fff7ef]/92 text-[#d96339] shadow-soft transition hover:-translate-y-px hover:border-[#d96339]/60 hover:bg-[#fff0e5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d96339]/55 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
     >
       <MicrophoneIcon />
     </button>
+  );
+}
+
+function DictationRecordingPanel({
+  elapsedSeconds,
+  levels,
+  onCancel,
+  onConfirm,
+}: {
+  elapsedSeconds: number;
+  levels: number[];
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const hasSound = levels.some((level) => level > 0.08);
+  const midPoint = Math.floor(levels.length / 2);
+
+  return (
+    <div
+      className="relative flex min-h-[88px] w-full items-center gap-5 overflow-hidden rounded-full px-6 text-[#9b4c33] sm:px-8"
+      role="status"
+      aria-live="polite"
+      aria-label="Dictado activo"
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-4">
+        <span className="flex h-12 min-w-0 flex-1 items-center justify-between gap-[3px]" aria-hidden>
+          {levels.map((level, index) => {
+            const height = hasSound ? 14 + level * 42 : 3;
+            const distanceFromNow = Math.abs(index - midPoint) / midPoint;
+            const baseOpacity = 0.24 + (1 - distanceFromNow) * 0.18;
+            return (
+              <span
+                key={index}
+                className="block w-[3px] rounded-full bg-[#9b4c33]/55 transition-[height,opacity,background-color] duration-100 ease-out"
+                style={{
+                  height: `${height}px`,
+                  opacity: level > 0.05 ? 0.95 : baseOpacity,
+                }}
+              />
+            );
+          })}
+        </span>
+        <span
+          className="w-11 shrink-0 text-center text-xs font-medium tabular-nums text-[#8f5d48]"
+          aria-label={`Grabando ${formatRecordingTime(elapsedSeconds)}`}
+        >
+          {formatRecordingTime(elapsedSeconds)}
+        </span>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#8f5d48] transition hover:bg-[#f3d8c6] hover:text-[#c55332] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d96339]/35"
+          aria-label="Cancelar dictado"
+          title="Cancelar dictado"
+        >
+          <XIcon />
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#6f4d3b] transition hover:bg-[#f3d8c6] hover:text-[#d96339] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d96339]/35"
+          aria-label="Usar dictado"
+          title="Usar dictado"
+        >
+          <CheckIcon />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function formatRecordingTime(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function AgentReplySelector({
+  value,
+  onChange,
+}: {
+  value: AgentId | null;
+  onChange: (agent: AgentId | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const label = value ? `Responder a ${AGENT_LABELS[value]}` : "Responder a";
+
+  return (
+    <div
+      className="relative"
+      onBlur={(event) => {
+        const nextTarget = event.relatedTarget;
+        if (
+          nextTarget instanceof Node &&
+          event.currentTarget.contains(nextTarget)
+        ) {
+          return;
+        }
+        setOpen(false);
+      }}
+    >
+      <button
+        type="button"
+        className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#d96339]/45 bg-[#fff7ef]/92 px-4 text-sm font-medium text-[#d96339] shadow-soft backdrop-blur transition hover:-translate-y-px hover:border-[#d96339]/65 hover:bg-[#fff2e9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d96339]/55 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        {label}
+        <ChevronDownIcon />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute bottom-full left-0 z-50 mb-2 w-48 overflow-hidden rounded-[1.35rem] border border-[#d8a47d]/55 bg-[#fffaf4] p-2 text-sm text-[#5f4638] shadow-[0_22px_50px_rgba(116,68,43,0.22)]"
+          style={{ animation: "dropdown-pop 160ms cubic-bezier(0.22, 1, 0.36, 1) both" }}
+        >
+          {AGENT_IDS.map((agent) => (
+            <button
+              key={agent}
+              type="button"
+              role="menuitemradio"
+              aria-checked={value === agent}
+              className="flex w-full items-center justify-between rounded-[0.85rem] px-3 py-2 text-left transition hover:bg-[#f4d8c7]/55 hover:text-[#c55332] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d96339]/35"
+              onClick={() => {
+                onChange(agent);
+                setOpen(false);
+              }}
+            >
+              <span>{AGENT_LABELS[agent]}</span>
+              {value === agent && (
+                <span className="h-1.5 w-1.5 rounded-full bg-[#d96339]" />
+              )}
+            </button>
+          ))}
+          {value && (
+            <button
+              type="button"
+              role="menuitem"
+              className="mt-1 w-full rounded-[0.85rem] border-t border-[#d8a47d]/25 px-3 py-2 text-left text-xs text-muted transition hover:bg-[#f4d8c7]/45 hover:text-[#8f5d48] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d96339]/35"
+              onClick={() => {
+                onChange(null);
+                setOpen(false);
+              }}
+            >
+              Sin agente elegido
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1278,21 +1545,38 @@ function MicrophoneIcon() {
   );
 }
 
-function StopIcon() {
+function XIcon() {
   return (
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      className="h-4 w-4"
+      className="h-6 w-6"
       fill="none"
     >
-      <rect
-        x="8"
-        y="8"
-        width="8"
-        height="8"
-        rx="1.5"
-        fill="currentColor"
+      <path
+        d="m7 7 10 10M17 7 7 17"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-6 w-6"
+      fill="none"
+    >
+      <path
+        d="m5.5 12.7 4.2 4.1L18.5 7"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
       />
     </svg>
   );
@@ -1319,6 +1603,25 @@ function LoadingIcon() {
         stroke="currentColor"
         strokeLinecap="round"
         strokeWidth="2.5"
+      />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+    >
+      <path
+        d="m7 10 5 5 5-5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
       />
     </svg>
   );
