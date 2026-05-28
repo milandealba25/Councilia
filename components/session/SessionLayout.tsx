@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Container } from "@/components/ui/Container";
 import { SessionConsole } from "./SessionConsole";
 import { ChatSidebar } from "./ChatSidebar";
@@ -15,70 +14,36 @@ import {
 } from "@/lib/auth/client";
 import {
   chatChangeEventName,
-  createPersistentChatSession,
-  getActiveChatId,
+  clearActiveChatId,
   getChatSession,
   getChatSessions,
   refreshChatSessionsFromServer,
   setActiveChatId,
+  type ChatSession,
 } from "@/lib/chat/chatStorage";
 
 export function SessionLayout() {
-  const router = useRouter();
-  const [chatId, setChatId] = useState<string | null>(() => getActiveChatId());
+  const [chatId, setChatId] = useState<string | null>(null);
   const [consoleKey, setConsoleKey] = useState(0);
-  const [chatsHydrated, setChatsHydrated] = useState(false);
-  const [creatingChat, setCreatingChat] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeChatTitle, setActiveChatTitle] = useState("Sin chat activo");
+  const [activeChatTitle, setActiveChatTitle] = useState("Nuevo chat");
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
 
   useEffect(() => {
     async function hydrateChats() {
-      const sessions = await refreshChatSessionsFromServer().catch(() =>
+      await refreshChatSessionsFromServer().catch(() =>
         getChatSessions(),
       );
-      const active = getActiveChatId();
-      if (active) {
-        setChatId(active);
-        setConsoleKey((k) => k + 1);
-        setChatsHydrated(true);
-        return;
-      }
-      if (sessions[0]) {
-        setActiveChatId(sessions[0].id);
-        setChatId(sessions[0].id);
-        setConsoleKey((k) => k + 1);
-        setChatsHydrated(true);
-        return;
-      }
-      const guestMode =
-        typeof window !== "undefined" &&
-        new URLSearchParams(window.location.search).get("guest") === "1";
-      const authSession = await getValidAuthSession();
-      if (authSession || guestMode) {
-        try {
-          const session = await createPersistentChatSession();
-          setChatId(session.id);
-          setActiveChatId(session.id);
-          setConsoleKey((k) => k + 1);
-        } catch (err) {
-          if ((err as Error).message === "survey_required") {
-            router.replace("/onboarding" as never);
-          }
-        }
-      }
-      setChatsHydrated(true);
     }
 
     void hydrateChats();
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     function syncActiveTitle() {
       const session = chatId ? getChatSession(chatId) : null;
-      setActiveChatTitle(session?.title?.trim() || "Sin chat activo");
+      setActiveChatTitle(session?.title?.trim() || "Nuevo chat");
     }
     syncActiveTitle();
     window.addEventListener(chatChangeEventName(), syncActiveTitle);
@@ -109,24 +74,15 @@ export function SessionLayout() {
   }, []);
 
   const handleNewChat = useCallback(() => {
-    if (creatingChat) return;
-    async function create() {
-      setCreatingChat(true);
-      try {
-        const session = await createPersistentChatSession();
-        setChatId(session.id);
-        setActiveChatId(session.id);
-        setConsoleKey((k) => k + 1);
-      } catch (err) {
-        if ((err as Error).message === "survey_required") {
-          router.replace("/onboarding" as never);
-        }
-      } finally {
-        setCreatingChat(false);
-      }
-    }
-    void create();
-  }, [creatingChat, router]);
+    clearActiveChatId();
+    setChatId(null);
+    setConsoleKey((k) => k + 1);
+  }, []);
+
+  const handleChatCreated = useCallback((session: ChatSession) => {
+    setActiveChatId(session.id);
+    setChatId(session.id);
+  }, []);
 
   const handleSelectChat = useCallback((id: string) => {
     if (id === chatId) return;
@@ -154,19 +110,12 @@ export function SessionLayout() {
         setConsoleKey((k) => k + 1);
         return;
       }
-      try {
-        const session = await createPersistentChatSession();
-        setActiveChatId(session.id);
-        setChatId(session.id);
-        setConsoleKey((k) => k + 1);
-      } catch (err) {
-        if ((err as Error).message === "survey_required") {
-          router.replace("/onboarding" as never);
-        }
-      }
+      clearActiveChatId();
+      setChatId(null);
+      setConsoleKey((k) => k + 1);
     }
     void chooseReplacement();
-  }, [chatId, router]);
+  }, [chatId]);
 
   const handleDeleteChats = useCallback((ids: string[]) => {
     if (!chatId || !ids.includes(chatId)) return;
@@ -181,19 +130,12 @@ export function SessionLayout() {
         setConsoleKey((k) => k + 1);
         return;
       }
-      try {
-        const session = await createPersistentChatSession();
-        setActiveChatId(session.id);
-        setChatId(session.id);
-        setConsoleKey((k) => k + 1);
-      } catch (err) {
-        if ((err as Error).message === "survey_required") {
-          router.replace("/onboarding" as never);
-        }
-      }
+      clearActiveChatId();
+      setChatId(null);
+      setConsoleKey((k) => k + 1);
     }
     void chooseReplacement();
-  }, [chatId, router]);
+  }, [chatId]);
 
   return (
     <div className="flex h-dvh gap-2 overflow-hidden overscroll-none bg-[linear-gradient(135deg,rgba(255,241,229,0.36),rgba(255,250,244,0.18),rgba(223,235,224,0.20))] p-2 pl-0">
@@ -203,7 +145,6 @@ export function SessionLayout() {
         onNewChat={handleNewChat}
         onDeleteChat={handleDeleteChat}
         onDeleteChats={handleDeleteChats}
-        newChatPending={creatingChat}
         onCollapsedChange={setSidebarCollapsed}
       />
 
@@ -296,14 +237,11 @@ export function SessionLayout() {
             </p>
           </header>
 
-          {chatsHydrated ? (
-            <SessionConsole
-              key={consoleKey}
-              chatId={chatId}
-            />
-          ) : (
-            <p className="text-sm text-muted">Cargando tus chats...</p>
-          )}
+          <SessionConsole
+            key={consoleKey}
+            chatId={chatId}
+            onChatCreated={handleChatCreated}
+          />
         </Container>
       </main>
     </div>

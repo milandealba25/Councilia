@@ -204,7 +204,12 @@ export async function appendTurnToUserChat(
       body: JSON.stringify(rows),
     });
     if (!messageResponse.ok) {
-      throw new Error(`append_turn_failed_${messageResponse.status}`);
+      const detail = await messageResponse.text().catch(() => "");
+      throw new Error(
+        `append_turn_failed_${messageResponse.status}${
+          detail ? `_${detail.slice(0, 500)}` : ""
+        }`,
+      );
     }
   }
 
@@ -354,7 +359,13 @@ function buildMessageRows(
   turn: ChatTurnPayload,
   options: { includeUser?: boolean } = {},
 ): Array<Record<string, unknown>> {
-  const base = { conversation_id: chatId, content_json: { turn_id: turnId } };
+  const base = {
+    conversation_id: chatId,
+    agent_id: null,
+    replies_to_agent_id: null,
+    content_json: { turn_id: turnId },
+    token_count: null,
+  };
   const rows: Array<Record<string, unknown>> = [];
   if (options.includeUser ?? true) {
     rows.push({

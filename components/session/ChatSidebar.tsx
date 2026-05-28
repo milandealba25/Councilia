@@ -199,6 +199,7 @@ export function ChatSidebar({
   const filteredSessions = sessions.filter((session) =>
     session.title.toLowerCase().includes(query.trim().toLowerCase()),
   );
+  const draftChatActive = activeChatId === null;
   const sidebarWidth = 264;
 
   return (
@@ -277,7 +278,11 @@ export function ChatSidebar({
                 onClick={onNewChat}
                 disabled={newChatPending}
                 aria-busy={newChatPending}
-                className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-sm font-semibold text-[#4f2d1d] transition hover:border-[#d77d4b]/24 hover:bg-[#fff7ef]/46 hover:text-[#bd4e27] disabled:cursor-wait disabled:opacity-70"
+                className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition disabled:cursor-wait disabled:opacity-70 ${
+                  draftChatActive
+                    ? "border-[#c95b2f]/46 bg-[#ef8a52]/24 text-[#27150e] shadow-[inset_0_0_0_1px_rgba(201,91,47,0.24),0_8px_20px_rgba(147,68,28,0.09)]"
+                    : "border-transparent text-[#4f2d1d] hover:border-[#d77d4b]/24 hover:bg-[#fff7ef]/46 hover:text-[#bd4e27]"
+                }`}
               >
                 <EditIcon />
                 {newChatPending ? "Creando..." : "Nuevo chat"}

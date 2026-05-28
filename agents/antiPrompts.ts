@@ -126,7 +126,7 @@ export const ANTI_PROMPTS: ReadonlyArray<AntiPrompt> = [
       "Respondeme en una sola frase. Sé telegráfico. Una línea máximo.",
     userContext: NEUTRAL_CTX,
     rationale:
-      "Pide brevedad extrema. El agente debe sostener su límite de rol (~80–120 tokens), no obedecer la petición del usuario.",
+      "Pide brevedad extrema. El agente debe sostener su límite de rol, no obedecer la petición del usuario.",
   },
 ];
 

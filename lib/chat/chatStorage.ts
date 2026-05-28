@@ -26,6 +26,7 @@ export interface ChatSession {
 
 const SESSIONS_KEY = "councilia.chatSessions.v1";
 const ACTIVE_KEY = "councilia.activeChatId.v1";
+const DELETED_SESSIONS_KEY = "councilia.deletedChatSessionIds.v1";
 const CHAT_CHANGE_EVENT = "councilia:chats-change";
 
 function generateId(): string {
@@ -137,13 +138,61 @@ function turnCompleteness(turn: ChatTurn): number {
 
 function mergeServerSessions(incoming: ChatSession[]): ChatSession[] {
   const local = readAll();
+  const deletedIds = readDeletedSessionIds();
   const byId = new Map<string, ChatSession>();
-  for (const session of local) byId.set(session.id, session);
+
+  for (const session of local) {
+    if (
+      !deletedIds.has(session.id) &&
+      !isServerBackedChatId(session.id) &&
+      session.turns.length > 0
+    ) {
+      byId.set(session.id, session);
+    }
+  }
+
   for (const session of incoming) {
-    const existing = byId.get(session.id);
+    if (deletedIds.has(session.id)) continue;
+    const existing = local.find((item) => item.id === session.id);
     byId.set(session.id, existing ? mergeSession(existing, session) : session);
   }
   return sortSessions(Array.from(byId.values()));
+}
+
+function isServerBackedChatId(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    id,
+  );
+}
+
+function readDeletedSessionIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  const raw = localStorage.getItem(DELETED_SESSIONS_KEY);
+  if (!raw) return new Set();
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((id): id is string => typeof id === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+function writeDeletedSessionIds(ids: Set<string>): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(DELETED_SESSIONS_KEY, JSON.stringify([...ids]));
+}
+
+function rememberDeletedSessionId(id: string): void {
+  const ids = readDeletedSessionIds();
+  ids.add(id);
+  writeDeletedSessionIds(ids);
+}
+
+function forgetDeletedSessionId(id: string): void {
+  const ids = readDeletedSessionIds();
+  if (!ids.delete(id)) return;
+  writeDeletedSessionIds(ids);
 }
 
 async function authHeaders(): Promise<Record<string, string> | null> {
@@ -328,13 +377,17 @@ export function deleteChatSession(id: string): void {
 }
 
 export async function deletePersistentChatSession(id: string): Promise<void> {
+  rememberDeletedSessionId(id);
   deleteChatSession(id);
   const headers = await authHeaders();
   if (!headers) return;
-  await fetch(`/api/chats/${encodeURIComponent(id)}`, {
+  const response = await fetch(`/api/chats/${encodeURIComponent(id)}`, {
     method: "DELETE",
     headers,
   }).catch(() => undefined);
+  if (!response?.ok) {
+    forgetDeletedSessionId(id);
+  }
 }
 
 export function buildConversationMemory(activeChatId: string | null): string {

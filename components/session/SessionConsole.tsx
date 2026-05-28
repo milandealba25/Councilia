@@ -27,6 +27,7 @@ import {
 } from "@/orchestrator/llm";
 import {
   buildConversationMemory,
+  createPersistentChatSession,
   createChatTurnId,
   getChatSession,
   saveChatTurn,
@@ -463,9 +464,10 @@ function buildTranscriptFromState(state: State): TranscriptTurn[] {
 
 interface SessionConsoleProps {
   chatId: string | null;
+  onChatCreated?: (session: ChatSession) => void;
 }
 
-export function SessionConsole({ chatId }: SessionConsoleProps) {
+export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
@@ -473,8 +475,10 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const dictationChunksRef = useRef<Blob[]>([]);
   const latestInputRef = useRef("");
+  const composerTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const mountedRef = useRef(true);
   const activeChatIdRef = useRef<string | null>(chatId);
+  const skipHydrateChatIdRef = useRef<string | null>(null);
   const responseSectionRef = useRef<HTMLElement | null>(null);
   const shouldScrollToCouncilRef = useRef(false);
   const [dictationStatus, setDictationStatus] =
@@ -483,6 +487,10 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
 
   useEffect(() => {
     activeChatIdRef.current = chatId;
+    if (chatId && skipHydrateChatIdRef.current === chatId) {
+      skipHydrateChatIdRef.current = null;
+      return;
+    }
     const storedChat = chatId ? getChatSession(chatId) : null;
     if (storedChat) {
       dispatch({ type: "hydrate_chat", session: storedChat });
@@ -536,7 +544,30 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
 
   useEffect(() => {
     latestInputRef.current = state.userInput;
+    resizeComposerTextArea(composerTextAreaRef.current);
   }, [state.userInput]);
+
+  function resizeComposerTextArea(element: HTMLTextAreaElement | null) {
+    if (!element) return;
+    const styles = window.getComputedStyle(element);
+    const lineHeight = Number.parseFloat(styles.lineHeight) || 22;
+    const verticalSpace =
+      Number.parseFloat(styles.paddingTop) +
+      Number.parseFloat(styles.paddingBottom) +
+      Number.parseFloat(styles.borderTopWidth) +
+      Number.parseFloat(styles.borderBottomWidth);
+    const maxHeight = lineHeight * 6 + verticalSpace;
+
+    element.style.height = "auto";
+    element.style.height = `${Math.min(element.scrollHeight, maxHeight)}px`;
+    element.style.overflowY =
+      element.scrollHeight > maxHeight ? "auto" : "hidden";
+  }
+
+  function handleUserInputChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
+    resizeComposerTextArea(event.currentTarget);
+    dispatch({ type: "user_input", value: event.currentTarget.value });
+  }
 
   useEffect(() => {
     if (
@@ -720,8 +751,24 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
-    const submissionChatId = activeChatIdRef.current;
     const turnId = createChatTurnId();
+
+    let submissionChatId = activeChatIdRef.current;
+    if (!submissionChatId) {
+      try {
+        const session = await createPersistentChatSession();
+        submissionChatId = session.id;
+        activeChatIdRef.current = session.id;
+        skipHydrateChatIdRef.current = session.id;
+        onChatCreated?.(session);
+      } catch (err) {
+        if ((err as Error).message === "survey_required") {
+          router.replace("/onboarding");
+        }
+        return;
+      }
+    }
+
     const conversationMemory = buildConversationMemory(submissionChatId);
     const draftTurn: ChatTurn = {
       turnId,
@@ -729,9 +776,10 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
       agents: { marco: "", elena: "", rafael: "" },
       replica: null,
     };
-    const draftSave = submissionChatId
-      ? savePersistentChatTurn(submissionChatId, draftTurn).catch(() => null)
-      : Promise.resolve(null);
+    const draftSave = savePersistentChatTurn(
+      submissionChatId,
+      draftTurn,
+    ).catch(() => null);
 
     shouldScrollToCouncilRef.current = true;
     dispatch({ type: "submit_user", message });
@@ -765,7 +813,6 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
       };
 
       const persistCompletedTurn = async (turn: ChatTurn) => {
-        if (!submissionChatId) return;
         await draftSave;
         const updated = await savePersistentChatTurn(
           submissionChatId,
@@ -780,9 +827,7 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
         }
       };
 
-      if (submissionChatId) {
-        saveChatTurn(submissionChatId, completedTurn);
-      }
+      saveChatTurn(submissionChatId, completedTurn);
 
       dispatch({ type: "phase1_done" });
 
@@ -834,7 +879,7 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
               text: replica.text.trim(),
             },
           };
-          if (submissionChatId) saveChatTurn(submissionChatId, completedTurn);
+          saveChatTurn(submissionChatId, completedTurn);
           dispatch({ type: "replica_done" });
         } else if (!skippedOrConfigError) {
           dispatch({ type: "replica_done" });
@@ -1099,18 +1144,17 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
           className={composerClassName}
         >
           <textarea
+            ref={composerTextAreaRef}
             id="user-input"
             aria-label="Mensaje para el council"
             value={state.userInput}
-            onChange={(e) =>
-              dispatch({ type: "user_input", value: e.target.value })
-            }
+            onChange={handleUserInputChange}
             onKeyDown={handleComposerKeyDown}
             maxLength={4000}
-            rows={2}
+            rows={3}
             disabled={state.phase === "fase4"}
             placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
-            className="max-h-32 resize-none rounded-council border border-[#d8a47d]/55 bg-[#fffaf4]/76 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-[#d96339] focus:outline-none focus:ring-1 focus:ring-[#d96339]/35 disabled:opacity-60"
+            className="resize-none overflow-y-hidden rounded-council border border-[#d8a47d]/55 bg-[#fffaf4]/76 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-[#d96339] focus:outline-none focus:ring-1 focus:ring-[#d96339]/35 disabled:opacity-60"
             autoFocus={state.phase === "wait"}
           />
           {dictationError && (
