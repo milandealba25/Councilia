@@ -5,6 +5,7 @@ import type { AgentId } from "@/lib/agents/ids";
 import type { UserContext } from "@/lib/survey/survey.v1";
 import type { Synthesis } from "@/orchestrator/synthesis";
 import type { LlmErrorCode } from "@/orchestrator/llm";
+import { getValidAuthSession } from "@/lib/auth/client";
 
 /**
  * Cliente tipado de los endpoints del orquestador.
@@ -50,9 +51,16 @@ async function* streamPost<T>(
   body: unknown,
   signal?: AbortSignal,
 ): AsyncIterable<T> {
+  const session = await getValidAuthSession();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (session?.accessToken) {
+    headers.authorization = `Bearer ${session.accessToken}`;
+  }
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
     signal,
   });
@@ -125,9 +133,16 @@ export async function requestSynthesis(args: {
   conversationMemory?: string;
   signal?: AbortSignal;
 }): Promise<Synthesis> {
+  const session = await getValidAuthSession();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (session?.accessToken) {
+    headers.authorization = `Bearer ${session.accessToken}`;
+  }
   const res = await fetch("/api/sessions/synthesis", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       userContext: args.userContext,
       transcript: args.transcript,

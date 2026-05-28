@@ -19,6 +19,7 @@ import {
   getActiveChatId,
   getChatSession,
   getChatSessions,
+  PlanLimitError,
   refreshChatSessionsFromServer,
   setActiveChatId,
 } from "@/lib/chat/chatStorage";
@@ -33,6 +34,17 @@ export function SessionLayout() {
   const [activeChatTitle, setActiveChatTitle] = useState("Sin chat activo");
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
+
+  const handlePlanLimitError = useCallback((err: unknown) => {
+    if (!(err instanceof PlanLimitError)) return false;
+    const fallback = "Alcanzaste un límite de tu plan actual.";
+    const detail =
+      Number.isFinite(err.limit) && Number.isFinite(err.used)
+        ? ` (${err.used}/${err.limit})`
+        : "";
+    window.alert(`${err.message || fallback}${detail}`);
+    return true;
+  }, []);
 
   useEffect(() => {
     async function hydrateChats() {
@@ -64,6 +76,7 @@ export function SessionLayout() {
           setActiveChatId(session.id);
           setConsoleKey((k) => k + 1);
         } catch (err) {
+          if (handlePlanLimitError(err)) return;
           if ((err as Error).message === "survey_required") {
             router.replace("/onboarding" as never);
           }
@@ -73,7 +86,7 @@ export function SessionLayout() {
     }
 
     void hydrateChats();
-  }, [router]);
+  }, [handlePlanLimitError, router]);
 
   useEffect(() => {
     function syncActiveTitle() {
@@ -118,6 +131,7 @@ export function SessionLayout() {
         setActiveChatId(session.id);
         setConsoleKey((k) => k + 1);
       } catch (err) {
+        if (handlePlanLimitError(err)) return;
         if ((err as Error).message === "survey_required") {
           router.replace("/onboarding" as never);
         }
@@ -126,7 +140,7 @@ export function SessionLayout() {
       }
     }
     void create();
-  }, [creatingChat, router]);
+  }, [creatingChat, handlePlanLimitError, router]);
 
   const handleSelectChat = useCallback((id: string) => {
     if (id === chatId) return;
@@ -160,13 +174,14 @@ export function SessionLayout() {
         setChatId(session.id);
         setConsoleKey((k) => k + 1);
       } catch (err) {
+        if (handlePlanLimitError(err)) return;
         if ((err as Error).message === "survey_required") {
           router.replace("/onboarding" as never);
         }
       }
     }
     void chooseReplacement();
-  }, [chatId, router]);
+  }, [chatId, handlePlanLimitError, router]);
 
   const handleDeleteChats = useCallback((ids: string[]) => {
     if (!chatId || !ids.includes(chatId)) return;
@@ -187,13 +202,14 @@ export function SessionLayout() {
         setChatId(session.id);
         setConsoleKey((k) => k + 1);
       } catch (err) {
+        if (handlePlanLimitError(err)) return;
         if ((err as Error).message === "survey_required") {
           router.replace("/onboarding" as never);
         }
       }
     }
     void chooseReplacement();
-  }, [chatId, router]);
+  }, [chatId, handlePlanLimitError, router]);
 
   return (
     <div className="flex h-dvh gap-2 overflow-hidden overscroll-none bg-[linear-gradient(135deg,rgba(255,241,229,0.36),rgba(255,250,244,0.18),rgba(223,235,224,0.20))] p-2 pl-0">

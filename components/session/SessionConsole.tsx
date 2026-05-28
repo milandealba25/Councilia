@@ -29,6 +29,7 @@ import {
   buildConversationMemory,
   createChatTurnId,
   getChatSession,
+  PlanLimitError,
   saveChatTurn,
   savePersistentChatTurn,
   type ChatSession,
@@ -607,6 +608,11 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
   }
 
   async function transcribeAudio(blob: Blob): Promise<string> {
+    const session = await getValidAuthSession();
+    if (!session?.accessToken) {
+      throw new Error("Necesitas iniciar sesión para usar dictado por voz.");
+    }
+
     const formData = new FormData();
     const extension = blob.type.includes("mp4")
       ? "m4a"
@@ -617,6 +623,9 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
 
     const response = await fetch("/api/dictation", {
       method: "POST",
+      headers: {
+        authorization: `Bearer ${session.accessToken}`,
+      },
       body: formData,
     });
     const payload = (await response.json().catch(() => null)) as {
@@ -711,6 +720,16 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
     }
   }
 
+  function notifyPlanLimit(err: unknown): boolean {
+    if (!(err instanceof PlanLimitError)) return false;
+    const usage =
+      Number.isFinite(err.used) && Number.isFinite(err.limit)
+        ? ` (${err.used}/${err.limit})`
+        : "";
+    window.alert(`${err.message}${usage}`);
+    return true;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!state.ctx || state.loading) return;
@@ -730,7 +749,10 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
       replica: null,
     };
     const draftSave = submissionChatId
-      ? savePersistentChatTurn(submissionChatId, draftTurn).catch(() => null)
+      ? savePersistentChatTurn(submissionChatId, draftTurn).catch((err) => {
+          if (notifyPlanLimit(err)) return null;
+          return null;
+        })
       : Promise.resolve(null);
 
     shouldScrollToCouncilRef.current = true;
@@ -770,7 +792,10 @@ export function SessionConsole({ chatId }: SessionConsoleProps) {
         const updated = await savePersistentChatTurn(
           submissionChatId,
           turn,
-        ).catch(() => null);
+        ).catch((err) => {
+          if (notifyPlanLimit(err)) return null;
+          return null;
+        });
         if (
           updated?.summary &&
           mountedRef.current &&

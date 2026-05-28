@@ -15,6 +15,8 @@ import {
 import { clientKeyFromHeaders, sessionsLimiter } from "@/lib/security/rateLimit";
 import { logger } from "@/lib/observability/logger";
 import { emit as emitEvent } from "@/lib/observability/events";
+import { tryAuthenticateRequest } from "@/lib/auth/serverSession";
+import { getModelForUser } from "@/lib/billing/models";
 
 /**
  * I2 · POST /api/sessions/initial — SSE de 3 streams paralelos.
@@ -69,6 +71,15 @@ export async function POST(req: Request) {
   }
 
   const { userContext, userMessage, conversationMemory } = parsed;
+  let llmModel: string | undefined;
+  const auth = await tryAuthenticateRequest(req);
+  if (auth) {
+    try {
+      llmModel = (await getModelForUser(auth.user.id)).llmModel;
+    } catch {
+      llmModel = undefined;
+    }
+  }
   const crisis = detectCrisis(userMessage);
   const active = activeAgents(userContext);
   const attenuated = (["marco", "elena", "rafael"] as const).filter(
@@ -139,6 +150,7 @@ export async function POST(req: Request) {
           userContext,
           userMessage,
           conversationMemory,
+          model: llmModel,
           signal: abort.signal,
         })) {
           if (ev.type === "done") {

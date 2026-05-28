@@ -73,6 +73,7 @@ export class DebateRouter {
     userContext: UserContext;
     userMessage: string;
     conversationMemory?: string;
+    model?: string;
     signal?: AbortSignal;
   }): { plan: ReplicaPlan; stream: AsyncIterable<string> } | null {
     const plan = this.plan(args.postures);
@@ -84,6 +85,7 @@ export class DebateRouter {
       userContext: args.userContext,
       userMessage: args.userMessage,
       conversationMemory: args.conversationMemory,
+      model: args.model,
       signal: args.signal,
     });
     return { plan, stream };

@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import { env } from "@/lib/env";
+import { authenticateRequest, isAuthError } from "@/lib/auth/serverSession";
+import { canUseVoice } from "@/lib/billing/guards";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -101,6 +103,29 @@ async function transcribeWithOpenAI(file: File): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await authenticateRequest(req);
+  if (isAuthError(auth)) {
+    return auth;
+  }
+
+  let permission;
+  try {
+    permission = await canUseVoice(auth.user.id);
+    if (!permission.allowed) {
+      return NextResponse.json(
+        {
+          code: permission.code,
+          message: permission.message,
+          plan: permission.plan,
+        },
+        { status: 403 },
+      );
+    }
+  } catch (err) {
+    console.error("[dictation] entitlement check failed", err);
+    return jsonError(502, "dictation_guard_failed", "No pudimos validar tu plan.");
+  }
+
   let formData: FormData;
   try {
     formData = await req.formData();
@@ -124,7 +149,7 @@ export async function POST(req: NextRequest) {
       ? await transcribeWithGemini(audio)
       : await transcribeWithOpenAI(audio);
 
-    return NextResponse.json({ text });
+    return NextResponse.json({ text, plan: permission.plan });
   } catch (err) {
     const detail =
       err instanceof Error

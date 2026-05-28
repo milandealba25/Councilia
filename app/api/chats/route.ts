@@ -7,6 +7,7 @@ import {
   createUserChatSession,
   listUserChatSessions,
 } from "@/lib/chat/server";
+import { canCreateChat } from "@/lib/billing/guards";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,20 @@ export async function POST(request: Request) {
   if (isAuthError(auth)) return auth;
 
   try {
+    const permission = await canCreateChat(auth.user.id);
+    if (!permission.allowed) {
+      return NextResponse.json(
+        {
+          code: permission.code,
+          message: permission.message,
+          plan: permission.plan,
+          limit: permission.limit,
+          used: permission.used,
+        },
+        { status: 403 },
+      );
+    }
+
     const session = await createUserChatSession(auth);
     if ("error" in session) {
       return NextResponse.json(
@@ -40,10 +55,10 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
-    return NextResponse.json({ session });
+    return NextResponse.json({ session, plan: permission.plan });
   } catch {
     return NextResponse.json(
-      { error: "No pudimos crear el chat." },
+      { code: "CHAT_CREATE_FAILED", message: "No pudimos crear el chat." },
       { status: 502 },
     );
   }
