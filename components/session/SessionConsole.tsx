@@ -1081,7 +1081,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   const showComposer = state.phase !== "fase4";
   const composerClassName =
     dictationStatus === "listening"
-      ? "sticky bottom-5 z-20 mx-auto mt-auto flex w-full max-w-5xl flex-col overflow-visible rounded-full border border-[#d9784c]/22 bg-[#fff0e5]/96 p-0 shadow-[0_18px_46px_rgba(116,68,43,0.14)] backdrop-blur-xl transition-[background-color,border-color,box-shadow,max-width] duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+      ? "sticky bottom-5 z-20 mx-auto mt-auto flex w-full max-w-5xl flex-col overflow-visible rounded-full border border-[#d9784c]/18 bg-[#fff0e5]/96 p-0 shadow-[0_10px_26px_rgba(116,68,43,0.1)] backdrop-blur-xl transition-[background-color,border-color,box-shadow,max-width] duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
       : "sticky bottom-5 z-20 mx-auto mt-auto flex w-full max-w-4xl flex-col gap-2 overflow-visible rounded-[1.05rem] border border-[#d9784c]/18 bg-[#fff6ee]/88 p-3 shadow-[0_18px_46px_rgba(116,68,43,0.14)] backdrop-blur-xl transition-[background-color,border-color,box-shadow,max-width] duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-[1.05rem] before:bg-[linear-gradient(135deg,rgba(255,246,238,0.98),rgba(255,250,244,0.94),rgba(255,230,218,0.9))] after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:-z-10 after:h-12 after:rounded-t-[1.05rem] after:bg-gradient-to-b after:from-white/45 after:to-transparent";
 
   function handleComposerKeyDown(
@@ -1385,21 +1385,21 @@ function DictationRecordingPanel({
 
   return (
     <div
-      className="relative flex min-h-[88px] w-full items-center gap-5 overflow-hidden rounded-full px-6 text-[#9b4c33] sm:px-8"
+      className="relative flex min-h-[58px] w-full items-center gap-3 overflow-hidden rounded-full px-4 text-[#9b4c33] sm:px-6"
       role="status"
       aria-live="polite"
       aria-label="Dictado activo"
     >
-      <div className="flex min-w-0 flex-1 items-center gap-4">
-        <span className="flex h-12 min-w-0 flex-1 items-center justify-between gap-[3px]" aria-hidden>
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <span className="flex h-8 min-w-0 flex-1 items-center justify-between gap-[2.5px]" aria-hidden>
           {levels.map((level, index) => {
-            const height = hasSound ? 14 + level * 42 : 3;
+            const height = hasSound ? 8 + level * 26 : 2;
             const distanceFromNow = Math.abs(index - midPoint) / midPoint;
             const baseOpacity = 0.24 + (1 - distanceFromNow) * 0.18;
             return (
               <span
                 key={index}
-                className="block w-[3px] rounded-full bg-[#9b4c33]/55 transition-[height,opacity,background-color] duration-100 ease-out"
+                className="block w-[2.5px] rounded-full bg-[#9b4c33]/55 transition-[height,opacity,background-color] duration-100 ease-out"
                 style={{
                   height: `${height}px`,
                   opacity: level > 0.05 ? 0.95 : baseOpacity,
@@ -1409,17 +1409,17 @@ function DictationRecordingPanel({
           })}
         </span>
         <span
-          className="w-11 shrink-0 text-center text-xs font-medium tabular-nums text-[#8f5d48]"
+          className="w-9 shrink-0 text-center text-[0.68rem] font-medium tabular-nums text-[#8f5d48]"
           aria-label={`Grabando ${formatRecordingTime(elapsedSeconds)}`}
         >
           {formatRecordingTime(elapsedSeconds)}
         </span>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1">
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#8f5d48] transition hover:bg-[#f3d8c6] hover:text-[#c55332] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d96339]/35"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[#8f5d48] transition hover:bg-[#f3d8c6] hover:text-[#c55332] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d96339]/35"
           aria-label="Cancelar dictado"
           title="Cancelar dictado"
         >
@@ -1428,7 +1428,7 @@ function DictationRecordingPanel({
         <button
           type="button"
           onClick={onConfirm}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#6f4d3b] transition hover:bg-[#f3d8c6] hover:text-[#d96339] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d96339]/35"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[#6f4d3b] transition hover:bg-[#f3d8c6] hover:text-[#d96339] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d96339]/35"
           aria-label="Usar dictado"
           title="Usar dictado"
         >
