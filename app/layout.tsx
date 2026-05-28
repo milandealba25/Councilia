@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next"
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { CookieBanner } from "@/components/cookies/CookieBanner";
@@ -91,6 +91,7 @@ export default function RootLayout({
         <div className="relative z-10">{children}</div>
         <CookieBanner />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
