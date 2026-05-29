@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { UserEntitlements } from "@/lib/billing/entitlements";
-import type { PlanId } from "@/lib/billing/plans";
+import { PLANS, type PlanId } from "@/lib/billing/plans";
 
 vi.mock("server-only", () => ({}));
 
@@ -130,30 +130,102 @@ describe("billing/guards", () => {
     const allowed = await canUseVoice("user_1");
     expect(allowed).toMatchObject({ allowed: true, plan: "plus" });
   });
+
+  it("voz habilitada en pro", async () => {
+    const { canUseVoice } = await import("@/lib/billing/guards");
+    const { getUserEntitlements } = await import("@/lib/billing/entitlements");
+    vi.mocked(getUserEntitlements).mockResolvedValue(mockEntitlements("pro"));
+    const result = await canUseVoice("user_1");
+    expect(result).toMatchObject({ allowed: true, plan: "pro" });
+  });
+
+  describe("matriz de límites por plan (desde catálogo PLANS)", () => {
+    for (const planId of ["free", "plus", "pro"] as const) {
+      const maxChats = PLANS[planId].limits.maxActiveChats;
+      const maxMsgs = PLANS[planId].limits.maxMessagesPerChat;
+
+      if (maxChats !== null) {
+        it(`${planId}: permite chat con ${maxChats - 1} activos`, async () => {
+          const { canCreateChat } = await import("@/lib/billing/guards");
+          const { getUserEntitlements } = await import("@/lib/billing/entitlements");
+          vi.mocked(getUserEntitlements).mockResolvedValue(mockEntitlements(planId));
+          vi.mocked(fetch).mockResolvedValue(countResponse(maxChats - 1));
+
+          const result = await canCreateChat("user_1");
+          expect(result.allowed).toBe(true);
+          expect(result).toMatchObject({ plan: planId, limit: maxChats, used: maxChats - 1 });
+        });
+
+        it(`${planId}: bloquea chat con ${maxChats} activos (tope)`, async () => {
+          const { canCreateChat } = await import("@/lib/billing/guards");
+          const { getUserEntitlements } = await import("@/lib/billing/entitlements");
+          vi.mocked(getUserEntitlements).mockResolvedValue(mockEntitlements(planId));
+          vi.mocked(fetch).mockResolvedValue(countResponse(maxChats));
+
+          const result = await canCreateChat("user_1");
+          expect(result.allowed).toBe(false);
+          if (result.allowed) return;
+          expect(result.code).toBe("ACTIVE_CHAT_LIMIT_REACHED");
+          expect(result.limit).toBe(maxChats);
+          expect(result.used).toBe(maxChats);
+        });
+      }
+
+      if (maxMsgs !== null) {
+        it(`${planId}: permite mensaje con ${maxMsgs - 1} previos`, async () => {
+          const { canSendMessage } = await import("@/lib/billing/guards");
+          const { getUserEntitlements } = await import("@/lib/billing/entitlements");
+          vi.mocked(getUserEntitlements).mockResolvedValue(mockEntitlements(planId));
+          vi.mocked(fetch)
+            .mockResolvedValueOnce(conversationResponse("active"))
+            .mockResolvedValueOnce(countResponse(maxMsgs - 1));
+
+          const result = await canSendMessage("user_1", "chat_1");
+          expect(result.allowed).toBe(true);
+          expect(result).toMatchObject({ plan: planId, limit: maxMsgs, used: maxMsgs - 1 });
+        });
+
+        it(`${planId}: bloquea con ${maxMsgs} mensajes user (tope)`, async () => {
+          const { canSendMessage } = await import("@/lib/billing/guards");
+          const { getUserEntitlements } = await import("@/lib/billing/entitlements");
+          vi.mocked(getUserEntitlements).mockResolvedValue(mockEntitlements(planId));
+          vi.mocked(fetch)
+            .mockResolvedValueOnce(conversationResponse("active"))
+            .mockResolvedValueOnce(countResponse(maxMsgs));
+
+          const result = await canSendMessage("user_1", "chat_1");
+          expect(result.allowed).toBe(false);
+          if (result.allowed) return;
+          expect(result.code).toBe("MESSAGE_LIMIT_REACHED");
+          expect(result.limit).toBe(maxMsgs);
+          expect(result.used).toBe(maxMsgs);
+        });
+      } else {
+        it(`${planId}: mensajes ilimitados con uso alto`, async () => {
+          const { canSendMessage } = await import("@/lib/billing/guards");
+          const { getUserEntitlements } = await import("@/lib/billing/entitlements");
+          vi.mocked(getUserEntitlements).mockResolvedValue(mockEntitlements(planId));
+          vi.mocked(fetch)
+            .mockResolvedValueOnce(conversationResponse("active"))
+            .mockResolvedValueOnce(countResponse(50_000));
+
+          const result = await canSendMessage("user_1", "chat_1");
+          expect(result.allowed).toBe(true);
+          expect(result.used).toBe(50_000);
+          expect(result.limit).toBeUndefined();
+        });
+      }
+    }
+  });
 });
 
 function mockEntitlements(plan: PlanId): UserEntitlements {
-  const maxActiveChats = plan === "free" ? 1 : plan === "plus" ? 10 : null;
-  const maxMessagesPerChat = plan === "free" ? 5 : plan === "plus" ? 20 : null;
-  const llmModel = plan === "free" ? "gemini-flash" : "gpt-4o-mini";
-  const synthesisModel =
-    plan === "free" ? "gemini-flash" : plan === "plus" ? "gpt-4o-mini" : "gpt-4o";
   return {
     userId: "user_1",
     storedPlan: plan,
     effectivePlan: plan,
-    subscriptionStatus: "active",
-    limits: {
-      maxActiveChats,
-      maxMessagesPerChat,
-      historySize: plan === "free" ? 1 : plan === "plus" ? 10 : null,
-      llmModel,
-      synthesisModel,
-      voiceEnabled: plan !== "free",
-      synthesisEnabled: true,
-      exportEnabled: plan === "pro",
-      prioritySupport: plan === "pro",
-    },
+    subscriptionStatus: plan === "free" ? null : "active",
+    limits: PLANS[plan].limits,
   };
 }
 

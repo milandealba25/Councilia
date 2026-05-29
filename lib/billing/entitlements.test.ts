@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PlanId } from "@/lib/billing/plans";
 import type { BillingProfile } from "@/lib/billing/repository";
+import { PLANS } from "@/lib/billing/plans";
 
 vi.mock("server-only", () => ({}));
 
@@ -40,7 +41,7 @@ describe("billing/entitlements", () => {
       const entitlements = await getUserEntitlements("user_1");
       expect(entitlements.storedPlan).toBe(plan);
       expect(entitlements.effectivePlan).toBe(expected);
-      expect(entitlements.limits).toBeDefined();
+      expect(entitlements.limits).toEqual(PLANS[expected].limits);
     },
   );
 
@@ -57,6 +58,22 @@ describe("billing/entitlements", () => {
     const entitlements = await getUserEntitlements("user_1");
     expect(entitlements.storedPlan).toBe("free");
     expect(entitlements.effectivePlan).toBe("free");
+  });
+
+  it("plan activo expone límites idénticos al catálogo PLANS", async () => {
+    const { getUserEntitlements } = await import("@/lib/billing/entitlements");
+    const { getBillingProfileByUserId } = await import("@/lib/billing/repository");
+
+    for (const planId of ["free", "plus", "pro"] as const) {
+      vi.mocked(getBillingProfileByUserId).mockResolvedValue(
+        makeProfile({
+          plan: planId,
+          subscriptionStatus: planId === "free" ? null : "active",
+        }),
+      );
+      const entitlements = await getUserEntitlements("user_1");
+      expect(entitlements.limits).toEqual(PLANS[planId].limits);
+    }
   });
 
   it("lanza USER_NOT_FOUND cuando no existe usuario", async () => {

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextResponse } from "next/server";
 
+import { PLANS } from "@/lib/billing/plans";
+
 vi.mock("server-only", () => ({}));
 
 const auth = {
@@ -138,5 +140,96 @@ describe("POST /api/chats/[chatId]/turns", () => {
     const body = await response.json();
     expect(body.session.id).toBe("chat_1");
     expect(body.plan).toBe("plus");
+  });
+
+  describe("matriz de mensajes por plan", () => {
+    for (const planId of ["free", "plus"] as const) {
+      const maxMsgs = PLANS[planId].limits.maxMessagesPerChat!;
+
+      it(`${planId}: ${maxMsgs - 1} mensajes user → 200`, async () => {
+        const { authenticateRequest } = await import("@/lib/auth/serverSession");
+        const { canSendMessage } = await import("@/lib/billing/guards");
+        const { appendTurnToUserChat } = await import("@/lib/chat/server");
+        const { POST } = await import("./route");
+
+        vi.mocked(authenticateRequest).mockResolvedValue(auth);
+        vi.mocked(canSendMessage).mockResolvedValue({
+          allowed: true,
+          plan: planId,
+          limit: maxMsgs,
+          used: maxMsgs - 1,
+        });
+        vi.mocked(appendTurnToUserChat).mockResolvedValue({
+          id: "chat_1",
+          title: "Chat",
+          createdAt: 1,
+          updatedAt: 2,
+          turns: [validTurn],
+          summary: "",
+          keyFacts: [],
+        });
+
+        const response = await POST(postTurn("chat_1"), {
+          params: { chatId: "chat_1" },
+        });
+        expect(response.status).toBe(200);
+        expect((await response.json()).plan).toBe(planId);
+      });
+
+      it(`${planId}: ${maxMsgs} mensajes user → 403 MESSAGE_LIMIT_REACHED`, async () => {
+        const { authenticateRequest } = await import("@/lib/auth/serverSession");
+        const { canSendMessage } = await import("@/lib/billing/guards");
+        const { POST } = await import("./route");
+
+        vi.mocked(authenticateRequest).mockResolvedValue(auth);
+        vi.mocked(canSendMessage).mockResolvedValue({
+          allowed: false,
+          code: "MESSAGE_LIMIT_REACHED",
+          message: `Tope de ${maxMsgs} mensajes.`,
+          plan: planId,
+          limit: maxMsgs,
+          used: maxMsgs,
+        });
+
+        const response = await POST(postTurn("chat_1"), {
+          params: { chatId: "chat_1" },
+        });
+        expect(response.status).toBe(403);
+        const body = await response.json();
+        expect(body.code).toBe("MESSAGE_LIMIT_REACHED");
+        expect(body.plan).toBe(planId);
+        expect(body.limit).toBe(maxMsgs);
+        expect(body.used).toBe(maxMsgs);
+      });
+    }
+
+    it("pro: 50_000 mensajes user → 200", async () => {
+      const { authenticateRequest } = await import("@/lib/auth/serverSession");
+      const { canSendMessage } = await import("@/lib/billing/guards");
+      const { appendTurnToUserChat } = await import("@/lib/chat/server");
+      const { POST } = await import("./route");
+
+      vi.mocked(authenticateRequest).mockResolvedValue(auth);
+      vi.mocked(canSendMessage).mockResolvedValue({
+        allowed: true,
+        plan: "pro",
+        used: 50_000,
+      });
+      vi.mocked(appendTurnToUserChat).mockResolvedValue({
+        id: "chat_pro",
+        title: "Chat",
+        createdAt: 1,
+        updatedAt: 2,
+        turns: [validTurn],
+        summary: "",
+        keyFacts: [],
+      });
+
+      const response = await POST(postTurn("chat_pro"), {
+        params: { chatId: "chat_pro" },
+      });
+      expect(response.status).toBe(200);
+      expect((await response.json()).plan).toBe("pro");
+    });
   });
 });
