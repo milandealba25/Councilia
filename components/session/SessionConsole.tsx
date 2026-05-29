@@ -7,6 +7,7 @@ import { getValidAuthSession } from "@/lib/auth/client";
 import { SURVEY_VERSION, type UserContext } from "@/lib/survey/survey.v1";
 import { AGENT_IDS, AGENT_LABELS, type AgentId } from "@/lib/agents/ids";
 import { AgentCard } from "@/components/agents/AgentCard";
+import { AgentFace } from "@/components/agents/AgentFace";
 import { Button } from "@/components/ui/Button";
 import { ReplicaCard } from "./ReplicaCard";
 import { SynthesisCard } from "./SynthesisCard";
@@ -1077,11 +1078,18 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
     !state.loading &&
     state.phase !== "fase4" &&
     (state.phase === "idle" || state.phase === "wait");
+  const isEmptyConversation =
+    state.phase === "idle" &&
+    state.lastUserMessage === null &&
+    state.pastTurns.length === 0 &&
+    !state.summary.trim();
 
   const showComposer = state.phase !== "fase4";
   const composerClassName =
     dictationStatus === "listening"
       ? "sticky bottom-5 z-20 mx-auto mt-auto flex w-full max-w-5xl flex-col overflow-visible rounded-full border border-[#d9784c]/18 bg-[#fff0e5]/96 p-0 shadow-[0_10px_26px_rgba(116,68,43,0.1)] backdrop-blur-xl transition-[background-color,border-color,box-shadow,max-width] duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+      : isEmptyConversation
+        ? "mx-auto flex w-full max-w-3xl flex-col gap-2 overflow-visible rounded-[1.15rem] border border-[#d9784c]/18 bg-[#fff6ee]/90 p-2.5 shadow-[0_14px_34px_rgba(116,68,43,0.11)] backdrop-blur-xl transition-[transform,background-color,border-color,box-shadow,max-width] duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-[1.15rem] before:bg-[linear-gradient(135deg,rgba(255,246,238,0.98),rgba(255,250,244,0.94),rgba(255,230,218,0.88))] after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:-z-10 after:h-10 after:rounded-t-[1.15rem] after:bg-gradient-to-b after:from-white/45 after:to-transparent"
       : "sticky bottom-5 z-20 mx-auto mt-auto flex w-full max-w-4xl flex-col gap-2 overflow-visible rounded-[1.05rem] border border-[#d9784c]/18 bg-[#fff6ee]/88 p-3 shadow-[0_18px_46px_rgba(116,68,43,0.14)] backdrop-blur-xl transition-[background-color,border-color,box-shadow,max-width] duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-[1.05rem] before:bg-[linear-gradient(135deg,rgba(255,246,238,0.98),rgba(255,250,244,0.94),rgba(255,230,218,0.9))] after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:-z-10 after:h-12 after:rounded-t-[1.05rem] after:bg-gradient-to-b after:from-white/45 after:to-transparent";
 
   function handleComposerKeyDown(
@@ -1105,8 +1113,8 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-12rem)] flex-col gap-[34px] pb-5">
-      <PhaseIndicator phase={state.phase} />
+    <div className={isEmptyConversation ? "flex min-h-[calc(100dvh-13rem)] flex-col justify-center pb-[6vh]" : "flex min-h-[calc(100dvh-12rem)] flex-col gap-[34px] pb-5"}>
+      {!isEmptyConversation && <PhaseIndicator phase={state.phase} />}
 
       {state.configError && (
         <ConfigErrorBanner
@@ -1261,11 +1269,51 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       )}
 
       {showComposer && (
-        <form
-          id="session-composer"
-          onSubmit={handleSubmit}
-          className={composerClassName}
-        >
+        <div className={isEmptyConversation ? "mx-auto flex w-full max-w-5xl flex-col items-center gap-5" : "contents"}>
+          {isEmptyConversation && (
+            <header className="max-w-4xl text-center" style={{ animation: "soft-rise 520ms ease-out both" }}>
+              <div
+                className="mx-auto mb-3 flex items-center justify-center gap-2.5"
+                aria-label="Tu council"
+              >
+                {AGENT_IDS.map((id, i) => (
+                  <span
+                    key={id}
+                    style={{
+                      animation: `soft-rise 700ms ease-out ${i * 120}ms both`,
+                    }}
+                  >
+                    <AgentFace agent={id} size={36} mood="listening" />
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs font-medium uppercase tracking-widest text-accent">
+                Tu council está aquí
+              </p>
+              <h2 className="mt-2 text-balance text-2xl font-semibold tracking-tight text-foreground md:text-4xl">
+                Marco, Elena y Rafael te están esperando.
+              </h2>
+              <p className="mx-auto mt-3 max-w-3xl text-balance text-sm leading-relaxed text-muted md:text-base">
+                Cuéntales lo que te tiene así. Sin filtros. Cuando termines, te
+                van a responder los tres a la vez, sin ponerse de acuerdo. Si dos
+                de ellos se contradicen, uno toma la palabra y te hace una sola
+                pregunta dura. Después, tu turno.
+              </p>
+              <div className="mx-auto mt-5 max-w-3xl">
+                <PhaseIndicator phase={state.phase} />
+              </div>
+            </header>
+          )}
+          <form
+            id="session-composer"
+            onSubmit={handleSubmit}
+            className={composerClassName}
+            style={
+              isEmptyConversation
+                ? { animation: "soft-rise 560ms ease-out 90ms both" }
+                : undefined
+            }
+          >
           {dictationStatus === "listening" ? (
             <DictationRecordingPanel
               elapsedSeconds={dictationElapsed}
@@ -1282,7 +1330,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
               onChange={handleUserInputChange}
               onKeyDown={handleComposerKeyDown}
               maxLength={4000}
-              rows={3}
+              rows={isEmptyConversation ? 2 : 3}
               disabled={state.phase === "fase4"}
               placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
               className="resize-none overflow-y-hidden rounded-council border border-[#d8a47d]/55 bg-[#fffaf4]/76 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-[#d96339] focus:outline-none focus:ring-1 focus:ring-[#d96339]/35 disabled:opacity-60"
@@ -1326,7 +1374,8 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
               </div>
             </div>
           )}
-        </form>
+          </form>
+        </div>
       )}
     </div>
   );

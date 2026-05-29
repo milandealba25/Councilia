@@ -325,7 +325,7 @@ export function BillingPanel() {
       ) : (
         <div className="grid gap-4">
           <CycleSwitch value={cycle} onChange={setCycle} />
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid items-stretch gap-4 md:grid-cols-2">
             {PLAN_ORDER.filter((id) => id !== "free").map((id) => (
               <PricingCard
                 key={id}
@@ -486,22 +486,29 @@ function PricingCard({
   if (!price) return null;
 
   const isCurrent = currentPlan === plan;
+  const isRecommended = Boolean(definition.copy.badge);
   const discount =
     cycle === "annual" ? definition.pricing.annual?.discountPct ?? null : null;
 
   return (
-    <article className="grid gap-4 rounded-council border border-border-strong/60 bg-surface/90 p-5 shadow-soft">
+    <article
+      className={`flex h-full min-h-[27rem] flex-col rounded-council border bg-surface/90 p-5 shadow-soft transition hover:-translate-y-0.5 hover:shadow-council ${
+        isRecommended
+          ? "border-[#d9784c]/45 bg-[linear-gradient(145deg,rgba(255,250,244,0.96),rgba(255,240,226,0.82))]"
+          : "border-border-strong/60"
+      }`}
+    >
       <header className="flex items-center justify-between">
         <h4 className="text-lg font-semibold text-foreground">
           {definition.copy.name}
         </h4>
         {definition.copy.badge && (
-          <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-accent-strong">
+          <span className="rounded-full border border-[#d9784c]/25 bg-[#fff0e5]/90 px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-accent-strong">
             {definition.copy.badge}
           </span>
         )}
       </header>
-      <div>
+      <div className="mt-5">
         <p className="text-3xl font-semibold text-foreground">
           ${price.amountMxn.toLocaleString("es-MX")}{" "}
           <span className="text-base font-normal text-muted">
@@ -514,13 +521,14 @@ function PricingCard({
           </p>
         )}
       </div>
-      <p className="text-sm text-muted">{definition.copy.tagline}</p>
-      <ul className="grid gap-2 text-sm text-foreground">
+      <p className="mt-5 text-sm text-muted">{definition.copy.tagline}</p>
+      <ul className="mt-5 grid flex-1 content-start gap-2.5 text-sm text-foreground">
         {definition.copy.features.map((feature) => (
-          <li key={feature} className="flex gap-2">
-            <span aria-hidden className="mt-1 text-accent">
-              ●
-            </span>
+          <li key={feature} className="flex gap-2.5">
+            <span
+              aria-hidden
+              className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent"
+            />
             <span>{feature}</span>
           </li>
         ))}
@@ -530,7 +538,7 @@ function PricingCard({
         variant={isCurrent ? "secondary" : "primary"}
         onClick={onSelect}
         disabled={pending || isCurrent}
-        className="mt-2"
+        className="mt-6 h-12 w-full"
       >
         {isCurrent
           ? "Es tu plan actual"

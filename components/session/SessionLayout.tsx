@@ -137,6 +137,8 @@ export function SessionLayout() {
     void chooseReplacement();
   }, [chatId]);
 
+  const isFreshChat = chatId === null;
+
   return (
     <div className="flex h-dvh gap-2 overflow-hidden overscroll-none bg-[linear-gradient(135deg,rgba(255,241,229,0.36),rgba(255,250,244,0.18),rgba(223,235,224,0.20))] p-2 pl-0">
       <ChatSidebar
@@ -191,51 +193,55 @@ export function SessionLayout() {
           </div>
         </header>
 
-        <Container className="max-w-4xl py-10 md:py-12">
-          <div className="relative flex items-center justify-center">
-            <Link
-              href="/?from=session"
-              className="sr-only"
-            >
-              ← Inicio
-            </Link>
-            <div
-              className="absolute left-1/2 flex -translate-x-1/2 items-center gap-3"
-              aria-label="Tu council"
-            >
-              {AGENT_IDS.map((id, i) => (
-                <span
-                  key={id}
-                  style={{
-                    animation: `soft-rise 700ms ease-out ${i * 140}ms both`,
-                  }}
+        <Container className={isFreshChat ? "max-w-5xl py-6 md:py-8" : "max-w-4xl py-10 md:py-12"}>
+          {!isFreshChat && (
+            <>
+              <div className="relative flex items-center justify-center">
+                <Link
+                  href="/?from=session"
+                  className="sr-only"
                 >
-                  <AgentFace agent={id} size={47} mood="listening" />
-                </span>
-              ))}
-            </div>
-            <Link
-              href="/account?from=session"
-              className="sr-only"
-            >
-              Cuenta
-            </Link>
-          </div>
+                  ← Inicio
+                </Link>
+                <div
+                  className="absolute left-1/2 flex -translate-x-1/2 items-center gap-3"
+                  aria-label="Tu council"
+                >
+                  {AGENT_IDS.map((id, i) => (
+                    <span
+                      key={id}
+                      style={{
+                        animation: `soft-rise 700ms ease-out ${i * 140}ms both`,
+                      }}
+                    >
+                      <AgentFace agent={id} size={47} mood="listening" />
+                    </span>
+                  ))}
+                </div>
+                <Link
+                  href="/account?from=session"
+                  className="sr-only"
+                >
+                  Cuenta
+                </Link>
+              </div>
 
-          <header className="mx-auto mt-8 mb-[34px] max-w-3xl text-center">
-            <p className="text-xs font-medium uppercase tracking-widest text-accent">
-              Tu council está aquí
-            </p>
-            <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-              Marco, Elena y Rafael te están esperando.
-            </h1>
-            <p className="mx-auto mt-3 max-w-2xl leading-relaxed text-muted">
-              Cuéntales lo que te tiene así. Sin filtros. Cuando termines, te
-              van a responder los tres a la vez, sin ponerse de acuerdo. Si dos
-              de ellos se contradicen, uno toma la palabra y te hace una sola
-              pregunta dura. Después, tu turno.
-            </p>
-          </header>
+              <header className="mx-auto mt-8 mb-[34px] max-w-3xl text-center">
+                <p className="text-xs font-medium uppercase tracking-widest text-accent">
+                  Tu council está aquí
+                </p>
+                <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+                  Marco, Elena y Rafael te están esperando.
+                </h1>
+                <p className="mx-auto mt-3 max-w-2xl leading-relaxed text-muted">
+                  Cuéntales lo que te tiene así. Sin filtros. Cuando termines, te
+                  van a responder los tres a la vez, sin ponerse de acuerdo. Si dos
+                  de ellos se contradicen, uno toma la palabra y te hace una sola
+                  pregunta dura. Después, tu turno.
+                </p>
+              </header>
+            </>
+          )}
 
           <SessionConsole
             key={consoleKey}
