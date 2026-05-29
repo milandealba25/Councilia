@@ -138,8 +138,9 @@ export class GeminiLlm implements Llm {
   }
 
   async complete(req: LlmCompletionRequest): Promise<LlmCompletionResult> {
+    const modelIds = req.model ? [req.model] : this.modelIds;
     const errors: LlmError[] = [];
-    for (const modelId of this.modelIds) {
+    for (const modelId of modelIds) {
       try {
         const model = this.genAI.getGenerativeModel({
           model: modelId,
@@ -173,8 +174,9 @@ export class GeminiLlm implements Llm {
   }
 
   async *stream(req: LlmCompletionRequest): AsyncIterable<string> {
+    const modelIds = req.model ? [req.model] : this.modelIds;
     const errors: LlmError[] = [];
-    for (const modelId of this.modelIds) {
+    for (const modelId of modelIds) {
       let streamIter: AsyncIterable<{ text: () => string }>;
       let yielded = false;
 

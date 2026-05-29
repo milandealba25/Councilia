@@ -24,6 +24,35 @@ export interface ChatSession {
   keyFacts?: unknown[];
 }
 
+export class PlanLimitError extends Error {
+  readonly code: string;
+  readonly plan?: string;
+  readonly limit?: number;
+  readonly used?: number;
+
+  constructor(
+    message: string,
+    opts: { code: string; plan?: string; limit?: number; used?: number },
+  ) {
+    super(message);
+    this.name = "PlanLimitError";
+    this.code = opts.code;
+    this.plan = opts.plan;
+    this.limit = opts.limit;
+    this.used = opts.used;
+  }
+}
+
+export function isPlanLimitError(err: unknown): err is PlanLimitError {
+  return (
+    err instanceof PlanLimitError ||
+    (typeof err === "object" &&
+      err !== null &&
+      (err as PlanLimitError).name === "PlanLimitError" &&
+      typeof (err as PlanLimitError).code === "string")
+  );
+}
+
 const SESSIONS_KEY = "councilia.chatSessions.v1";
 const ACTIVE_KEY = "councilia.activeChatId.v1";
 const DELETED_SESSIONS_KEY = "councilia.deletedChatSessionIds.v1";
@@ -249,6 +278,26 @@ export function createChatSession(): ChatSession {
   return session;
 }
 
+type PlanLimitResponsePayload = {
+  code?: string;
+  message?: string;
+  plan?: string;
+  limit?: number;
+  used?: number;
+};
+
+function buildPlanLimitError(payload: PlanLimitResponsePayload | null) {
+  return new PlanLimitError(
+    payload?.message ?? "Llegaste al limite de tu plan.",
+    {
+      code: payload?.code ?? "PLAN_LIMIT_REACHED",
+      plan: payload?.plan,
+      limit: payload?.limit,
+      used: payload?.used,
+    },
+  );
+}
+
 export async function createPersistentChatSession(): Promise<ChatSession> {
   const headers = await authHeaders();
   if (!headers) return createChatSession();
@@ -260,10 +309,13 @@ export async function createPersistentChatSession(): Promise<ChatSession> {
   if (response.status === 409) {
     throw new Error("survey_required");
   }
-  if (!response.ok) return createChatSession();
   const data = (await response.json().catch(() => null)) as
-    | { session?: ChatSession }
+    | ({ session?: ChatSession } & PlanLimitResponsePayload)
     | null;
+  if (response.status === 403) {
+    throw buildPlanLimitError(data);
+  }
+  if (!response.ok) return createChatSession();
   if (!data?.session) return createChatSession();
   upsertSession(data.session);
   setActiveChatId(data.session.id);
@@ -299,23 +351,36 @@ export async function savePersistentChatTurn(
   chatId: string,
   turn: ChatTurn,
 ): Promise<ChatSession | null> {
-  saveChatTurn(chatId, turn);
   const headers = await authHeaders();
-  if (!headers) return getChatSession(chatId);
+  if (!headers) {
+    saveChatTurn(chatId, turn);
+    return getChatSession(chatId);
+  }
 
   const response = await fetch(`/api/chats/${encodeURIComponent(chatId)}/turns`, {
     method: "POST",
     headers,
     body: JSON.stringify({ turn }),
   }).catch(() => null);
-  if (!response?.ok) return getChatSession(chatId);
+  if (!response) {
+    saveChatTurn(chatId, turn);
+    return getChatSession(chatId);
+  }
   const data = (await response.json().catch(() => null)) as
-    | { session?: ChatSession }
+    | ({ session?: ChatSession } & PlanLimitResponsePayload)
     | null;
+  if (response.status === 403) {
+    throw buildPlanLimitError(data);
+  }
+  if (!response.ok) {
+    saveChatTurn(chatId, turn);
+    return getChatSession(chatId);
+  }
   if (data?.session) {
     upsertSession(data.session);
     return data.session;
   }
+  saveChatTurn(chatId, turn);
   return getChatSession(chatId);
 }
 

@@ -17,6 +17,8 @@ import { renderIntentCalibrationBlock } from "@/orchestrator/intentCalibrator";
 import { clientKeyFromHeaders, sessionsLimiter } from "@/lib/security/rateLimit";
 import { logger } from "@/lib/observability/logger";
 import { emit as emitEvent } from "@/lib/observability/events";
+import { tryAuthenticateRequest } from "@/lib/auth/serverSession";
+import { getModelForUser } from "@/lib/billing/models";
 
 /**
  * I4 · POST /api/sessions/synthesis — síntesis con JSON contract validado.
@@ -53,6 +55,15 @@ export async function POST(req: Request) {
   }
 
   const { userContext, transcript, conversationMemory } = parsed;
+  let synthesisModel: string | undefined;
+  const auth = await tryAuthenticateRequest(req);
+  if (auth) {
+    try {
+      synthesisModel = (await getModelForUser(auth.user.id)).synthesisModel;
+    } catch {
+      synthesisModel = undefined;
+    }
+  }
   let llm;
   try {
     llm = getLlm();
@@ -91,6 +102,7 @@ export async function POST(req: Request) {
     completion = await llm.complete({
       systemPrompt: SYNTHESIS_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userContent }],
+      model: synthesisModel,
       maxTokens: 600,
       temperature: 0.4,
     });

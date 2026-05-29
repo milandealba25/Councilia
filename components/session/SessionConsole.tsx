@@ -31,6 +31,7 @@ import {
   createPersistentChatSession,
   createChatTurnId,
   getChatSession,
+  isPlanLimitError,
   saveChatTurn,
   savePersistentChatTurn,
   type ChatSession,
@@ -737,6 +738,11 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   }
 
   async function transcribeAudio(blob: Blob): Promise<string> {
+    const session = await getValidAuthSession();
+    if (!session?.accessToken) {
+      throw new Error("Necesitas iniciar sesión para usar dictado por voz.");
+    }
+
     const formData = new FormData();
     const extension = blob.type.includes("mp4")
       ? "m4a"
@@ -747,17 +753,22 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
 
     const response = await fetch("/api/dictation", {
       method: "POST",
+      headers: {
+        authorization: `Bearer ${session.accessToken}`,
+      },
       body: formData,
     });
     const payload = (await response.json().catch(() => null)) as {
       text?: string;
       error?: string;
       detail?: string;
+      message?: string;
     } | null;
 
     if (!response.ok) {
       throw new Error(
         payload?.detail ??
+          payload?.message ??
           payload?.error ??
           "No pudimos transcribir el audio.",
       );
@@ -886,6 +897,8 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       } catch (err) {
         if ((err as Error).message === "survey_required") {
           router.replace("/onboarding");
+        } else if (isPlanLimitError(err)) {
+          dispatch({ type: "fatal", message: err.message });
         }
         return;
       }
@@ -901,7 +914,16 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
     const draftSave = savePersistentChatTurn(
       submissionChatId,
       draftTurn,
-    ).catch(() => null);
+    );
+
+    try {
+      await draftSave;
+    } catch (err) {
+      if (isPlanLimitError(err)) {
+        dispatch({ type: "fatal", message: err.message });
+      }
+      return;
+    }
 
     shouldScrollToCouncilRef.current = true;
     dispatch({ type: "submit_user", message });
@@ -935,11 +957,15 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       };
 
       const persistCompletedTurn = async (turn: ChatTurn) => {
-        await draftSave;
-        const updated = await savePersistentChatTurn(
-          submissionChatId,
-          turn,
-        ).catch(() => null);
+        let updated: ChatSession | null = null;
+        try {
+          updated = await savePersistentChatTurn(submissionChatId, turn);
+        } catch (err) {
+          if (isPlanLimitError(err)) {
+            dispatch({ type: "fatal", message: err.message });
+          }
+          return;
+        }
         if (
           updated?.summary &&
           mountedRef.current &&

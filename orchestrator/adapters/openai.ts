@@ -54,10 +54,11 @@ export class OpenAILlm implements Llm {
   }
 
   async complete(req: LlmCompletionRequest): Promise<LlmCompletionResult> {
+    const model = req.model ?? this.modelId;
     try {
       const response = await this.client.chat.completions.create(
         {
-          model: this.modelId,
+          model,
           max_tokens: req.maxTokens ?? 512,
           temperature: req.temperature ?? 0.7,
           messages: [
@@ -74,7 +75,7 @@ export class OpenAILlm implements Llm {
       const text = response.choices[0]?.message?.content ?? "";
       return {
         text,
-        model: this.modelId,
+        model,
         usage: {
           inputTokens: response.usage?.prompt_tokens,
           outputTokens: response.usage?.completion_tokens,
@@ -86,11 +87,12 @@ export class OpenAILlm implements Llm {
   }
 
   async *stream(req: LlmCompletionRequest): AsyncIterable<string> {
+    const model = req.model ?? this.modelId;
     let streamResponse: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
     try {
       streamResponse = await this.client.chat.completions.create(
         {
-          model: this.modelId,
+          model,
           max_tokens: req.maxTokens ?? 512,
           temperature: req.temperature ?? 0.7,
           stream: true,

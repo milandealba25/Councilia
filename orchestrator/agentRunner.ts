@@ -31,6 +31,7 @@ export interface RunInitialOpts {
   userContext: UserContext;
   userMessage: string;
   conversationMemory?: string;
+  model?: string;
   signal?: AbortSignal;
 }
 
@@ -72,6 +73,7 @@ export class AgentRunner {
         for await (const chunk of this.llm.stream({
           systemPrompt: withConversationMemory(system, opts.conversationMemory),
           messages: [{ role: "user", content: opts.userMessage }],
+          model: opts.model,
           maxTokens: spec.maxOutputTokens,
           signal: opts.signal,
         })) {
@@ -113,6 +115,7 @@ export class AgentRunner {
     userContext: UserContext;
     userMessage: string;
     conversationMemory?: string;
+    model?: string;
     signal?: AbortSignal;
   }): AsyncIterable<string> {
     const spec = getAgent(args.agent);
@@ -125,6 +128,7 @@ export class AgentRunner {
     yield* this.llm.stream({
       systemPrompt: withConversationMemory(system, args.conversationMemory),
       messages: [{ role: "user", content: args.userMessage }],
+      model: args.model,
       maxTokens: spec.maxOutputTokens,
       signal: args.signal,
     });

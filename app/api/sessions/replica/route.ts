@@ -11,6 +11,8 @@ import {
 import { clientKeyFromHeaders, sessionsLimiter } from "@/lib/security/rateLimit";
 import { logger } from "@/lib/observability/logger";
 import { emit as emitEvent } from "@/lib/observability/events";
+import { tryAuthenticateRequest } from "@/lib/auth/serverSession";
+import { getModelForUser } from "@/lib/billing/models";
 
 /**
  * I3 · POST /api/sessions/replica — réplica selectiva con contexto reducido.
@@ -59,6 +61,15 @@ export async function POST(req: Request) {
   }
 
   const { userContext, userMessage, conversationMemory, postures } = parsed;
+  let llmModel: string | undefined;
+  const auth = await tryAuthenticateRequest(req);
+  if (auth) {
+    try {
+      llmModel = (await getModelForUser(auth.user.id)).llmModel;
+    } catch {
+      llmModel = undefined;
+    }
+  }
 
   const stream = sseStreamFromIterable(
     (async function* (): AsyncIterable<SseEvent<Event>> {
@@ -70,6 +81,7 @@ export async function POST(req: Request) {
           userContext,
           userMessage,
           conversationMemory,
+          model: llmModel,
         });
       } catch (err) {
         const code: LlmErrorCode =

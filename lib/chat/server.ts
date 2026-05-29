@@ -8,6 +8,7 @@ import {
 import type { AuthenticatedRequest } from "@/lib/auth/serverSession";
 import { getLlm } from "@/lib/api/orchestrator";
 import { LlmError } from "@/orchestrator/llm";
+import { getModelForUser } from "@/lib/billing/models";
 
 const agentIdSchema = z.enum(AGENT_IDS);
 
@@ -217,7 +218,7 @@ export async function appendTurnToUserChat(
     AGENT_IDS.some((agent) => turnWithId.agents[agent]?.trim()) ||
     !!turnWithId.replica;
   const memory = hasCouncilResponse
-    ? await summarizeTurn(conversation, turnWithId)
+    ? await summarizeTurn(auth.user.id, conversation, turnWithId)
     : null;
   const title =
     !conversation.title || conversation.title === "Nuevo chat"
@@ -522,6 +523,7 @@ function inferTitle(message: string): string {
 }
 
 async function summarizeTurn(
+  userId: string,
   conversation: ConversationRestRow,
   turn: ChatTurnPayload,
 ): Promise<{ summary: string; keyFacts: unknown[] }> {
@@ -530,6 +532,12 @@ async function summarizeTurn(
     ? conversation.key_facts
     : [];
   try {
+    let synthesisModel: string | undefined;
+    try {
+      synthesisModel = (await getModelForUser(userId)).synthesisModel;
+    } catch {
+      synthesisModel = undefined;
+    }
     const llm = getLlm();
     const completion = await llm.complete({
       systemPrompt:
@@ -549,6 +557,7 @@ async function summarizeTurn(
           ].join("\n"),
         },
       ],
+      model: synthesisModel,
       maxTokens: 320,
       temperature: 0.2,
     });

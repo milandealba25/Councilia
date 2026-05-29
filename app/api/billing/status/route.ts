@@ -4,6 +4,7 @@ import {
   authenticateRequest,
   isAuthError,
 } from "@/lib/auth/serverSession";
+import { getUserEntitlements } from "@/lib/billing/entitlements";
 import { getBillingProfileByUserId } from "@/lib/billing/repository";
 import { PLANS, type PlanId } from "@/lib/billing/plans";
 import { isStripeConfigured } from "@/lib/billing/stripe";
@@ -25,12 +26,15 @@ export async function GET(request: Request) {
   }
 
   const profile = await getBillingProfileByUserId(auth.user.id).catch(() => null);
-  const plan: PlanId = profile?.plan ?? "free";
-  const definition = PLANS[plan];
+  const entitlements = await getUserEntitlements(auth.user.id).catch(() => null);
+  const storedPlan: PlanId = profile?.plan ?? "free";
+  const effectivePlan: PlanId = entitlements?.effectivePlan ?? storedPlan;
+  const definition = PLANS[effectivePlan];
 
   return NextResponse.json({
     stripeConfigured: true,
-    plan,
+    plan: effectivePlan,
+    storedPlan,
     planCopy: definition.copy,
     subscription: profile
       ? {

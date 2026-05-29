@@ -14,6 +14,11 @@ export interface LlmMessage {
 export interface LlmCompletionRequest {
   systemPrompt: string;
   messages: ReadonlyArray<LlmMessage>;
+  /**
+   * Override opcional del modelo para esta solicitud.
+   * Si no se define, cada adapter usa su modelo por defecto.
+   */
+  model?: string;
   maxTokens?: number;
   temperature?: number;
   signal?: AbortSignal;
