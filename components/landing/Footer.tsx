@@ -64,18 +64,18 @@ export function Footer() {
                 COUNCIL<span className="text-accent">ia</span>
               </span>
             </Link>
-            <p className="max-w-xs text-[14px] leading-relaxed text-foreground-soft">
+            <p className="max-w-xs text-[14px] leading-relaxed text-[#4a4039]/85">
               Tres voces que te ayudan a pensar lo que estás eligiendo. Sin
               empujarte, sin darte la razón a la fuerza.
             </p>
-            <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-subtle">
+            <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-[#9a877b]/75">
               Pensar mejor, no saber más.
             </p>
           </div>
 
           {COLUMNS.map((col) => (
             <div key={col.title}>
-              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-subtle">
+              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#9a877b]/75">
                 {col.title}
               </p>
               <ul className="mt-4 flex flex-col gap-2 text-sm">
@@ -83,14 +83,14 @@ export function Footer() {
                   <li key={`${link.href}-${link.label}`}>
                     {link.startAction ? (
                       <StartAccessInlineButton
-                        className="text-left text-foreground-soft transition-colors hover:text-accent-strong"
+                        className="text-left text-[#4a4039]/85 transition-colors hover:text-[#b65a3d]"
                       >
                         {link.label}
                       </StartAccessInlineButton>
                     ) : (
                       <Link
                         href={link.href}
-                        className="text-foreground-soft transition-colors hover:text-accent-strong"
+                        className="text-[#4a4039]/85 transition-colors hover:text-[#b65a3d]"
                       >
                         {link.label}
                       </Link>
