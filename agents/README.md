@@ -16,7 +16,7 @@ System prompts versionados por agente (**Marco**, **Elena**, **Rafael**) y el ap
 ## Evaluación contra Gemini real
 
 ```bash
-cp .env.example .env.local      # añadir GEMINI_API_KEY
+cp .env.example .env.local      # anadir GEMINI_API_KEYS o GEMINI_API_KEY
 npm run eval                    # corre SESSION_FIXTURES + ANTI_PROMPTS
 npm run eval -- --only-anti     # solo anti-prompts (L5)
 npm run eval -- --only-fixtures # solo casos representativos (L4)

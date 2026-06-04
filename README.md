@@ -12,13 +12,13 @@ Requisitos: **Node.js 20+** y npm.
 git checkout jaziel
 npm install
 cp .env.example .env.local
-# Edita .env.local y añade GEMINI_API_KEY (ver manual abajo)
+# Edita .env.local y anade GEMINI_API_KEYS (o GEMINI_API_KEY)
 npm run dev
 ```
 
 Abre [http://localhost:3000](http://localhost:3000). Flujo: **Inicio** → **Onboarding** (`/onboarding`) → **Sesión** (`/session`).
 
-Sin `GEMINI_API_KEY`, la UI carga pero las rutas `/api/sessions/*` fallarán al llamar a Gemini.
+El proveedor primario es Gemini. Define `GEMINI_API_KEYS` como lista separada por comas para rotar claves; `GEMINI_API_KEY` sigue funcionando para una sola clave. Si tambien defines `OPENAI_API_KEY`, OpenAI se usa como fallback pagado cuando Gemini agota todos los pares clave/modelo.
 
 ---
 
@@ -48,7 +48,7 @@ El repo incluye `vercel.json` para usar el preset de Next.js con `npm ci` y `npm
    - Build Command: `npm run build`
    - Output Directory: dejar vacío / default de Next.js
 3. En `Settings -> Environment Variables`, define al menos:
-   - `GEMINI_API_KEY`
+   - `GEMINI_API_KEYS` (o `GEMINI_API_KEY` para una sola clave)
    - `NEXT_PUBLIC_APP_URL` con la URL pública de producción, por ejemplo `https://councilia.app`
 4. Define también estas si activas auth/perfiles con Supabase:
    - `SUPABASE_URL`
@@ -57,6 +57,8 @@ El repo incluye `vercel.json` para usar el preset de Next.js con `npm ci` y `npm
 5. Opcionales:
    - `GEMINI_MODELS`
    - `GEMINI_THINKING_BUDGET`
+   - `OPENAI_API_KEY`
+   - `OPENAI_MODEL`
    - `LOG_LEVEL`
 
 Para builds de CI sin secretos se puede usar `SKIP_ENV_VALIDATION=1`, pero no lo actives en producción real porque ocultaría errores de configuración.

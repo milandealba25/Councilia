@@ -14,7 +14,7 @@
  *   npm run eval -- --only-anti           # solo ANTI_PROMPTS
  *   npm run eval -- --concurrency 5
  *
- * Requiere `GEMINI_API_KEY` en `.env.local`.
+ * Requiere `GEMINI_API_KEYS` o `GEMINI_API_KEY` en `.env.local`.
  */
 import { config as loadEnv } from "dotenv";
 import { resolve } from "node:path";
@@ -84,12 +84,19 @@ function buildCases(flags: Flags): EvalCase[] {
   return cases;
 }
 
+function hasGeminiKey(): boolean {
+  return Boolean(
+    process.env.GEMINI_API_KEYS?.split(",").some((key) => key.trim()) ||
+      process.env.GEMINI_API_KEY?.split(",").some((key) => key.trim()),
+  );
+}
+
 async function main() {
   const flags = parseFlags(process.argv.slice(2));
 
-  if (!process.env.GEMINI_API_KEY) {
+  if (!hasGeminiKey()) {
     console.error(
-      "[eval] Falta GEMINI_API_KEY. Copia .env.example a .env.local y define la clave.",
+      "[eval] Falta GEMINI_API_KEYS o GEMINI_API_KEY. Copia .env.example a .env.local y define al menos una clave.",
     );
     process.exit(1);
   }
@@ -103,7 +110,7 @@ async function main() {
   console.log(
     `[eval] Ejecutando ${cases.length} casos con concurrencia ${flags.concurrency}…`,
   );
-  console.log(`[eval] Modelo: ${process.env.GEMINI_MODEL ?? "gemini-flash-latest"}`);
+  console.log(`[eval] Modelos: ${process.env.GEMINI_MODELS ?? "defaults Gemini"}`);
 
   const llm = new GeminiLlm();
   let count = 0;

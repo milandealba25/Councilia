@@ -1761,7 +1761,16 @@ function ConfigErrorBanner({
     network:
       "La red entre el servidor y el proveedor de IA falló. Reintenta; si persiste, revisa logs del hosting.",
   };
-  const hint = HINTS[code];
+  const hint =
+    (
+      {
+        auth: "Define GEMINI_API_KEYS con claves separadas por coma, o GEMINI_API_KEY para compatibilidad. Si quieres fallback pagado, define OPENAI_API_KEY. Reinicia el servidor despues de editar .env.local.",
+        quota:
+          "Revisa la cuota de cada clave Gemini, el orden de GEMINI_MODELS y que OPENAI_API_KEY este disponible para fallback.",
+        network:
+          "La red entre el servidor y el proveedor de IA fallo. Reintenta; si persiste, revisa logs del hosting.",
+      } as Partial<Record<LlmErrorCode, string>>
+    )[code] ?? HINTS[code];
   return (
     <div
       role="alert"

@@ -17,20 +17,26 @@
 
 ## 2. Crítica — desarrollo local y Gemini
 
-### 2.1 Clave de Google (`GEMINI_API_KEY`)
+### 2.1 Claves de Google (`GEMINI_API_KEYS`)
 
 1. Entra en [Google AI Studio](https://aistudio.google.com/apikey) con la cuenta del equipo.
-2. **Create API key** y copia el valor (`AIza...`).
+2. **Create API key** y copia el valor (`AIza...`). Puedes repetirlo para tener varias claves.
 3. En tu máquina: copia `.env.example` a `.env.local` (no lo subas a git).
 4. Añade:
    ```bash
-   GEMINI_API_KEY=AIza...
+   GEMINI_API_KEYS=AIza_primera,AIza_segunda
    ```
-5. Opcional — modelos en orden de fallback:
+5. `GEMINI_API_KEY=AIza...` sigue funcionando para una sola clave, pero la forma recomendada es la lista plural.
+6. Opcional — modelos en orden de fallback para cada clave:
    ```bash
    GEMINI_MODELS=gemini-3.1-flash-lite,gemini-2.5-flash-lite
    ```
-6. Verificación:
+7. Opcional — fallback pagado si Gemini agota todos sus intentos:
+   ```bash
+   OPENAI_API_KEY=sk-...
+   OPENAI_MODEL=gpt-4o-mini
+   ```
+8. Verificación:
    ```bash
    npm run test:gemini
    ```
@@ -38,7 +44,9 @@
 
 ### 2.2 Variables mínimas para `npm run dev`
 
-- `GEMINI_API_KEY` — necesaria para `/api/sessions/*` y la pantalla **Sesión** con streaming real.
+- `GEMINI_API_KEYS` — recomendada para `/api/sessions/*` y la pantalla **Sesión** con streaming real. Usa claves separadas por coma.
+- `GEMINI_API_KEY` — compatible para una sola clave.
+- `OPENAI_API_KEY` — opcional; fallback pagado cuando Gemini no tiene clave/modelo disponible.
 - `NEXT_PUBLIC_APP_URL` — opcional en local; recomendado `http://localhost:3000` para sitemap/robots coherentes.
 
 ### 2.3 CI local sin secretos
@@ -94,7 +102,7 @@ El código incluye repos en memoria y un **factory** listo para enchufar el clie
 1. [Vercel](https://vercel.com) → **Add New → Project** → conecta el repo `milandealba25/Councilia`.
 2. Framework: Next.js (auto).
 3. **Environment Variables** (Production, Preview y Development):
-   - `GEMINI_API_KEY`
+   - `GEMINI_API_KEYS` (o `GEMINI_API_KEY` para una sola clave)
    - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
    - `NEXT_PUBLIC_APP_URL` (p. ej. `https://dev.councilia.app` en preview/staging)
    - Opcionales: `GEMINI_MODELS`, `GEMINI_THINKING_BUDGET`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `LOG_LEVEL`

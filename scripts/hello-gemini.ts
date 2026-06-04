@@ -1,8 +1,8 @@
 /**
- * Script de verificación: una llamada mínima a Gemini.
+ * Script de verificacion: una llamada minima a Gemini.
  *
- * Uso: `npm run test:gemini` con `GEMINI_API_KEY` en `.env.local`
- * (o variables exportadas en el shell).
+ * Uso: `npm run test:gemini` con `GEMINI_API_KEYS` o `GEMINI_API_KEY`
+ * en `.env.local` (o variables exportadas en el shell).
  */
 import { config as loadEnv } from "dotenv";
 import { resolve } from "node:path";
@@ -11,17 +11,31 @@ loadEnv({ path: resolve(process.cwd(), ".env.local") });
 loadEnv();
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+function parseList(value: string | undefined): string[] {
+  return value
+    ? value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+}
+
 async function main() {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = [
+    ...new Set([
+      ...parseList(process.env.GEMINI_API_KEYS),
+      ...parseList(process.env.GEMINI_API_KEY),
+    ]),
+  ][0];
   if (!apiKey) {
     console.error(
-      "[hello-gemini] Falta GEMINI_API_KEY. Copia .env.example a .env.local y define la clave.",
+      "[hello-gemini] Falta GEMINI_API_KEYS o GEMINI_API_KEY. Copia .env.example a .env.local y define al menos una clave.",
     );
     process.exit(1);
   }
 
   const modelId =
-    process.env.GEMINI_MODELS?.split(",").map((m) => m.trim()).find(Boolean) ??
+    parseList(process.env.GEMINI_MODELS)[0] ??
     process.env.GEMINI_MODEL ??
     "gemini-3.1-flash-lite";
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -42,11 +56,11 @@ async function main() {
 
   const text = result.response.text().trim();
   if (!text) {
-    console.error("[hello-gemini] Respuesta vacía o bloqueada.");
+    console.error("[hello-gemini] Respuesta vacia o bloqueada.");
     process.exit(1);
   }
 
-  console.log("[hello-gemini] OK · modelo:", modelId);
+  console.log("[hello-gemini] OK | modelo:", modelId);
   console.log(text);
 }
 

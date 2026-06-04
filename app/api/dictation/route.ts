@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
-import { env } from "@/lib/env";
+import { env, getGeminiApiKeys } from "@/lib/env";
 import { authenticateRequest, isAuthError } from "@/lib/auth/serverSession";
 import { canUseVoice } from "@/lib/billing/guards";
 
@@ -13,6 +13,8 @@ const DEFAULT_GEMINI_TRANSCRIPTION_MODELS = [
   "gemini-2.5-flash",
   "gemini-2.0-flash",
 ] as const;
+
+let geminiKeyCursor = 0;
 
 function jsonError(status: number, error: string, detail?: string) {
   return NextResponse.json({ error, detail }, { status });
@@ -31,6 +33,14 @@ function uniqueModels(models: string[]): string[] {
   return [...new Set(models.filter(Boolean))];
 }
 
+function rotatedGeminiKeys(): string[] {
+  const keys = getGeminiApiKeys();
+  if (keys.length <= 1) return keys;
+  const start = geminiKeyCursor % keys.length;
+  geminiKeyCursor = (geminiKeyCursor + 1) % keys.length;
+  return [...keys.slice(start), ...keys.slice(0, start)];
+}
+
 function transcriptionModels(): string[] {
   return uniqueModels([
     process.env.GEMINI_TRANSCRIPTION_MODEL ?? "",
@@ -40,46 +50,49 @@ function transcriptionModels(): string[] {
 }
 
 async function transcribeWithGemini(file: File): Promise<string> {
-  if (!env.GEMINI_API_KEY) {
-    throw new Error("Falta GEMINI_API_KEY para transcribir audio.");
+  const apiKeys = rotatedGeminiKeys();
+  if (apiKeys.length === 0) {
+    throw new Error("Falta GEMINI_API_KEYS o GEMINI_API_KEY para transcribir audio.");
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
   const errors: string[] = [];
 
-  for (const modelId of transcriptionModels()) {
-    try {
-      const model = genAI.getGenerativeModel({
-        model: modelId,
-        systemInstruction:
-          "Transcribe audio en español. Devuelve solo el texto dictado, sin comillas, explicaciones ni formato.",
-      });
-      const result = await model.generateContent({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                inlineData: {
-                  data: bytes.toString("base64"),
-                  mimeType: file.type || "audio/webm",
+  for (const apiKey of apiKeys) {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    for (const modelId of transcriptionModels()) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelId,
+          systemInstruction:
+            "Transcribe audio en espanol. Devuelve solo el texto dictado, sin comillas, explicaciones ni formato.",
+        });
+        const result = await model.generateContent({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  inlineData: {
+                    data: bytes.toString("base64"),
+                    mimeType: file.type || "audio/webm",
+                  },
                 },
-              },
-              {
-                text: "Transcribe exactamente lo que dice el usuario. Conserva puntuacion natural.",
-              },
-            ],
+                {
+                  text: "Transcribe exactamente lo que dice el usuario. Conserva puntuacion natural.",
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 1200,
           },
-        ],
-        generationConfig: {
-          temperature: 0,
-          maxOutputTokens: 1200,
-        },
-      });
-      return result.response.text().trim();
-    } catch (err) {
-      errors.push(err instanceof Error ? err.message : String(err));
+        });
+        return result.response.text().trim();
+      } catch (err) {
+        errors.push(err instanceof Error ? err.message : String(err));
+      }
     }
   }
 
@@ -100,6 +113,19 @@ async function transcribeWithOpenAI(file: File): Promise<string> {
   });
 
   return result.text.trim();
+}
+
+async function transcribeAudio(audio: File): Promise<string> {
+  if (getGeminiApiKeys().length === 0) {
+    return transcribeWithOpenAI(audio);
+  }
+
+  try {
+    return await transcribeWithGemini(audio);
+  } catch (err) {
+    if (!env.OPENAI_API_KEY) throw err;
+    return transcribeWithOpenAI(audio);
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -145,16 +171,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const text = env.GEMINI_API_KEY
-      ? await transcribeWithGemini(audio)
-      : await transcribeWithOpenAI(audio);
-
+    const text = await transcribeAudio(audio);
     return NextResponse.json({ text, plan: permission.plan });
   } catch (err) {
     const detail =
-      err instanceof Error
-        ? err.message
-        : "No pudimos transcribir el audio.";
+      err instanceof Error ? err.message : "No pudimos transcribir el audio.";
     console.error("[dictation] transcription failed", err);
     return jsonError(502, "transcription_failed", detail);
   }

@@ -9,6 +9,7 @@ const optionalUrl = z.preprocess(
 const serverEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   GEMINI_API_KEY: z.string().min(1).optional(),
+  GEMINI_API_KEYS: z.string().min(1).optional(),
   GEMINI_MODELS: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
   NEXT_PUBLIC_APP_URL: optionalUrl,
@@ -22,27 +23,11 @@ const serverEnvSchema = z.object({
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 
-function parseServerEnv(): ServerEnv {
-  if (process.env.SKIP_ENV_VALIDATION === "1") {
-    return serverEnvSchema.parse({
-      NODE_ENV: process.env.NODE_ENV ?? "development",
-      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-      GEMINI_MODELS: process.env.GEMINI_MODELS,
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
-      SUPABASE_URL: process.env.SUPABASE_URL,
-      SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
-      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-      STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
-      STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
-        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-    });
-  }
-
-  const parsed = serverEnvSchema.safeParse({
+function rawServerEnv() {
+  return {
     NODE_ENV: process.env.NODE_ENV,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    GEMINI_API_KEYS: process.env.GEMINI_API_KEYS,
     GEMINI_MODELS: process.env.GEMINI_MODELS,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
@@ -53,14 +38,25 @@ function parseServerEnv(): ServerEnv {
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-  });
+  };
+}
+
+function parseServerEnv(): ServerEnv {
+  if (process.env.SKIP_ENV_VALIDATION === "1") {
+    return serverEnvSchema.parse({
+      ...rawServerEnv(),
+      NODE_ENV: process.env.NODE_ENV ?? "development",
+    });
+  }
+
+  const parsed = serverEnvSchema.safeParse(rawServerEnv());
 
   if (!parsed.success) {
     const detail = parsed.error.errors
       .map((e) => `${e.path.join(".") || "root"}: ${e.message}`)
-      .join(" · ");
+      .join(" | ");
     throw new Error(
-      `[COUNCILia env] Configuración inválida (${detail}). Copia .env.example a .env.local y completa los valores obligatorios para tu entorno.`,
+      `[COUNCILia env] Configuracion invalida (${detail}). Copia .env.example a .env.local y completa los valores obligatorios para tu entorno.`,
     );
   }
 
@@ -68,9 +64,9 @@ function parseServerEnv(): ServerEnv {
   const isProd = data.NODE_ENV === "production";
 
   if (isProd) {
-    if (!data.OPENAI_API_KEY && !data.GEMINI_API_KEY) {
+    if (!data.OPENAI_API_KEY && !data.GEMINI_API_KEY && !data.GEMINI_API_KEYS) {
       throw new Error(
-        "[COUNCILia env] En producción, OPENAI_API_KEY o GEMINI_API_KEY es obligatoria.",
+        "[COUNCILia env] En produccion, OPENAI_API_KEY, GEMINI_API_KEY o GEMINI_API_KEYS es obligatoria.",
       );
     }
   }
@@ -80,13 +76,30 @@ function parseServerEnv(): ServerEnv {
 
 export const env: ServerEnv = parseServerEnv();
 
+function parseEnvList(value: string | undefined): string[] {
+  return value
+    ? value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+}
+
+export function getGeminiApiKeys(): string[] {
+  return [
+    ...new Set([
+      ...parseEnvList(env.GEMINI_API_KEYS),
+      ...parseEnvList(env.GEMINI_API_KEY),
+    ]),
+  ];
+}
+
 export function requireGeminiKey(): string {
-  const key = env.GEMINI_API_KEY;
+  const key = getGeminiApiKeys()[0];
   if (!key) {
     throw new Error(
-      "[COUNCILia env] Falta GEMINI_API_KEY. Añádela a .env.local para llamadas a Gemini (ver .env.example).",
+      "[COUNCILia env] Falta GEMINI_API_KEYS o GEMINI_API_KEY. Anadela a .env.local para llamadas a Gemini (ver .env.example).",
     );
   }
   return key;
 }
-
