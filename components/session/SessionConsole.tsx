@@ -1755,7 +1755,7 @@ function ConfigErrorBanner({
   onDismiss: () => void;
 }) {
   const HINTS: Partial<Record<LlmErrorCode, string>> = {
-    auth: "Define una clave válida en GEMINI_API_KEY y reinicia el servidor. En local, edita .env.local y reinicia npm run dev.",
+    auth: "Define GEMINI_API_KEYS o GEMINI_API_KEY y reinicia el servidor. En local, edita .env.local y reinicia npm run dev.",
     quota:
       "El proveedor está limitando llamadas. Espera unos segundos o revisa la cuota disponible de Gemini.",
     network:

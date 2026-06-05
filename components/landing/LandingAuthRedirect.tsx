@@ -10,10 +10,13 @@ export function LandingAuthRedirect() {
 
   useEffect(() => {
     async function routeActiveSession() {
-      const openedFromSession =
-        typeof window !== "undefined" &&
-        new URLSearchParams(window.location.search).get("from") === "session";
-      if (openedFromSession) return;
+      const from =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("from")
+          : null;
+      const userExplicitlyOpenedLanding =
+        from === "session" || from === "account" || from === "home";
+      if (userExplicitlyOpenedLanding) return;
 
       const session = await getValidAuthSession();
       if (!session) return;

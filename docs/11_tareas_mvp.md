@@ -43,7 +43,7 @@ Las áreas están agrupadas por letra (A: Setup, B: Diseño, C: Onboarding, etc.
 | A1 | Inicializar repo Next.js 14 (App Router) con TypeScript estricto | `npm run dev` corre, `tsc --noEmit` pasa sin errores, ESLint configurado. | S | 1 | — |
 | A2 | Configurar Tailwind CSS + tokens de diseño base | `tailwind.config.ts` con paleta del documento de diseño, `globals.css` aplicado. | S | 1 | A1 |
 | A3 | Estructurar carpetas (`app/`, `lib/`, `components/`, `orchestrator/`, `agents/`) | Esqueleto de carpetas existe y un README corto en cada una explica su responsabilidad. | S | 1 | A1 |
-| A4 | Configurar variables de entorno (`.env.example`, validación con `zod`) | Inicio falla con mensaje claro si falta una variable obligatoria; `.env.example` documentado. | S | 1 | A1 |
+| A4 | Configurar variables de entorno (`.env.local`, validación con `zod`) | Inicio falla con mensaje claro si falta una variable obligatoria; `.env.local` documentado. | S | 1 | A1 |
 | A5 | Conectar Anthropic SDK (clave en `.env`) | Llamada hello-world a Claude Sonnet desde script de prueba devuelve texto. | S | 1 | A4 |
 | A6 | Conectar Supabase (proyecto creado, claves cargadas) | Migración inicial corre, conexión confirmada desde Next API route. | M | 1 | A4 |
 | A7 | Configurar GitHub Actions de lint + typecheck + test unitario básico | Cada PR a `main` ejecuta el workflow y bloquea merge si falla. | S | 1 | A1 |

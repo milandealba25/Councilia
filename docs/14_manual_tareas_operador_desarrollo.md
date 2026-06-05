@@ -21,7 +21,7 @@
 
 1. Entra en [Google AI Studio](https://aistudio.google.com/apikey) con la cuenta del equipo.
 2. **Create API key** y copia el valor (`AIza...`). Puedes repetirlo para tener varias claves.
-3. En tu máquina: copia `.env.example` a `.env.local` (no lo subas a git).
+3. En tu máquina: crea o edita `.env.local` (no lo subas a git).
 4. Añade:
    ```bash
    GEMINI_API_KEYS=AIza_primera,AIza_segunda

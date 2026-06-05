@@ -29,7 +29,7 @@ async function main() {
   ][0];
   if (!apiKey) {
     console.error(
-      "[hello-gemini] Falta GEMINI_API_KEYS o GEMINI_API_KEY. Copia .env.example a .env.local y define al menos una clave.",
+      "[hello-gemini] Falta GEMINI_API_KEYS o GEMINI_API_KEY. Define al menos una clave en .env.local.",
     );
     process.exit(1);
   }

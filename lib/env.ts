@@ -56,7 +56,7 @@ function parseServerEnv(): ServerEnv {
       .map((e) => `${e.path.join(".") || "root"}: ${e.message}`)
       .join(" | ");
     throw new Error(
-      `[COUNCILia env] Configuracion invalida (${detail}). Copia .env.example a .env.local y completa los valores obligatorios para tu entorno.`,
+      `[COUNCILia env] Configuracion invalida (${detail}). Completa los valores obligatorios en .env.local.`,
     );
   }
 
@@ -98,7 +98,7 @@ export function requireGeminiKey(): string {
   const key = getGeminiApiKeys()[0];
   if (!key) {
     throw new Error(
-      "[COUNCILia env] Falta GEMINI_API_KEYS o GEMINI_API_KEY. Anadela a .env.local para llamadas a Gemini (ver .env.example).",
+      "[COUNCILia env] Falta GEMINI_API_KEYS o GEMINI_API_KEY. Anadela a .env.local para llamadas a Gemini.",
     );
   }
   return key;

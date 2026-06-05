@@ -11,8 +11,7 @@ Requisitos: **Node.js 20+** y npm.
 ```bash
 git checkout jaziel
 npm install
-cp .env.example .env.local
-# Edita .env.local y anade GEMINI_API_KEYS (o GEMINI_API_KEY)
+# Crea/edita .env.local y anade GEMINI_API_KEYS (o GEMINI_API_KEY)
 npm run dev
 ```
 

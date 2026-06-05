@@ -15,7 +15,7 @@ export function requireSupabaseConfig(): SupabaseConfig {
   const cfg = getSupabaseConfig();
   if (!cfg) {
     throw new Error(
-      "[supabase] Faltan SUPABASE_URL / SUPABASE_ANON_KEY (ver .env.example). Define ambas para activar persistencia.",
+      "[supabase] Faltan SUPABASE_URL / SUPABASE_ANON_KEY. Define ambas en .env.local para activar persistencia.",
     );
   }
   return cfg;
