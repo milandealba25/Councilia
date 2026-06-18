@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { PlanLimitProvider } from "@/components/billing/PlanLimitProvider";
 import { Container } from "@/components/ui/Container";
 import { SessionConsole } from "./SessionConsole";
 import { ChatSidebar } from "./ChatSidebar";
@@ -23,6 +24,14 @@ import {
 } from "@/lib/chat/chatStorage";
 
 export function SessionLayout() {
+  return (
+    <PlanLimitProvider>
+      <SessionLayoutInner />
+    </PlanLimitProvider>
+  );
+}
+
+function SessionLayoutInner() {
   const [chatId, setChatId] = useState<string | null>(null);
   const [consoleKey, setConsoleKey] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);

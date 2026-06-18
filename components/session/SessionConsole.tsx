@@ -2,6 +2,7 @@
 
 import { useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePlanLimitModal } from "@/components/billing/PlanLimitProvider";
 import { loadUserContext, saveUserContext } from "@/lib/survey/storage";
 import { getValidAuthSession } from "@/lib/auth/client";
 import { SURVEY_VERSION, type UserContext } from "@/lib/survey/survey.v1";
@@ -472,6 +473,7 @@ interface SessionConsoleProps {
 
 export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   const router = useRouter();
+  const { openPlanLimitModal } = usePlanLimitModal();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -763,7 +765,21 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       error?: string;
       detail?: string;
       message?: string;
+      code?: string;
+      plan?: string;
     } | null;
+
+    if (response.status === 403 && payload?.code) {
+      openPlanLimitModal({
+        code: payload.code,
+        message:
+          payload.message ??
+          payload.detail ??
+          "La voz no está disponible en tu plan actual.",
+        plan: payload.plan,
+      });
+      throw new Error(payload.message ?? payload.detail ?? "Voz no disponible.");
+    }
 
     if (!response.ok) {
       throw new Error(
@@ -898,7 +914,13 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
         if ((err as Error).message === "survey_required") {
           router.replace("/onboarding");
         } else if (isPlanLimitError(err)) {
-          dispatch({ type: "fatal", message: err.message });
+          openPlanLimitModal({
+            code: err.code,
+            message: err.message,
+            plan: err.plan,
+            limit: err.limit,
+            used: err.used,
+          });
         }
         return;
       }
@@ -920,7 +942,13 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       await draftSave;
     } catch (err) {
       if (isPlanLimitError(err)) {
-        dispatch({ type: "fatal", message: err.message });
+        openPlanLimitModal({
+          code: err.code,
+          message: err.message,
+          plan: err.plan,
+          limit: err.limit,
+          used: err.used,
+        });
       }
       return;
     }
@@ -962,7 +990,13 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
           updated = await savePersistentChatTurn(submissionChatId, turn);
         } catch (err) {
           if (isPlanLimitError(err)) {
-            dispatch({ type: "fatal", message: err.message });
+            openPlanLimitModal({
+              code: err.code,
+              message: err.message,
+              plan: err.plan,
+              limit: err.limit,
+              used: err.used,
+            });
           }
           return;
         }

@@ -13,6 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "node scripts/ensure-e2e-user.mjs && playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "test:gemini": "tsx scripts/hello-gemini.ts",
     "eval": "tsx scripts/eval-fixtures.ts",
     "pdf:agentes": "pandoc docs/04_agentes.md -o pdfs/04_Agentes.pdf"
@@ -31,6 +33,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "^20.17.12",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",

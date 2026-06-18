@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { PlanUsageCounters } from "@/components/session/PlanUsageCounters";
 import {
   chatChangeEventName,
   getChatSessions,
@@ -273,6 +274,7 @@ export function ChatSidebar({
 
           {!isSelecting && (
             <div className="mt-3 grid gap-1.5">
+              <PlanUsageCounters activeChatId={activeChatId} />
               <button
                 type="button"
                 onClick={onNewChat}
