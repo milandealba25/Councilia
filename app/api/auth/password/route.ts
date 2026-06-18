@@ -6,8 +6,7 @@ import { checkEmailInUse } from "@/lib/auth/emailLookup";
 import {
   getProfileAvatarUrl,
   getProfileName,
-  getPublicUserProfile,
-  syncPublicUser,
+  syncPublicUserBestEffort,
 } from "@/lib/auth/profileSync";
 import {
   isValidEmail,
@@ -173,16 +172,10 @@ export async function POST(request: Request) {
     });
   }
 
-  try {
-    await syncPublicUser(supabaseConfig.url, user);
-  } catch {
-    return NextResponse.json(
-      { error: "No pudimos sincronizar el perfil del usuario." },
-      { status: 502 },
-    );
-  }
-
-  const profile = await getPublicUserProfile(supabaseConfig.url, user.id);
+  const profile = await syncPublicUserBestEffort(supabaseConfig.url, user, {
+    apiKey: supabaseConfig.anonKey,
+    bearerToken: session.accessToken,
+  });
 
   return NextResponse.json({
     ok: true,

@@ -4,7 +4,7 @@ import type { ChangeEvent } from "react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import {
-  loadAuthSession,
+  getValidAuthSession,
   updateAuthUser,
   type AuthSession,
 } from "@/lib/auth/client";
@@ -60,7 +60,7 @@ export function AvatarUploader({
     setStatus("loading");
 
     try {
-      const currentSession = loadAuthSession();
+      const currentSession = await getValidAuthSession();
       if (!currentSession) {
         throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
       }
@@ -102,7 +102,7 @@ export function AvatarUploader({
           : "No pudimos subir la foto. Inténtalo de nuevo.",
       );
     } finally {
-      URL.revokeObjectURL(localPreview);
+      window.setTimeout(() => URL.revokeObjectURL(localPreview), 30_000);
       setStatus("idle");
       if (inputRef.current) inputRef.current.value = "";
     }
@@ -122,7 +122,12 @@ export function AvatarUploader({
           src={previewUrl}
           alt="Foto de perfil"
           className="h-full w-full object-cover"
-          onError={() => {
+          onLoad={() => setImageFailed(false)}
+          onError={(event) => {
+            const failedSrc =
+              event.currentTarget.currentSrc || event.currentTarget.src;
+            if (failedSrc.startsWith("blob:")) return;
+
             setImageFailed(true);
             if (uploadAttempted) {
               setError(

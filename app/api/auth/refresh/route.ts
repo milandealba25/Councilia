@@ -3,8 +3,7 @@ import { requireSupabaseConfig } from "@/lib/db/supabase";
 import {
   getProfileAvatarUrl,
   getProfileName,
-  getPublicUserProfile,
-  syncPublicUser,
+  syncPublicUserBestEffort,
 } from "@/lib/auth/profileSync";
 
 export const dynamic = "force-dynamic";
@@ -65,16 +64,10 @@ export async function POST(request: Request) {
     avatarUrl: getProfileAvatarUrl(data.user.user_metadata),
   };
 
-  try {
-    await syncPublicUser(url, user);
-  } catch {
-    return NextResponse.json(
-      { error: "No pudimos sincronizar el perfil del usuario." },
-      { status: 502 },
-    );
-  }
-
-  const profile = await getPublicUserProfile(url, user.id);
+  const profile = await syncPublicUserBestEffort(url, user, {
+    apiKey: anonKey,
+    bearerToken: data.access_token,
+  });
 
   return NextResponse.json({
     session: {

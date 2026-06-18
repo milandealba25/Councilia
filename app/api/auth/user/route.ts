@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import {
-  getSupabaseServiceRoleKey,
   requireSupabaseConfig,
 } from "@/lib/db/supabase";
 import {
   getProfileAvatarUrl,
   getProfileName,
-  getPublicUserProfile,
-  syncPublicUser,
+  syncPublicUserBestEffort,
 } from "@/lib/auth/profileSync";
 import { isValidName, sanitizeName } from "@/lib/auth/validation";
 
@@ -58,16 +56,10 @@ export async function GET(request: Request) {
     avatarUrl: getProfileAvatarUrl(data.user_metadata),
   };
 
-  try {
-    await syncPublicUser(url, user);
-  } catch {
-    return NextResponse.json(
-      { error: "No pudimos sincronizar el perfil del usuario." },
-      { status: 502 },
-    );
-  }
-
-  const profile = await getPublicUserProfile(url, user.id);
+  const profile = await syncPublicUserBestEffort(url, user, {
+    apiKey: anonKey,
+    bearerToken: authorization.slice("Bearer ".length).trim(),
+  });
 
   return NextResponse.json({
     user: {
@@ -127,19 +119,11 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const serviceRoleKey = getSupabaseServiceRoleKey();
-  if (!serviceRoleKey) {
-    return NextResponse.json(
-      { error: "Falta SUPABASE_SERVICE_ROLE_KEY para editar el perfil." },
-      { status: 503 },
-    );
-  }
-
   const profileResponse = await fetch(new URL("/rest/v1/users", url), {
     method: "POST",
     headers: {
-      apikey: serviceRoleKey,
-      authorization: `Bearer ${serviceRoleKey}`,
+      apikey: anonKey,
+      authorization,
       "content-type": "application/json",
       prefer: "resolution=merge-duplicates",
     },

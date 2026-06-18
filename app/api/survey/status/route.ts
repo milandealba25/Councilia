@@ -4,10 +4,7 @@ import {
   isAuthError,
   type AuthenticatedRequest,
 } from "@/lib/auth/serverSession";
-import {
-  getSupabaseServiceRoleKey,
-  requireSupabaseConfig,
-} from "@/lib/db/supabase";
+import { requireSupabaseConfig } from "@/lib/db/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -30,12 +27,9 @@ async function loadSurveyStatus(
   auth: AuthenticatedRequest,
 ): Promise<SurveyStatus> {
   const { url, anonKey } = requireSupabaseConfig();
-  const serviceRoleKey = getSupabaseServiceRoleKey();
-  const apiKey = serviceRoleKey ?? anonKey;
-  const bearer = serviceRoleKey ?? auth.accessToken;
   const headers = {
-    apikey: apiKey,
-    authorization: `Bearer ${bearer}`,
+    apikey: anonKey,
+    authorization: `Bearer ${auth.accessToken}`,
   };
 
   const usersUrl = new URL("/rest/v1/users", url);

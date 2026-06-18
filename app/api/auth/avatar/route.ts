@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import {
-  getSupabaseServiceRoleKey,
-  requireSupabaseConfig,
-} from "@/lib/db/supabase";
+import { requireSupabaseConfig } from "@/lib/db/supabase";
+import { logger } from "@/lib/observability/logger";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,17 +19,6 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Falta la sesión del usuario." },
       { status: 401 },
-    );
-  }
-
-  const serviceRoleKey = getSupabaseServiceRoleKey();
-  if (!serviceRoleKey) {
-    return NextResponse.json(
-      {
-        error:
-          "Falta SUPABASE_SERVICE_ROLE_KEY para subir fotos de perfil.",
-      },
-      { status: 503 },
     );
   }
 
@@ -90,6 +77,7 @@ export async function POST(request: Request) {
   }
 
   const avatarPath = `${user.id}/avatar.${extension}`;
+  const accessToken = authorization.slice("Bearer ".length).trim();
   const uploadUrl = new URL(
     `/storage/v1/object/${BUCKET}/${avatarPath}`,
     supabaseConfig.url,
@@ -97,8 +85,8 @@ export async function POST(request: Request) {
   const uploadResponse = await fetch(uploadUrl, {
     method: "POST",
     headers: {
-      apikey: serviceRoleKey,
-      authorization: `Bearer ${serviceRoleKey}`,
+      apikey: supabaseConfig.anonKey,
+      authorization: `Bearer ${accessToken}`,
       "content-type": file.type,
       "x-upsert": "true",
     },
@@ -106,35 +94,49 @@ export async function POST(request: Request) {
   });
 
   if (!uploadResponse.ok) {
+    const detail = await uploadResponse.text().catch(() => "");
+    logger.warn("[auth] No se pudo subir avatar.", {
+      userId: user.id,
+      status: uploadResponse.status,
+      detail: detail.slice(0, 300),
+    });
     return NextResponse.json(
       {
         error:
-          "No pudimos subir la foto. Revisa que exista el bucket user-avatars en Supabase.",
+          "No pudimos subir la foto. Revisa el bucket user-avatars y sus politicas de Storage.",
       },
       { status: 502 },
     );
   }
 
-  const avatarUrl = new URL("/api/auth/avatar/image", getRequestOrigin(request));
-  avatarUrl.searchParams.set("path", avatarPath);
-  avatarUrl.searchParams.set("v", Date.now().toString());
+  const publicAvatarUrl = new URL(
+    `/storage/v1/object/public/${BUCKET}/${avatarPath}`,
+    supabaseConfig.url,
+  );
+  publicAvatarUrl.searchParams.set("v", Date.now().toString());
 
   const profileResponse = await fetch(new URL("/rest/v1/users", supabaseConfig.url), {
     method: "POST",
     headers: {
-      apikey: serviceRoleKey,
-      authorization: `Bearer ${serviceRoleKey}`,
+      apikey: supabaseConfig.anonKey,
+      authorization,
       "content-type": "application/json",
       prefer: "resolution=merge-duplicates",
     },
     body: JSON.stringify({
       id: user.id,
       email: user.email,
-      avatar_url: avatarUrl.toString(),
+      avatar_url: publicAvatarUrl.toString(),
     }),
   });
 
   if (!profileResponse.ok) {
+    const detail = await profileResponse.text().catch(() => "");
+    logger.warn("[auth] No se pudo guardar avatar en perfil.", {
+      userId: user.id,
+      status: profileResponse.status,
+      detail: detail.slice(0, 300),
+    });
     return NextResponse.json(
       { error: "La foto subió, pero no pudimos guardarla en tu perfil." },
       { status: 502 },
@@ -145,7 +147,7 @@ export async function POST(request: Request) {
     user: {
       id: user.id,
       email: user.email,
-      avatarUrl: avatarUrl.toString(),
+      avatarUrl: publicAvatarUrl.toString(),
     },
   });
 }
@@ -169,15 +171,6 @@ function hasValidImageSignature(bytes: Buffer, mimeType: string): boolean {
     );
   }
   return false;
-}
-
-function getRequestOrigin(request: Request): string {
-  const forwardedProto = request.headers.get("x-forwarded-proto");
-  const forwardedHost = request.headers.get("x-forwarded-host");
-  if (forwardedProto && forwardedHost) {
-    return `${forwardedProto}://${forwardedHost}`;
-  }
-  return new URL(request.url).origin;
 }
 
 async function getSessionUser(

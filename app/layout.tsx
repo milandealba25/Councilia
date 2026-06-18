@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { OAuthHashHandler } from "@/components/auth/OAuthHashHandler";
 import { CookieBanner } from "@/components/cookies/CookieBanner";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { OG_IMAGE, SITE_DESCRIPTION, SITE_NAME } from "@/lib/seo";
@@ -88,6 +89,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} relative min-h-dvh overflow-x-hidden bg-background font-sans`}
       >
         <AuroraBackground />
+        <OAuthHashHandler />
         <div className="relative z-10">{children}</div>
         <CookieBanner />
         <Analytics />

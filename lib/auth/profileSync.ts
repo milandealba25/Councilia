@@ -1,5 +1,6 @@
 import "server-only";
 import { getSupabaseServiceRoleKey } from "@/lib/db/supabase";
+import { logger } from "@/lib/observability/logger";
 
 export interface AuthProfile {
   id: string;
@@ -13,6 +14,11 @@ export interface PublicUserProfile {
   avatarUrl: string | null;
 }
 
+export interface SupabaseRestCredentials {
+  apiKey: string;
+  bearerToken: string;
+}
+
 export async function syncPublicUser(
   supabaseUrl: string,
   profile: AuthProfile,
@@ -20,11 +26,27 @@ export async function syncPublicUser(
   const serviceRoleKey = getSupabaseServiceRoleKey();
   if (!serviceRoleKey) return;
 
-  const existingProfile = await getPublicUserProfile(supabaseUrl, profile.id);
+  await syncPublicUserWithCredentials(
+    supabaseUrl,
+    { apiKey: serviceRoleKey, bearerToken: serviceRoleKey },
+    profile,
+  );
+}
+
+export async function syncPublicUserWithCredentials(
+  supabaseUrl: string,
+  credentials: SupabaseRestCredentials,
+  profile: AuthProfile,
+): Promise<void> {
+  const existingProfile = await getPublicUserProfileWithCredentials(
+    supabaseUrl,
+    credentials,
+    profile.id,
+  );
   const payload: Record<string, string | null> = {
     id: profile.id,
     email: profile.email,
-    display_name: profile.name ?? existingProfile?.displayName ?? null,
+    display_name: existingProfile?.displayName ?? profile.name ?? null,
   };
 
   if (profile.avatarUrl && !existingProfile?.avatarUrl) {
@@ -35,8 +57,8 @@ export async function syncPublicUser(
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      apikey: serviceRoleKey,
-      authorization: `Bearer ${serviceRoleKey}`,
+      apikey: credentials.apiKey,
+      authorization: `Bearer ${credentials.bearerToken}`,
       "content-type": "application/json",
       prefer: "resolution=merge-duplicates",
     },
@@ -44,8 +66,42 @@ export async function syncPublicUser(
   });
 
   if (!response.ok) {
-    throw new Error("[auth] No se pudo sincronizar public.users.");
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      `[auth] No se pudo sincronizar public.users (${response.status}): ${detail.slice(0, 300)}`,
+    );
   }
+}
+
+export async function syncPublicUserBestEffort(
+  supabaseUrl: string,
+  profile: AuthProfile,
+  credentials?: SupabaseRestCredentials,
+): Promise<PublicUserProfile | null> {
+  try {
+    if (credentials) {
+      await syncPublicUserWithCredentials(supabaseUrl, credentials, profile);
+    } else {
+      await syncPublicUser(supabaseUrl, profile);
+    }
+  } catch (error) {
+    logger.warn("[auth] La sincronizacion de public.users fallo.", {
+      userId: profile.id,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
+
+  const readProfile = credentials
+    ? getPublicUserProfileWithCredentials(supabaseUrl, credentials, profile.id)
+    : getPublicUserProfile(supabaseUrl, profile.id);
+
+  return readProfile.catch((error) => {
+    logger.warn("[auth] No se pudo leer public.users.", {
+      userId: profile.id,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+    return null;
+  });
 }
 
 export async function getPublicUserProfile(
@@ -55,6 +111,18 @@ export async function getPublicUserProfile(
   const serviceRoleKey = getSupabaseServiceRoleKey();
   if (!serviceRoleKey) return null;
 
+  return getPublicUserProfileWithCredentials(
+    supabaseUrl,
+    { apiKey: serviceRoleKey, bearerToken: serviceRoleKey },
+    userId,
+  );
+}
+
+export async function getPublicUserProfileWithCredentials(
+  supabaseUrl: string,
+  credentials: SupabaseRestCredentials,
+  userId: string,
+): Promise<PublicUserProfile | null> {
   const url = new URL("/rest/v1/users", supabaseUrl);
   url.searchParams.set("select", "display_name,avatar_url");
   url.searchParams.set("id", `eq.${userId}`);
@@ -62,8 +130,8 @@ export async function getPublicUserProfile(
 
   const response = await fetch(url, {
     headers: {
-      apikey: serviceRoleKey,
-      authorization: `Bearer ${serviceRoleKey}`,
+      apikey: credentials.apiKey,
+      authorization: `Bearer ${credentials.bearerToken}`,
     },
   });
 

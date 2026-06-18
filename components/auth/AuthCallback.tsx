@@ -1,71 +1,42 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { saveAuthSession } from "@/lib/auth/client";
 import { resolvePostAuthRedirect } from "@/lib/auth/flow";
+import { saveOAuthHashSession } from "@/lib/auth/oauthHash";
 
 type Status = "loading" | "error";
 
 export function AuthCallback() {
   const router = useRouter();
   const params = useSearchParams();
+  const handledRef = useRef(false);
   const [status, setStatus] = useState<Status>("loading");
-  const [message, setMessage] = useState("Estamos confirmando tu sesión.");
+  const [message, setMessage] = useState("Estamos confirmando tu sesion.");
 
   useEffect(() => {
     async function finishLogin() {
-      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-      const accessToken = hash.get("access_token");
-      const refreshToken = hash.get("refresh_token");
-      const expiresIn = Number(hash.get("expires_in") ?? "0");
-      const next = normalizeNext(params.get("next"));
-      const error =
-        hash.get("error_description") ||
-        hash.get("error") ||
-        params.get("error_description") ||
-        params.get("error");
+      if (handledRef.current) return;
+      handledRef.current = true;
 
-      if (error) {
-        setStatus("error");
-        setMessage(error);
-        return;
-      }
+      const result = await saveOAuthHashSession({ next: params.get("next") });
 
-      if (!accessToken) {
+      if (result.status === "empty") {
         setStatus("error");
         setMessage(
-          "Supabase no devolvió un token de acceso. Revisa la URL de callback.",
+          "Supabase no devolvio un token de acceso. Revisa la URL de callback.",
         );
         return;
       }
 
-      const response = await fetch("/api/auth/user", {
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as {
-          error?: string;
-        } | null;
+      if (result.status === "error") {
         setStatus("error");
-        setMessage(data?.error ?? "No pudimos validar tu sesión.");
+        setMessage(result.message);
         return;
       }
 
-      const data = (await response.json()) as {
-        user: { id: string; email: string };
-      };
-      saveAuthSession({
-        accessToken,
-        refreshToken,
-        expiresAt: expiresIn > 0 ? Date.now() + expiresIn * 1000 : null,
-        user: data.user,
-      });
-      const destination = await resolvePostAuthRedirect(next);
+      const destination = await resolvePostAuthRedirect(result.next);
       router.replace(destination as never);
     }
 
@@ -81,7 +52,7 @@ export function AuthCallback() {
         Login
       </p>
       <h1 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-        {status === "loading" ? "Un momento." : "No se pudo iniciar sesión."}
+        {status === "loading" ? "Un momento." : "No se pudo iniciar sesion."}
       </h1>
       <p className="mt-4 leading-relaxed text-muted">{message}</p>
       {status === "error" && (
@@ -94,9 +65,4 @@ export function AuthCallback() {
       )}
     </div>
   );
-}
-
-function normalizeNext(value: string | null): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
-  return value;
 }

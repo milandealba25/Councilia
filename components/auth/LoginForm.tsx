@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { saveAuthSession, type AuthSession } from "@/lib/auth/client";
 import { resolvePostAuthRedirect } from "@/lib/auth/flow";
+import { hasOAuthHash } from "@/lib/auth/oauthHash";
 import {
   getPasswordRules,
   isValidEmail,
@@ -69,6 +70,8 @@ export function LoginForm() {
 
   useEffect(() => {
     async function routeActiveSession() {
+      if (hasOAuthHash(window.location.hash)) return;
+
       const destination = await resolvePostAuthRedirect(next);
       if (destination !== "/login") {
         router.replace(destination as never);
@@ -413,6 +416,9 @@ function EyeOffIcon() {
 }
 
 function formatRouteError(value: string): string {
+  if (value === "oauth_callback") {
+    return "No pudimos completar el acceso con Google. Intentalo de nuevo.";
+  }
   if (value === "supabase_not_configured") {
     return "Supabase todavía no está configurado. Completa las variables y el proveedor de Google antes de probar este acceso.";
   }

@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  getSupabaseServiceRoleKey,
-  requireSupabaseConfig,
-} from "@/lib/db/supabase";
+import { requireSupabaseConfig } from "@/lib/db/supabase";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,14 +17,6 @@ export async function GET(request: Request) {
     );
   }
 
-  const serviceRoleKey = getSupabaseServiceRoleKey();
-  if (!serviceRoleKey) {
-    return NextResponse.json(
-      { error: "Falta SUPABASE_SERVICE_ROLE_KEY." },
-      { status: 503 },
-    );
-  }
-
   let supabaseConfig: ReturnType<typeof requireSupabaseConfig>;
   try {
     supabaseConfig = requireSupabaseConfig();
@@ -39,11 +28,10 @@ export async function GET(request: Request) {
   }
 
   const imageResponse = await fetch(
-    new URL(`/storage/v1/object/${BUCKET}/${path}`, supabaseConfig.url),
+    new URL(`/storage/v1/object/public/${BUCKET}/${path}`, supabaseConfig.url),
     {
       headers: {
-        apikey: serviceRoleKey,
-        authorization: `Bearer ${serviceRoleKey}`,
+        apikey: supabaseConfig.anonKey,
       },
     },
   );

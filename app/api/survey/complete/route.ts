@@ -4,10 +4,8 @@ import {
   isAuthError,
   type AuthenticatedRequest,
 } from "@/lib/auth/serverSession";
-import {
-  getSupabaseServiceRoleKey,
-  requireSupabaseConfig,
-} from "@/lib/db/supabase";
+import { requireSupabaseConfig } from "@/lib/db/supabase";
+import { logger } from "@/lib/observability/logger";
 import {
   SURVEY_VERSION,
   userContextSchema,
@@ -57,12 +55,9 @@ async function persistSurvey(
   | { ok: false; status: number; error: string }
 > {
   const { url, anonKey } = requireSupabaseConfig();
-  const serviceRoleKey = getSupabaseServiceRoleKey();
-  const apiKey = serviceRoleKey ?? anonKey;
-  const bearer = serviceRoleKey ?? auth.accessToken;
   const headers = {
-    apikey: apiKey,
-    authorization: `Bearer ${bearer}`,
+    apikey: anonKey,
+    authorization: `Bearer ${auth.accessToken}`,
     "content-type": "application/json",
   };
 
@@ -90,6 +85,12 @@ async function persistSurvey(
   });
 
   if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    logger.warn("[survey] No se pudo crear council.", {
+      userId: auth.user.id,
+      status: response.status,
+      detail: detail.slice(0, 300),
+    });
     return {
       ok: false,
       status: response.status,
@@ -109,7 +110,7 @@ async function upsertPublicUser(
   auth: AuthenticatedRequest,
 ): Promise<void> {
   const usersUrl = new URL("/rest/v1/users", supabaseUrl);
-  await fetch(usersUrl, {
+  const response = await fetch(usersUrl, {
     method: "POST",
     headers: {
       ...headers,
@@ -120,6 +121,15 @@ async function upsertPublicUser(
       email: auth.user.email,
     }),
   });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    logger.warn("[survey] No se pudo asegurar public.users.", {
+      userId: auth.user.id,
+      status: response.status,
+      detail: detail.slice(0, 300),
+    });
+  }
 }
 
 async function fetchLatestCouncil(

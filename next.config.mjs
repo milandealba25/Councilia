@@ -10,6 +10,14 @@
  */
 const isProd = process.env.NODE_ENV === "production";
 
+const imageSrc = [
+  "'self'",
+  "data:",
+  "blob:",
+  "https://*.supabase.co",
+  "https://*.googleusercontent.com",
+];
+
 const cspDirectives = [
   "default-src 'self'",
   // Next emite estilos inline; en producción tampoco evita 'unsafe-inline' en style.
@@ -18,7 +26,7 @@ const cspDirectives = [
   isProd
     ? "script-src 'self' 'unsafe-inline'"
     : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  "img-src 'self' data: blob:",
+  `img-src ${imageSrc.join(" ")}`,
   "font-src 'self' data:",
   "connect-src 'self' https://generativelanguage.googleapis.com https://*.supabase.co",
   "frame-ancestors 'none'",
