@@ -15,6 +15,10 @@ import {
 import { fetchSurveyStatus } from "@/lib/auth/flow";
 import { isValidName, sanitizeName } from "@/lib/auth/validation";
 import { loadUserContext } from "@/lib/survey/storage";
+import {
+  loadVoiceEnabled,
+  saveVoiceEnabled,
+} from "@/lib/preferences/voice";
 
 type SaveState = "idle" | "saving";
 
@@ -27,6 +31,8 @@ export function AccountPanel() {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [userPlan, setUserPlan] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -37,9 +43,21 @@ export function AccountPanel() {
       setSession(current);
       setNameInput(current?.user.name ?? "");
       setHasSurvey(!!loadUserContext());
+      setVoiceEnabled(loadVoiceEnabled());
       if (current) {
         const status = await fetchSurveyStatus(current);
         if (active && status?.completed) setHasSurvey(true);
+
+        try {
+          const billingRes = await fetch("/api/billing/status", {
+            headers: { authorization: `Bearer ${current.accessToken}` },
+            cache: "no-store",
+          });
+          if (billingRes.ok) {
+            const billing = await billingRes.json() as { plan?: string };
+            if (active && billing.plan) setUserPlan(billing.plan);
+          }
+        } catch {}
       }
     }
 
@@ -254,6 +272,76 @@ export function AccountPanel() {
                 {error && <p className="text-sm text-error">{error}</p>}
               </div>
             </section>
+
+            <section className="rounded-[1.2rem] border border-[#e2cdbb]/72 bg-white/42 p-5 shadow-soft backdrop-blur">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Voz de los agentes
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted">
+                    {userPlan === "free"
+                      ? "La voz de los agentes está disponible en los planes Plus y Pro."
+                      : "Cuando esté activa, los agentes leerán sus respuestas en voz alta, uno por uno. Puedes pausar o detener la reproducción en cualquier momento."}
+                  </p>
+                </div>
+                {userPlan !== "free" && (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={voiceEnabled}
+                    aria-label="Activar voz de los agentes"
+                    onClick={() => {
+                      const next = !voiceEnabled;
+                      setVoiceEnabled(next);
+                      saveVoiceEnabled(next);
+                    }}
+                    className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/20 ${
+                      voiceEnabled
+                        ? "border-accent bg-accent"
+                        : "border-[#d9b89e] bg-[#ead8c8]/60"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow-md ring-0 transition-transform duration-200 ${
+                        voiceEnabled ? "translate-x-[1.25rem]" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                )}
+              </div>
+
+              {userPlan === "free" && (
+                <div className="mt-4 flex items-center gap-3 rounded-[0.8rem] border border-[#d9b89e]/40 bg-[#fdf6ef]/60 px-4 py-3">
+                  <LockedIcon />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">
+                      Función no disponible en tu plan
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted">
+                      Mejora a Plus o Pro para que los agentes hablen sus respuestas en voz alta.
+                    </p>
+                  </div>
+                  <LinkButton
+                    href="/account#billing"
+                    variant="primary"
+                    className="shrink-0 text-xs"
+                  >
+                    Mejorar plan
+                  </LinkButton>
+                </div>
+              )}
+
+              {userPlan !== "free" && voiceEnabled && (
+                <div className="mt-4 flex items-center gap-3 rounded-[0.8rem] border border-accent/25 bg-accent/5 px-4 py-3">
+                  <VoiceActiveIcon />
+                  <p className="text-sm text-accent-strong">
+                    La voz está activa. Escucharás a Marco, Elena y Rafael cuando
+                    respondan en la sesión.
+                  </p>
+                </div>
+              )}
+            </section>
           </div>
 
           <div className="flex flex-col gap-3 border-t border-[#e2cdbb]/65 pt-5 sm:flex-row sm:items-center sm:justify-between">
@@ -299,6 +387,43 @@ function EditIcon() {
     >
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+function VoiceActiveIcon() {
+  return (
+    <svg
+      aria-hidden
+      className="size-5 shrink-0 text-accent"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="22" />
+    </svg>
+  );
+}
+
+function LockedIcon() {
+  return (
+    <svg
+      aria-hidden
+      className="size-5 shrink-0 text-muted"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </svg>
   );
 }

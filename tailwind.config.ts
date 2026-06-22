@@ -48,6 +48,9 @@ const config: Config = {
       },
       animation: {
         aurora: "aurora 52s linear infinite",
+        "tts-bar1": "tts-bar1 0.8s ease-in-out infinite",
+        "tts-bar2": "tts-bar2 0.6s ease-in-out infinite",
+        "tts-bar3": "tts-bar3 0.7s ease-in-out infinite",
       },
       keyframes: {
         aurora: {
@@ -57,6 +60,18 @@ const config: Config = {
           to: {
             backgroundPosition: "350% 50%, 350% 50%",
           },
+        },
+        "tts-bar1": {
+          "0%, 100%": { y1: "10", y2: "14" },
+          "50%": { y1: "4", y2: "20" },
+        },
+        "tts-bar2": {
+          "0%, 100%": { y1: "8", y2: "16" },
+          "50%": { y1: "2", y2: "22" },
+        },
+        "tts-bar3": {
+          "0%, 100%": { y1: "6", y2: "18" },
+          "50%": { y1: "1", y2: "23" },
         },
       },
       backgroundImage: {

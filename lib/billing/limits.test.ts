@@ -41,10 +41,10 @@ describe("billing/limits", () => {
 
   describe("canSendMessageInChat", () => {
     it.each([
-      ["free", 4, true],
-      ["free", 5, false],
-      ["plus", 19, true],
-      ["plus", 20, false],
+      ["free", 14, true],
+      ["free", 15, false],
+      ["plus", 29, true],
+      ["plus", 30, false],
       ["pro", 999, true],
     ])("plan=%s msgs=%i → allowed=%s", (plan, count, expected) => {
       const result = canSendMessageInChat(plan as "free" | "plus" | "pro", count);

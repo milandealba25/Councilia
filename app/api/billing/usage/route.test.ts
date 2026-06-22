@@ -33,7 +33,7 @@ describe("GET /api/billing/usage", () => {
 
   it.each([
     ["free", 1, 5, 1, 4, false],
-    ["plus", 10, 20, 9, 19, true],
+    ["plus", 10, 30, 9, 19, true],
     ["pro", null, null, 100, 500, true],
   ] as const)(
     "plan %s devuelve límites y uso (%i/%s chats, %i/%s msgs)",
@@ -79,7 +79,7 @@ describe("GET /api/billing/usage", () => {
       plan: "free",
       limits: {
         maxActiveChats: 1,
-        maxMessagesPerChat: 5,
+        maxMessagesPerChat: 15,
         voiceEnabled: false,
       },
       usage: { activeChats: 1, messagesInChat: 5 },
@@ -88,6 +88,6 @@ describe("GET /api/billing/usage", () => {
     const body = await (await GET(getUsage("chat_1"))).json();
     expect(body.usage).toEqual({ activeChats: 1, messagesInChat: 5 });
     expect(body.limits.maxActiveChats).toBe(1);
-    expect(body.limits.maxMessagesPerChat).toBe(5);
+    expect(body.limits.maxMessagesPerChat).toBe(15);
   });
 });

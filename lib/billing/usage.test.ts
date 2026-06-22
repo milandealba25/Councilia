@@ -24,8 +24,8 @@ describe("billing/usage — snapshot de uso vs límites del plan", () => {
   });
 
   it.each([
-    ["free", 1, 5, 1, 5],
-    ["plus", 10, 20, 7, 14],
+    ["free", 1, 15, 1, 5],
+    ["plus", 10, 30, 7, 14],
     ["pro", null, null, 42, 999],
   ] as const)(
     "plan %s expone límites y conteos reales",
@@ -73,7 +73,7 @@ describe("billing/usage — snapshot de uso vs límites del plan", () => {
     const snapshot = await getPlanUsage("user_1", "chat_1");
     expect(snapshot.usage).toEqual({ activeChats: 1, messagesInChat: 5 });
     expect(snapshot.limits.maxActiveChats).toBe(1);
-    expect(snapshot.limits.maxMessagesPerChat).toBe(5);
+    expect(snapshot.limits.maxMessagesPerChat).toBe(15);
   });
 });
 

@@ -58,24 +58,24 @@ describe("billing/guards", () => {
       .mockResolvedValueOnce(countResponse(4));
 
     const result = await canSendMessage("user_1", "chat_1");
-    expect(result).toMatchObject({ allowed: true, plan: "free", limit: 5, used: 4 });
+    expect(result).toMatchObject({ allowed: true, plan: "free", limit: 15, used: 4 });
   });
 
-  it("free con 5 mensajes user => bloqueado", async () => {
+  it("free con 15 mensajes user => bloqueado", async () => {
     const { canSendMessage } = await import("@/lib/billing/guards");
     const { getUserEntitlements } = await import("@/lib/billing/entitlements");
     vi.mocked(getUserEntitlements).mockResolvedValue(mockEntitlements("free"));
     vi.mocked(fetch)
       .mockResolvedValueOnce(conversationResponse("active"))
-      .mockResolvedValueOnce(countResponse(5));
+      .mockResolvedValueOnce(countResponse(15));
 
     const result = await canSendMessage("user_1", "chat_1");
     expect(result).toMatchObject({
       allowed: false,
       code: "MESSAGE_LIMIT_REACHED",
       plan: "free",
-      limit: 5,
-      used: 5,
+      limit: 15,
+      used: 15,
     });
   });
 

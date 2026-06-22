@@ -81,6 +81,12 @@ export const sessionsLimiter = new RateLimiter({
   refillPerSec: 50 / 60,
 });
 
+/** Limiter para `/api/tts`. 15 req/min por usuario — cada petición cuesta dinero real. */
+export const ttsLimiter = new RateLimiter({
+  capacity: 15,
+  refillPerSec: 15 / 60,
+});
+
 /**
  * Extrae una clave de cliente razonable. Preferimos el primer hop confiable
  * (Vercel pone `x-forwarded-for`); fallback a "anon" para no romper local.

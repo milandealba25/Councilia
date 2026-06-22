@@ -12,7 +12,10 @@ import { AgentFace } from "@/components/agents/AgentFace";
 import { Button } from "@/components/ui/Button";
 import { ReplicaCard } from "./ReplicaCard";
 import { SynthesisCard } from "./SynthesisCard";
+import { TtsPlaybackBar } from "./TtsPlaybackBar";
 import { PhaseIndicator, type Phase } from "./PhaseIndicator";
+import { useAgentTts } from "@/lib/tts/useAgentTts";
+import { loadVoiceEnabled, onVoiceChange } from "@/lib/preferences/voice";
 import {
   requestSynthesis,
   streamInitial,
@@ -501,6 +504,35 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
   );
   const [dictationElapsed, setDictationElapsed] = useState(0);
   const [replyTarget, setReplyTarget] = useState<AgentId | null>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(() =>
+    typeof window !== "undefined" ? loadVoiceEnabled() : false,
+  );
+  const [sessionPlan, setSessionPlan] = useState<string | null>(null);
+  const tts = useAgentTts(voiceEnabled);
+
+  useEffect(() => {
+    return onVoiceChange((enabled) => setVoiceEnabled(enabled));
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    async function loadPlan() {
+      try {
+        const session = await import("@/lib/auth/client").then(m => m.getValidAuthSession());
+        if (!session || !active) return;
+        const res = await fetch("/api/billing/status", {
+          headers: { authorization: `Bearer ${session.accessToken}` },
+          cache: "no-store",
+        });
+        if (res.ok && active) {
+          const data = await res.json() as { plan?: string };
+          if (data.plan) setSessionPlan(data.plan);
+        }
+      } catch {}
+    }
+    void loadPlan();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     activeChatIdRef.current = chatId;
@@ -1013,6 +1045,12 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
 
       dispatch({ type: "phase1_done" });
 
+      tts.clearQueue();
+      for (const id of AGENT_IDS) {
+        const agentText = completedTurn.agents[id]?.trim();
+        if (agentText) tts.enqueue(id, agentText);
+      }
+
       const postures = AGENT_IDS.map((agent) => ({
         agent,
         text: completedTurn.agents[agent]?.trim() ?? "",
@@ -1063,6 +1101,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
           };
           saveChatTurn(submissionChatId, completedTurn);
           dispatch({ type: "replica_done" });
+          tts.enqueue(replica.speaker, replica.text.trim());
         } else if (!skippedOrConfigError) {
           dispatch({ type: "replica_done" });
         }
@@ -1097,6 +1136,10 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
       });
       if (ctrl.signal.aborted) return;
       dispatch({ type: "synthesis_done", synthesis });
+
+      if (synthesis.closing) {
+        tts.enqueue("synthesis", synthesis.closing);
+      }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       const message =
@@ -1328,6 +1371,18 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
         </section>
       )}
 
+      {tts.status !== "idle" && (
+        <div className="sticky bottom-20 z-30 px-4">
+          <TtsPlaybackBar
+            status={tts.status}
+            currentSpeaker={tts.currentSpeaker}
+            onPause={tts.pause}
+            onResume={tts.resume}
+            onStop={tts.stop}
+          />
+        </div>
+      )}
+
       {showComposer && (
         <div className={isEmptyConversation ? "mx-auto flex w-full max-w-5xl flex-col items-center gap-5" : "contents"}>
           {isEmptyConversation && (
@@ -1414,6 +1469,26 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
                 )}
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
+                <VoiceToggle
+                  enabled={voiceEnabled}
+                  plan={sessionPlan}
+                  onToggle={() => {
+                    if (sessionPlan === "free") {
+                      openPlanLimitModal({
+                        code: "VOICE_NOT_AVAILABLE",
+                        message: "La voz de los agentes está disponible en los planes Plus y Pro. Mejora tu plan para activar esta función.",
+                        plan: "free",
+                      });
+                      return;
+                    }
+                    const next = !voiceEnabled;
+                    setVoiceEnabled(next);
+                    import("@/lib/preferences/voice").then((m) =>
+                      m.saveVoiceEnabled(next),
+                    );
+                    if (!next) tts.stop();
+                  }}
+                />
                 <DictationControl
                   status={dictationStatus}
                   disabled={!canUseDictation && dictationStatus === "idle"}
@@ -1856,5 +1931,76 @@ function CrisisBanner({
       Empezar de nuevo cuando estés
     </button>
     </div>
+  );
+}
+
+function VoiceToggle({
+  enabled,
+  plan,
+  onToggle,
+}: {
+  enabled: boolean;
+  plan: string | null;
+  onToggle: () => void;
+}) {
+  const isFree = plan === "free";
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={
+        isFree
+          ? "Voz no disponible en plan Free"
+          : enabled
+            ? "Desactivar voz de agentes"
+            : "Activar voz de agentes"
+      }
+      title={
+        isFree
+          ? "Mejora tu plan para activar la voz"
+          : enabled
+            ? "Voz de agentes activa"
+            : "Voz de agentes inactiva"
+      }
+      className={`inline-flex h-10 w-10 items-center justify-center rounded-council border shadow-soft transition hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+        isFree
+          ? "border-border/40 bg-surface-soft/50 text-muted/50 cursor-not-allowed"
+          : enabled
+            ? "border-accent/50 bg-accent/10 text-accent hover:bg-accent/20 focus-visible:ring-accent/55"
+            : "border-border/60 bg-surface-soft text-muted hover:text-foreground focus-visible:ring-border/55"
+      }`}
+    >
+      {isFree ? <SpeakerLockedIcon /> : enabled ? <SpeakerOnIcon /> : <SpeakerOffIcon />}
+    </button>
+  );
+}
+
+function SpeakerOnIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+    </svg>
+  );
+}
+
+function SpeakerOffIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <line x1="23" y1="9" x2="17" y2="15" />
+      <line x1="17" y1="9" x2="23" y2="15" />
+    </svg>
+  );
+}
+
+function SpeakerLockedIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <rect x="16" y="11" width="6" height="5" rx="1" />
+      <path d="M17 11V9a2 2 0 0 1 4 0v2" />
+    </svg>
   );
 }

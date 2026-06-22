@@ -19,6 +19,8 @@ const serverEnvSchema = z.object({
   STRIPE_SECRET_KEY: z.string().min(1).optional(),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1).optional(),
+  /** @deprecated ElevenLabs reemplazado por OpenAI TTS — usa OPENAI_API_KEY */
+  ELEVENLABS_API_KEY: z.string().min(1).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -38,6 +40,7 @@ function rawServerEnv() {
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY,
   };
 }
 
@@ -92,6 +95,10 @@ export function getGeminiApiKeys(): string[] {
       ...parseEnvList(env.GEMINI_API_KEY),
     ]),
   ];
+}
+
+export function getElevenLabsApiKey(): string | undefined {
+  return env.ELEVENLABS_API_KEY;
 }
 
 export function requireGeminiKey(): string {

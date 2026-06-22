@@ -274,6 +274,8 @@ export function BillingPanel() {
         {planDefinition.copy.description}
       </p>
 
+      <PlanComparisonTable currentPlan={billing.plan} />
+
       {subscription && billing.plan !== "free" && (
         <dl className="grid gap-3 text-sm text-foreground sm:grid-cols-2">
           {subscription.billingCycle && (
@@ -559,5 +561,137 @@ function PlanUpgradeLink({ currentPlan }: { currentPlan: PlanId }) {
     >
       Comparar con Pro
     </a>
+  );
+}
+
+function PlanComparisonTable({ currentPlan }: { currentPlan: PlanId }) {
+  const rows: { label: string; values: Record<PlanId, string> }[] = [
+    {
+      label: "Chats simultáneos",
+      values: {
+        free: String(PLANS.free.limits.maxActiveChats),
+        plus: String(PLANS.plus.limits.maxActiveChats),
+        pro: "Ilimitados",
+      },
+    },
+    {
+      label: "Mensajes por chat",
+      values: {
+        free: String(PLANS.free.limits.maxMessagesPerChat),
+        plus: String(PLANS.plus.limits.maxMessagesPerChat),
+        pro: "Ilimitados",
+      },
+    },
+    {
+      label: "Historial",
+      values: {
+        free: "Último chat",
+        plus: "10 chats",
+        pro: "Completo",
+      },
+    },
+    {
+      label: "Modelo LLM",
+      values: {
+        free: "Gemini Flash",
+        plus: "GPT-4o-mini",
+        pro: "GPT-4o-mini",
+      },
+    },
+    {
+      label: "Síntesis",
+      values: {
+        free: "Gemini Flash",
+        plus: "GPT-4o-mini",
+        pro: "GPT-4o",
+      },
+    },
+    {
+      label: "Voz (TTS)",
+      values: { free: "—", plus: "Incluida", pro: "Incluida" },
+    },
+    {
+      label: "Exportar chats",
+      values: { free: "—", plus: "—", pro: "PDF y Markdown" },
+    },
+    {
+      label: "Soporte prioritario",
+      values: { free: "—", plus: "—", pro: "Incluido" },
+    },
+    {
+      label: "Precio mensual",
+      values: { free: "Gratis", plus: "$79 MXN", pro: "$199 MXN" },
+    },
+  ];
+
+  return (
+    <div className="overflow-x-auto rounded-council border border-border/60">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border/50 bg-surface/60">
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted">
+              Característica
+            </th>
+            {PLAN_ORDER.map((id) => {
+              const isCurrent = id === currentPlan;
+              return (
+                <th
+                  key={id}
+                  className={`px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider ${
+                    isCurrent
+                      ? "bg-accent/8 text-accent-strong"
+                      : "text-muted"
+                  }`}
+                >
+                  <span className="flex items-center justify-center gap-1.5">
+                    {PLANS[id].copy.name}
+                    {isCurrent && (
+                      <span className="inline-flex rounded-full border border-accent/40 bg-accent/15 px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-widest text-accent">
+                        Actual
+                      </span>
+                    )}
+                  </span>
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr
+              key={row.label}
+              className={
+                i % 2 === 0
+                  ? "bg-transparent"
+                  : "bg-surface-soft/40"
+              }
+            >
+              <td className="px-4 py-2.5 text-sm font-medium text-foreground">
+                {row.label}
+              </td>
+              {PLAN_ORDER.map((id) => {
+                const isCurrent = id === currentPlan;
+                const val = row.values[id];
+                const isDisabled = val === "—";
+                return (
+                  <td
+                    key={id}
+                    className={`px-4 py-2.5 text-center text-sm ${
+                      isCurrent
+                        ? "bg-accent/5 font-medium text-accent-strong"
+                        : isDisabled
+                          ? "text-muted/50"
+                          : "text-foreground/80"
+                    }`}
+                  >
+                    {val}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

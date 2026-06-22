@@ -59,7 +59,7 @@ describe("billing/downgradeEnforcement — pago vencido cae a límites Free", ()
   );
 
   it.each(["plus", "pro"] as const)(
-    "%s past_due: 5 mensajes user bloquean el sexto (como Free)",
+    "%s past_due: 15 mensajes user bloquean el siguiente (como Free)",
     async (storedPlan) => {
       const { canSendMessage } = await import("@/lib/billing/guards");
       const { getUserEntitlements } = await import("@/lib/billing/entitlements");
@@ -68,7 +68,7 @@ describe("billing/downgradeEnforcement — pago vencido cae a límites Free", ()
       );
       vi.mocked(fetch)
         .mockResolvedValueOnce(conversationResponse("active"))
-        .mockResolvedValueOnce(countResponse(5));
+        .mockResolvedValueOnce(countResponse(15));
 
       const result = await canSendMessage("user_downgraded", "chat_1");
       expect(result).toMatchObject({
@@ -76,7 +76,7 @@ describe("billing/downgradeEnforcement — pago vencido cae a límites Free", ()
         code: "MESSAGE_LIMIT_REACHED",
         plan: "free",
         limit: PLANS.free.limits.maxMessagesPerChat,
-        used: 5,
+        used: 15,
       });
     },
   );
