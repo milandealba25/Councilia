@@ -928,6 +928,9 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
     if (!state.ctx || state.loading) return;
     const message = state.userInput.trim();
     if (!message) return;
+
+    tts.warmup();
+
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -1448,7 +1451,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
               rows={isEmptyConversation ? 2 : 3}
               disabled={state.phase === "fase4"}
               placeholder="Cuéntales lo que te tiene así. Como te salga. No tienes que ordenarlo."
-              className="resize-none overflow-y-hidden rounded-council border border-[#d8a47d]/55 bg-[#fffaf4]/76 px-4 py-3 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted/70 focus:border-[#d96339] focus:outline-none focus:ring-1 focus:ring-[#d96339]/35 disabled:opacity-60"
+              className="resize-none overflow-y-hidden rounded-council border border-[#d8a47d]/55 bg-[#fffaf4]/76 px-4 py-3 font-sans text-sm leading-relaxed text-foreground caret-[#1f1815] placeholder:text-muted/70 focus:border-[#d96339] focus:outline-none focus:ring-1 focus:ring-[#d96339]/35 disabled:opacity-60"
               autoFocus={state.phase === "wait"}
             />
           )}
@@ -1482,6 +1485,7 @@ export function SessionConsole({ chatId, onChatCreated }: SessionConsoleProps) {
                       return;
                     }
                     const next = !voiceEnabled;
+                    if (next) tts.warmup();
                     setVoiceEnabled(next);
                     import("@/lib/preferences/voice").then((m) =>
                       m.saveVoiceEnabled(next),

@@ -19,6 +19,8 @@ interface UseAgentTtsReturn {
   resume: () => void;
   stop: () => void;
   clearQueue: () => void;
+  /** Call inside a click/submit handler to unlock audio playback. */
+  warmup: () => void;
 }
 
 async function fetchTtsAudio(
@@ -41,6 +43,30 @@ async function fetchTtsAudio(
 
   if (!res.ok) return null;
   return res.arrayBuffer();
+}
+
+let audioCtx: AudioContext | null = null;
+let audioUnlocked = false;
+
+/**
+ * Must be called from a direct user-gesture handler (click/submit)
+ * to satisfy browser autoplay policies.
+ */
+function unlockAudioContext() {
+  if (audioUnlocked) return;
+  try {
+    const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AC) return;
+    audioCtx = new AC();
+    const buf = audioCtx.createBuffer(1, 1, 22050);
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(audioCtx.destination);
+    src.start(0);
+    audioUnlocked = true;
+  } catch {
+    // best-effort
+  }
 }
 
 export function useAgentTts(enabled: boolean): UseAgentTtsReturn {
@@ -108,6 +134,10 @@ export function useAgentTts(enabled: boolean): UseAgentTtsReturn {
         return;
       }
 
+      if (audioCtx && audioCtx.state === "suspended") {
+        await audioCtx.resume().catch(() => {});
+      }
+
       const blob = new Blob([buffer], { type: "audio/mpeg" });
       const url = URL.createObjectURL(blob);
 
@@ -122,6 +152,7 @@ export function useAgentTts(enabled: boolean): UseAgentTtsReturn {
       });
 
       audio.addEventListener("error", () => {
+        console.error("[tts] audio element error");
         URL.revokeObjectURL(url);
         audioRef.current = null;
         processingRef.current = false;
@@ -130,7 +161,8 @@ export function useAgentTts(enabled: boolean): UseAgentTtsReturn {
 
       setStatus("playing");
       await audio.play();
-    } catch {
+    } catch (err) {
+      console.error("[tts] playback failed", err);
       processingRef.current = false;
       if (enabledRef.current && queueRef.current.length > 0) {
         processQueue();
@@ -169,6 +201,10 @@ export function useAgentTts(enabled: boolean): UseAgentTtsReturn {
     }
   }, [status]);
 
+  const warmup = useCallback(() => {
+    unlockAudioContext();
+  }, []);
+
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
@@ -191,5 +227,6 @@ export function useAgentTts(enabled: boolean): UseAgentTtsReturn {
     clearQueue: useCallback(() => {
       queueRef.current = [];
     }, []),
+    warmup,
   };
 }
